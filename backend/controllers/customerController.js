@@ -46,9 +46,15 @@ export const createCustomer = async (req, res) => {
       }
     }
 
-    const mobileSuffix = payload.mobile ? payload.mobile.slice(-4) : '1234';
-    const password = req.body.password || ((payload.name || '').substring(0, 4).toUpperCase() + mobileSuffix);
+    // Generate a secure random 10-character alphanumeric password
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let randomPassword = '';
+    for (let i = 0; i < 10; i++) {
+      randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const password = randomPassword;
     payload.password = password;
+    console.log(`[Customer Onboarding] Generated Random Password for ${payload.email}: ${password}`);
 
     const newCustomer = await Customer.create(payload);
 
@@ -66,7 +72,8 @@ export const createCustomer = async (req, res) => {
           password: password,
           role: 'CUSTOMER',
           customerId: newCustomer._id,
-          type: newCustomer.type
+          type: newCustomer.type,
+          mustResetPassword: true
         });
 
         // Trigger Notification

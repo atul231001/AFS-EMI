@@ -22,6 +22,7 @@ import FMCDailyHours from './components/FMCDailyHours.jsx';
 import FMCTickets from './components/FMCTickets.jsx';
 import FMCBilling from './components/FMCBilling.jsx';
 import ORMDashboard from './components/ORMDashboard.jsx';
+import ForceResetPasswordPage from './components/ForceResetPasswordPage.jsx';
 
 import { hasPermission, getFirstAuthorizedView } from './utils';
 
@@ -45,6 +46,14 @@ const App = () => {
     state.setState({ view: 'landing' });
     return null;
   }
+
+  // Force password reset view if required
+  if (user && user.mustResetPassword && view !== 'force-reset-password') {
+    state.setState({ view: 'force-reset-password' });
+    return null;
+  }
+
+  if (view === 'force-reset-password') return <ForceResetPasswordPage />;
 
   const renderContent = () => {
     if (loading) {

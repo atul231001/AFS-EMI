@@ -8,6 +8,7 @@ import ApprovalFlow from '../models/ApprovalFlow.js';
 import Role from '../models/Role.js';
 
 import { protect } from '../middleware/authMiddleware.js';
+import { sendNotification } from '../services/notificationService.js';
 
 // ── Helpers for Role-Based Approval Flow ─────────────────────────────────────
 const isUserAdmin = async (user) => {
@@ -401,28 +402,56 @@ router.post('/supervisors', protect, async (req, res) => {
   try {
     const { email, password, ...supervisorData } = req.body;
 
+    if (supervisorData.approvalFlowId === '') {
+      supervisorData.approvalFlowId = null;
+    }
+
     // 1. Create the FMC supervisor profile
     const supervisor = await FMCSupervisor.create(supervisorData);
 
-    // 2. If email + password provided, create a linked User account
-    if (email && password) {
+    // 2. If email provided, create a linked User account and generate random password if needed
+    if (email) {
+      const finalPassword = (password && password.trim() !== '') ? password : (() => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let randomPassword = '';
+        for (let i = 0; i < 10; i++) {
+          randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return randomPassword;
+      })();
+
+      console.log(`[Supervisor Onboarding] Password for ${email}: ${finalPassword}`);
+
       const existing = await User.findOne({ email });
       if (existing) {
         // Update existing user to link to this supervisor
         existing.supervisorId = supervisor._id;
         existing.role = 'SUPERVISOR';
         existing.name = supervisor.name;
+        existing.password = finalPassword;
+        existing.mustResetPassword = true;
         await existing.save();
       } else {
         await User.create({
           name: supervisor.name,
           email,
-          password,
+          password: finalPassword,
           role: 'SUPERVISOR',
           supervisorId: supervisor._id,
-          status: supervisor.status || 'Active'
+          status: supervisor.status || 'Active',
+          mustResetPassword: true
         });
       }
+
+      // Send welcome notification
+      sendNotification('employee_welcome', {
+        email,
+        name: supervisor.name,
+        username: email,
+        password: finalPassword,
+        customId: supervisor.employeeId || '',
+        loginUrl: 'http://localhost:5173'
+      }).catch(err => console.error('FMC Supervisor welcome notification error:', err));
     }
 
     const supervisorObj = supervisor.toObject();
@@ -436,6 +465,9 @@ router.post('/supervisors', protect, async (req, res) => {
 router.put('/supervisors/:id', protect, async (req, res) => {
   try {
     const { email, password, ...supervisorData } = req.body;
+    if (supervisorData.approvalFlowId === '') {
+      supervisorData.approvalFlowId = null;
+    }
     const supervisor = await FMCSupervisor.findByIdAndUpdate(req.params.id, supervisorData, { new: true });
     if (!supervisor) return res.status(404).json({ message: 'Supervisor not found' });
 
@@ -448,16 +480,36 @@ router.put('/supervisors/:id', protect, async (req, res) => {
         existingUser.status = supervisor.status || 'Active';
         if (password) existingUser.password = password;
         await existingUser.save();
-      } else if (password) {
+      } else {
         // Create new user if not exists
+        const finalPassword = (password && password.trim() !== '') ? password : (() => {
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+          let randomPassword = '';
+          for (let i = 0; i < 10; i++) {
+            randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          return randomPassword;
+        })();
+
         await User.create({
           name: supervisor.name,
           email,
-          password,
+          password: finalPassword,
           role: 'SUPERVISOR',
           supervisorId: supervisor._id,
-          status: supervisor.status || 'Active'
+          status: supervisor.status || 'Active',
+          mustResetPassword: true
         });
+
+        // Send welcome notification
+        sendNotification('employee_welcome', {
+          email,
+          name: supervisor.name,
+          username: email,
+          password: finalPassword,
+          customId: supervisor.employeeId || '',
+          loginUrl: 'http://localhost:5173'
+        }).catch(err => console.error('FMC Supervisor welcome notification error:', err));
       }
     }
 

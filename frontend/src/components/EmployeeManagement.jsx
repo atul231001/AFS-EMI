@@ -428,9 +428,9 @@ const EmployeeManagement = () => {
                 type="password"
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
-                placeholder={editingEmployee ? "Leave blank to preserve" : "Minimum 6 Characters"}
+                placeholder={editingEmployee ? "Leave blank to preserve" : "Leave blank to auto-generate & email"}
                 className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-xs text-white focus:border-[#f0883e] outline-none"
-                required={!editingEmployee}
+                required={false}
               />
             </div>
           </div>

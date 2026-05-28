@@ -80,6 +80,7 @@ export const login = async (req, res) => {
         type: user.type || user.customerId?.type,
         status: user.status,
         settings: user.settings,
+        mustResetPassword: user.mustResetPassword || false,
         token: generateToken(user._id)
       });
     } else {
@@ -192,5 +193,24 @@ export const resetPassword = async (req, res) => {
   } catch (error) {
     console.error("Reset password error:", error);
     res.status(500).json({ message: 'Internal server error during password reset', error: error.message });
+  }
+};
+
+export const forceResetPassword = async (req, res) => {
+  const { password } = req.body;
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.password = password;
+    user.mustResetPassword = false;
+    await user.save();
+
+    res.json({ message: 'Cipher successfully initialized. Welcome to the portal.' });
+  } catch (error) {
+    console.error("Force reset password error:", error);
+    res.status(500).json({ message: 'Failed to initialize password credentials', error: error.message });
   }
 };

@@ -13,6 +13,12 @@ export const protect = async (req, res, next) => {
       if (!req.user) {
         return res.status(401).json({ message: 'Not authorized, user not found' });
       }
+      
+      // Block requests if password reset is required, except for the force reset endpoint itself
+      if (req.user.mustResetPassword && !req.originalUrl.includes('/force-reset-password')) {
+        return res.status(403).json({ message: 'Password reset required' });
+      }
+
       return next();
     } catch (error) {
       console.error(error);

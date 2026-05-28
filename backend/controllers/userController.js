@@ -74,6 +74,18 @@ export const createUser = async (req, res) => {
       }
     }
 
+    // Generate a secure random 10-character alphanumeric password if none provided
+    if (!payload.password || payload.password.trim() === '') {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let randomPassword = '';
+      for (let i = 0; i < 10; i++) {
+        randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      payload.password = randomPassword;
+    }
+    console.log(`[User Onboarding] Password for new user ${payload.email}: ${payload.password}`);
+
+    payload.mustResetPassword = true;
     const user = await User.create(payload);
     const populated = await User.findById(user._id).populate('roleId');
 

@@ -18,7 +18,8 @@ const userSchema = new mongoose.Schema({
     fontSize: { type: String, default: '14' } // Numeric string for scaling
   },
   resetOtp: { type: String },
-  resetOtpExpires: { type: Date }
+  resetOtpExpires: { type: Date },
+  mustResetPassword: { type: Boolean, default: false }
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {

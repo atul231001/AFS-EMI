@@ -7,6 +7,7 @@ const INITIAL_STATE = {
   view: (() => {
     const user = JSON.parse(localStorage.getItem('emi_user'));
     if (!user) return 'landing';
+    if (user.mustResetPassword) return 'force-reset-password';
     if (user.role === 'OEM') return 'oem-dashboard';
     if (user.role === 'SUPERVISOR') return 'fmc-dashboard';
     if (user.type?.toUpperCase() === 'FMC') return 'fmc-dashboard';
@@ -304,13 +305,15 @@ class State {
           isSuperAdmin: data.email === 'oem@liugong.com',
           isSupervisor: data.role === 'SUPERVISOR'
         };
-        const defaultView = data.role === 'OEM'
-          ? 'oem-dashboard'
-          : data.role === 'SUPERVISOR'
-            ? 'fmc-dashboard'
-            : (data.type?.toUpperCase() === 'FMC' || data.fmcContracts?.some(c => c.customerId === data.customerId || c.customerName === data.name))
+        const defaultView = data.mustResetPassword
+          ? 'force-reset-password'
+          : (data.role === 'OEM'
+            ? 'oem-dashboard'
+            : data.role === 'SUPERVISOR'
               ? 'fmc-dashboard'
-              : 'customer-dashboard';
+              : (data.type?.toUpperCase() === 'FMC' || data.fmcContracts?.some(c => c.customerId === data.customerId || c.customerName === data.name))
+                ? 'fmc-dashboard'
+                : 'customer-dashboard');
         this.setState({
           user: userWithBypass,
           isAuthenticated: true,
@@ -362,6 +365,40 @@ class State {
       const data = await res.json();
       this.setState({ loading: false });
       if (res.ok) {
+        return { success: true, message: data.message };
+      } else {
+        return { success: false, message: data.message };
+      }
+    } catch (err) {
+      this.setState({ loading: false });
+      return { success: false, message: 'Server connection failed' };
+    }
+  }
+
+  async forceResetPassword(newPassword) {
+    this.setState({ loading: true });
+    try {
+      const res = await fetch(`${BASE_URL}/auth/force-reset-password`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ password: newPassword })
+      });
+      const data = await res.json();
+      this.setState({ loading: false });
+      if (res.ok) {
+        if (this.data.user) {
+          this.data.user.mustResetPassword = false;
+          localStorage.setItem('emi_user', JSON.stringify(this.data.user));
+        }
+        const defaultView = this.data.user?.role === 'OEM'
+          ? 'oem-dashboard'
+          : this.data.user?.role === 'SUPERVISOR'
+            ? 'fmc-dashboard'
+            : (this.data.user?.type?.toUpperCase() === 'FMC' ? 'fmc-dashboard' : 'customer-dashboard');
+        this.setState({
+          user: this.data.user,
+          view: defaultView
+        });
         return { success: true, message: data.message };
       } else {
         return { success: false, message: data.message };

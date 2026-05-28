@@ -163,8 +163,8 @@ const SupervisorModal = ({ supervisor, onClose }) => {
 
   const handleSave = async () => {
     if (!form.name) { showNotification('Name is required', 'error'); return; }
-    if (!supervisor && (!email || !password)) {
-      showNotification('Email and Password are required for new supervisors', 'error');
+    if (!supervisor && !email) {
+      showNotification('Email is required for new supervisors', 'error');
       return;
     }
     // Include email/password in the payload so backend can create the user account
@@ -312,7 +312,7 @@ const SupervisorModal = ({ supervisor, onClose }) => {
               </div>
               <div>
                 <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">
-                  Password {!supervisor && <span className="text-[#f85149]">*</span>}
+                  Password {!supervisor && <span className="text-text-dim/40 ml-2 font-normal normal-case tracking-normal">(will be auto-generated & emailed if left blank)</span>}
                   {supervisor && <span className="text-text-dim/40 ml-2 font-normal normal-case tracking-normal">(leave blank to keep existing)</span>}
                 </p>
                 <div className="relative">
@@ -320,7 +320,7 @@ const SupervisorModal = ({ supervisor, onClose }) => {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder={supervisor ? '••••••••' : 'Set login password'}
+                    placeholder={supervisor ? '••••••••' : 'Leave blank to auto-generate & email'}
                     className="w-full bg-bg-deep border border-border-main rounded-lg px-4 py-2.5 pr-12 text-sm text-text-main font-bold focus:border-[#3fb950] outline-none transition-colors"
                   />
                   <button
