@@ -1,0 +1,28 @@
+{
+  "name": "emi-fullstack",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "server": "node --watch backend/server.js",
+    "client": "npm --prefix frontend run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "file-saver": "^2.0.5",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.6.1",
+    "nodemailer": "^8.0.7",
+    "pptxgenjs": "^4.0.1",
+    "puppeteer": "^24.43.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.14"
+  }
+}
