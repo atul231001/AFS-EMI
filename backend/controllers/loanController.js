@@ -74,11 +74,13 @@ export const downloadReport = async (req, res) => {
         contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         extension = 'xlsx';
         break;
-      case 'ppt':
-        buffer = await generatePPTReport(loan);
+      case 'ppt': {
+        const allLoans = await Loan.find({ customerId: loan.customerId._id }).populate('customerId');
+        buffer = await generatePPTReport(loan, allLoans);
         contentType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
         extension = 'pptx';
         break;
+      }
       case 'pdf':
         buffer = await generatePDFReport(loan);
         contentType = 'application/pdf';

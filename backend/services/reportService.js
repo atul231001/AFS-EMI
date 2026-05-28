@@ -43,52 +43,662 @@ export const generateExcelReport = async (loan) => {
   return buffer;
 };
 
-export const generatePPTReport = async (loan) => {
+export const generatePPTReport = async (loan, allLoans = []) => {
   const pptx = new PptxGenJS();
-  
-  // Slide 1: Cover
-  let slide1 = pptx.addSlide();
-  slide1.background = { color: '0f172a' };
-  slide1.addText('LIUGONG INDUSTRIAL FINANCE', { x: 0.5, y: 1, w: '90%', h: 1, fontSize: 36, bold: true, color: 'f0883e', align: 'center' });
-  slide1.addText(`Asset Recovery Protocol: ${loan.machineName}`, { x: 0.5, y: 2, w: '90%', h: 0.5, fontSize: 18, color: 'ffffff', align: 'center' });
-  slide1.addText(`Customer: ${loan.customerId?.name || 'N/A'}`, { x: 0.5, y: 2.7, w: '90%', h: 0.5, fontSize: 14, color: '94a3b8', align: 'center' });
-  slide1.addText(`Serial No: ${loan.serialNumber}`, { x: 0.5, y: 3.2, w: '90%', h: 0.5, fontSize: 12, color: '64748b', align: 'center' });
+  pptx.layout = 'LAYOUT_16x9';
 
-  // Slide 2: Financial Summary
-  let slide2 = pptx.addSlide();
-  slide2.addText('FINANCIAL PERFORMANCE MATRIX', { x: 0.5, y: 0.3, w: '90%', h: 0.5, fontSize: 24, bold: true, color: '0f172a' });
-  
-  const paidCount = loan.schedule.filter(s => s.status === 'Paid').length;
-  const progress = Math.round((paidCount / loan.schedule.length) * 100);
-  
-  slide2.addTable([
-    [{ text: 'Metric', options: { bold: true, fill: 'f1f5f9' } }, { text: 'Value', options: { bold: true, fill: 'f1f5f9' } }],
-    ['Principal Amount', `INR ${loan.principal.toLocaleString()}`],
-    ['EMI Amount', `INR ${loan.emi.toLocaleString()}`],
-    ['Tenure', `${loan.tenure} Years`],
-    ['Recovery Progress', `${progress}%`],
-    ['Status', loan.status.toUpperCase()]
-  ], { x: 0.5, y: 1, w: 9, rowH: 0.4, border: { type: 'solid', color: 'e2e8f0' } });
+  const BG_DARK = '0d1117';
+  const BG_CARD = '161b22';
+  const PRIMARY_ORANGE = 'f0883e';
+  const TEXT_WHITE = 'ffffff';
+  const TEXT_MUTED = '8b949e';
+  const TEXT_LIGHT = 'adbac7';
+  const GREEN_PAID = '3fb950';
+  const RED_OVERDUE = 'f85149';
+  const BLUE_PENDING = '58a6ff';
 
-  // Slide 3: Collection Schedule
-  let slide3 = pptx.addSlide();
-  slide3.addText('AMORTIZATION SCHEDULE (OVERVIEW)', { x: 0.5, y: 0.3, w: '90%', h: 0.5, fontSize: 24, bold: true, color: '0f172a' });
-  
-  const tableData = [
-    ['Inst.', 'Due Date', 'EMI', 'Principal', 'Status'].map(t => ({ text: t, options: { bold: true, fill: '0f172a', color: 'ffffff' } }))
+  const formatINRVal = (val) => {
+    return '₹ ' + new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(val);
+  };
+
+  const addDecorations = (slide, titleText, subtitleText) => {
+    slide.background = { color: BG_DARK };
+    slide.transition = { type: 'fade', duration: 0.8 };
+    
+    // Top Orange Border
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.1, fill: { color: PRIMARY_ORANGE } });
+    
+    // Slide Header Title
+    if (titleText) {
+      slide.addText(titleText.toUpperCase(), {
+        x: 0.5,
+        y: 0.3,
+        w: 9.0,
+        h: 0.4,
+        fontSize: 20,
+        bold: true,
+        color: PRIMARY_ORANGE,
+        fontFace: 'Segoe UI'
+      });
+    }
+    
+    // Slide Header Subtitle
+    if (subtitleText) {
+      slide.addText(subtitleText.toUpperCase(), {
+        x: 0.5,
+        y: 0.7,
+        w: 9.0,
+        h: 0.2,
+        fontSize: 8,
+        bold: true,
+        color: TEXT_MUTED,
+        fontFace: 'Courier New'
+      });
+    }
+  };
+
+  // --- SLIDE 1: COVER ---
+  const slide1 = pptx.addSlide();
+  slide1.background = { color: BG_DARK };
+  slide1.transition = { type: 'fade', duration: 0.8 };
+
+  // Top accent bar
+  slide1.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.1, fill: { color: PRIMARY_ORANGE } });
+
+  // Orange vertical accent bar
+  slide1.addShape(pptx.ShapeType.rect, { x: 0.5, y: 1.8, w: 0.1, h: 3.8, fill: { color: PRIMARY_ORANGE } });
+
+  // Branded Headers
+  slide1.addText('LIUGONG', {
+    x: 0.8,
+    y: 1.4,
+    w: 8.0,
+    h: 0.6,
+    fontSize: 40,
+    bold: true,
+    color: PRIMARY_ORANGE,
+    fontFace: 'Segoe UI',
+    italic: true
+  });
+
+  slide1.addText('STRATEGIC ASSET RECOVERY PROTOCOL', {
+    x: 0.8,
+    y: 2.0,
+    w: 8.0,
+    h: 0.5,
+    fontSize: 22,
+    bold: true,
+    color: TEXT_WHITE,
+    fontFace: 'Segoe UI'
+  });
+
+  slide1.addText('PORTFOLIO RECONCILIATION & PERFORMANCE AUDIT', {
+    x: 0.8,
+    y: 2.4,
+    w: 8.0,
+    h: 0.2,
+    fontSize: 9,
+    bold: true,
+    color: TEXT_MUTED,
+    fontFace: 'Courier New'
+  });
+
+  // Cover details box
+  slide1.addShape(pptx.ShapeType.rect, {
+    x: 0.8,
+    y: 2.8,
+    w: 7.2,
+    h: 2.6,
+    fill: { color: BG_CARD },
+    line: { color: '30363d', width: 1 }
+  });
+
+  const customer = loan.customerId || {};
+  const customerName = (customer.company || customer.name || 'N/A').toUpperCase();
+  const invoiceNum = loan.invoiceNumber || `INV-${loan._id.toString().substring(loan._id.toString().length - 6).toUpperCase()}`;
+
+  const coverLines = [
+    { text: 'CUSTOMER NODE:  ', options: { bold: true, color: PRIMARY_ORANGE, fontSize: 10, fontFace: 'Segoe UI' } },
+    { text: `${customerName}\n`, options: { color: TEXT_WHITE, fontSize: 12, bold: true, fontFace: 'Segoe UI' } },
+    { text: 'PRIMARY ASSET:  ', options: { bold: true, color: PRIMARY_ORANGE, fontSize: 10, fontFace: 'Segoe UI' } },
+    { text: `${loan.machineName.toUpperCase()} (${loan.model})\n`, options: { color: TEXT_WHITE, fontSize: 12, bold: true, fontFace: 'Segoe UI' } },
+    { text: 'AGREEMENT NO:   ', options: { bold: true, color: PRIMARY_ORANGE, fontSize: 10, fontFace: 'Segoe UI' } },
+    { text: `${loan._id.toString().toUpperCase()}\n`, options: { color: TEXT_WHITE, fontSize: 10, fontFace: 'Courier New' } },
+    { text: 'SERIAL NUMBER:  ', options: { bold: true, color: PRIMARY_ORANGE, fontSize: 10, fontFace: 'Segoe UI' } },
+    { text: `${loan.serialNumber || 'N/A'}\n`, options: { color: TEXT_WHITE, fontSize: 10, fontFace: 'Courier New' } },
+    { text: 'INVOICE NUMBER: ', options: { bold: true, color: PRIMARY_ORANGE, fontSize: 10, fontFace: 'Segoe UI' } },
+    { text: `${invoiceNum}\n`, options: { color: TEXT_WHITE, fontSize: 10, fontFace: 'Courier New' } }
   ];
-  
-  loan.schedule.slice(0, 10).forEach(s => {
-    tableData.push([
-      s.installment.toString(),
-      s.dueDate,
-      loan.emi.toString(),
-      s.principal.toString(),
-      s.status.toUpperCase()
+
+  slide1.addText(coverLines, {
+    x: 1.0,
+    y: 2.9,
+    w: 6.8,
+    h: 2.4,
+    lineSpacing: 22
+  });
+
+  // --- SLIDE 2: CUSTOMER PROFILE & FLEET SUMMARY ---
+  const slide2 = pptx.addSlide();
+  addDecorations(slide2, 'Customer Profile & Active Fleet Summary', 'Telemetry and portfolio node allocation details');
+
+  // Customer Profile Box
+  slide2.addShape(pptx.ShapeType.rect, {
+    x: 0.5,
+    y: 1.1,
+    w: 3.4,
+    h: 4.3,
+    fill: { color: BG_CARD },
+    line: { color: '30363d', width: 1 }
+  });
+
+  slide2.addText('CUSTOMER NODE ACCOUNT', {
+    x: 0.7,
+    y: 1.3,
+    w: 3.0,
+    h: 0.3,
+    fontSize: 11,
+    bold: true,
+    color: PRIMARY_ORANGE,
+    fontFace: 'Segoe UI'
+  });
+
+  const profileLines = [
+    { text: 'COMPANY/NAME\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+    { text: `${customerName}\n\n`, options: { color: TEXT_WHITE, fontSize: 11, bold: true } },
+    { text: 'GST NUMBER\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+    { text: `${customer.gst || 'NOT REGISTERED'}\n\n`, options: { color: TEXT_WHITE, fontSize: 10, fontFace: 'Courier New' } },
+    { text: 'MOBILE / CONTACT\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+    { text: `${customer.mobile || 'N/A'}\n\n`, options: { color: TEXT_WHITE, fontSize: 10 } },
+    { text: 'EMAIL ADDRESS\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+    { text: `${customer.email || 'N/A'}\n\n`, options: { color: TEXT_WHITE, fontSize: 10 } },
+    { text: 'OFFICE LOCATION\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+    { text: `${customer.city || ''}, ${customer.state || ''} ${customer.pin || ''}\n`, options: { color: TEXT_WHITE, fontSize: 10 } }
+  ];
+
+  slide2.addText(profileLines, {
+    x: 0.7,
+    y: 1.7,
+    w: 3.0,
+    h: 3.5,
+    fontFace: 'Segoe UI',
+    lineSpacing: 13
+  });
+
+  // Fleet Summary Table Box
+  slide2.addText('ACTIVE PORTFOLIO NODES (FLEET)', {
+    x: 4.2,
+    y: 1.1,
+    w: 5.3,
+    h: 0.3,
+    fontSize: 11,
+    bold: true,
+    color: PRIMARY_ORANGE,
+    fontFace: 'Segoe UI'
+  });
+
+  const fleetTableData = [
+    ['Asset / Machine', 'Agreement ID', 'Principal', 'EMI', 'Status'].map(t => ({
+      text: t,
+      options: { bold: true, fill: '1c2128', color: PRIMARY_ORANGE, fontSize: 9, fontFace: 'Segoe UI' }
+    }))
+  ];
+
+  allLoans.forEach(l => {
+    const isPrimary = l._id.toString() === loan._id.toString();
+    const displayName = isPrimary ? `★ ${l.machineName}` : l.machineName;
+    fleetTableData.push([
+      { text: displayName, options: { color: TEXT_WHITE, bold: isPrimary } },
+      { text: l._id.toString().substring(l._id.toString().length - 8).toUpperCase(), options: { color: TEXT_LIGHT, fontFace: 'Courier New' } },
+      { text: formatINRVal(l.principal), options: { color: TEXT_LIGHT } },
+      { text: formatINRVal(l.emi), options: { color: TEXT_LIGHT } },
+      { text: l.status.toUpperCase(), options: { color: l.status === 'Active' ? GREEN_PAID : TEXT_MUTED, bold: true } }
     ]);
   });
 
-  slide3.addTable(tableData, { x: 0.5, y: 1, w: 9, rowH: 0.3, fontSize: 10 });
+  slide2.addTable(fleetTableData, {
+    x: 4.2,
+    y: 1.5,
+    w: 5.3,
+    fontSize: 8,
+    rowH: 0.35,
+    border: { type: 'solid', color: '30363d', width: 1 },
+    valign: 'middle'
+  });
+
+  // --- SLIDE 3: FINANCIAL PORTFOLIO RECONCILIATION ---
+  const slide3 = pptx.addSlide();
+  addDecorations(slide3, 'Financial Portfolio Reconciliation', 'Aggregated recovery and outstanding exposure');
+
+  // Calculate portfolio totals
+  let portfolioValue = 0;
+  let portfolioPaid = 0;
+  let portfolioPending = 0;
+  let totalInstallments = 0;
+  let paidInstallments = 0;
+
+  allLoans.forEach(l => {
+    portfolioValue += l.emi * l.schedule.length;
+    l.schedule.forEach(s => {
+      totalInstallments++;
+      if (s.status === 'Paid') {
+        portfolioPaid += s.emi;
+        paidInstallments++;
+      } else {
+        portfolioPending += s.emi;
+      }
+    });
+  });
+
+  const portfolioProgress = portfolioValue > 0 ? Math.round((portfolioPaid / portfolioValue) * 100) : 0;
+
+  // Add 4 KPI Blocks
+  const kpis = [
+    { label: 'TOTAL CONTRACT VALUE', value: formatINRVal(portfolioValue), x: 0.5, color: TEXT_WHITE },
+    { label: 'RECOVERED REVENUE', value: formatINRVal(portfolioPaid), x: 2.8, color: GREEN_PAID },
+    { label: 'REMAINING EXPOSURE', value: formatINRVal(portfolioPending), x: 5.1, color: BLUE_PENDING },
+    { label: 'OVERALL PROGRESS', value: `${portfolioProgress}%`, x: 7.4, color: PRIMARY_ORANGE }
+  ];
+
+  kpis.forEach(k => {
+    slide3.addShape(pptx.ShapeType.rect, {
+      x: k.x,
+      y: 1.1,
+      w: 2.1,
+      h: 1.1,
+      fill: { color: BG_CARD },
+      line: { color: '30363d', width: 1 }
+    });
+
+    slide3.addText(k.label, {
+      x: k.x + 0.1,
+      y: 1.2,
+      w: 1.9,
+      h: 0.25,
+      fontSize: 8,
+      bold: true,
+      color: TEXT_MUTED,
+      fontFace: 'Segoe UI'
+    });
+
+    slide3.addText(k.value, {
+      x: k.x + 0.1,
+      y: 1.5,
+      w: 1.9,
+      h: 0.5,
+      fontSize: 16,
+      bold: true,
+      color: k.color,
+      fontFace: 'Segoe UI'
+    });
+  });
+
+  // Doughnut Chart & Details
+  slide3.addText('RECOVERY PORTFOLIO INDEX', {
+    x: 0.5,
+    y: 2.4,
+    w: 4.2,
+    h: 0.3,
+    fontSize: 11,
+    bold: true,
+    color: PRIMARY_ORANGE,
+    fontFace: 'Segoe UI'
+  });
+
+  const reconDetails = [
+    { text: 'portfolio clear rate\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+    { text: `${portfolioProgress}% cleared across all active assets\n\n`, options: { color: TEXT_WHITE, fontSize: 11, bold: true } },
+    { text: 'installment progress\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+    { text: `${paidInstallments} of ${totalInstallments} total cycles reconciled\n\n`, options: { color: TEXT_WHITE, fontSize: 11, bold: true } },
+    { text: 'backlog outstanding\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+    { text: `${formatINRVal(portfolioPending)} pending collection\n`, options: { color: TEXT_WHITE, fontSize: 11, bold: true } }
+  ];
+
+  slide3.addText(reconDetails, {
+    x: 0.5,
+    y: 2.8,
+    w: 4.2,
+    h: 2.4,
+    fontFace: 'Segoe UI',
+    lineSpacing: 12
+  });
+
+  // Add portfolio doughnut chart
+  slide3.addChart(pptx.ChartType.doughnut, [
+    {
+      name: 'Reconciliation',
+      labels: ['RECOVERED', 'REMAINING EXPOSURE'],
+      values: [portfolioPaid, portfolioPending]
+    }
+  ], {
+    x: 5.0,
+    y: 2.4,
+    w: 4.5,
+    h: 2.8,
+    showPercent: true,
+    showLegend: true,
+    chartColors: [GREEN_PAID, '30363d'],
+    legendColor: TEXT_WHITE,
+    legendFontSize: 9
+  });
+
+  // --- SLIDE 4: ASSET COMPARISON & ALLOCATION ANALYSIS ---
+  const slide4 = pptx.addSlide();
+  addDecorations(slide4, 'Asset Comparison & Allocation Analysis', 'Asset-wise collection reconciliation matrix');
+
+  if (allLoans.length > 1) {
+    const labels = allLoans.map(l => l.machineName.length > 15 ? l.machineName.substring(0, 12) + '...' : l.machineName);
+    const paidVals = allLoans.map(l => l.schedule.filter(s => s.status === 'Paid').reduce((sum, s) => sum + s.emi, 0));
+    const expVals = allLoans.map(l => l.schedule.filter(s => s.status === 'Pending').reduce((sum, s) => sum + s.emi, 0));
+
+    const compChartData = [
+      { name: 'Cleared (INR)', labels, values: paidVals },
+      { name: 'Exposure (INR)', labels, values: expVals }
+    ];
+
+    slide4.addChart(pptx.ChartType.bar, compChartData, {
+      x: 0.5,
+      y: 1.2,
+      w: 4.8,
+      h: 4.2,
+      barDir: 'col',
+      barGrouping: 'stacked',
+      showLegend: true,
+      chartColors: [GREEN_PAID, '30363d'],
+      legendColor: TEXT_WHITE,
+      legendFontSize: 8
+    });
+
+    slide4.addText('ASSET COMPARISON TABLE', {
+      x: 5.5,
+      y: 1.1,
+      w: 4.0,
+      h: 0.3,
+      fontSize: 11,
+      bold: true,
+      color: PRIMARY_ORANGE,
+      fontFace: 'Segoe UI'
+    });
+
+    const compTableData = [
+      ['Machine', 'Total Value', 'Cleared %', 'Remaining'].map(t => ({
+        text: t,
+        options: { bold: true, fill: '1c2128', color: PRIMARY_ORANGE, fontSize: 8 }
+      }))
+    ];
+
+    allLoans.forEach(l => {
+      const tot = l.emi * l.schedule.length;
+      const pd = l.schedule.filter(s => s.status === 'Paid').reduce((sum, s) => sum + s.emi, 0);
+      const rem = tot - pd;
+      const pct = tot > 0 ? Math.round((pd / tot) * 100) : 0;
+
+      compTableData.push([
+        { text: l.machineName, options: { color: TEXT_WHITE } },
+        { text: formatINRVal(tot), options: { color: TEXT_LIGHT } },
+        { text: `${pct}%`, options: { color: pct > 80 ? GREEN_PAID : PRIMARY_ORANGE, bold: true } },
+        { text: formatINRVal(rem), options: { color: TEXT_LIGHT } }
+      ]);
+    });
+
+    slide4.addTable(compTableData, {
+      x: 5.5,
+      y: 1.5,
+      w: 4.0,
+      fontSize: 8,
+      rowH: 0.35,
+      border: { type: 'solid', color: '30363d', width: 1 },
+      valign: 'middle'
+    });
+
+  } else {
+    const primaryPd = loan.schedule.filter(s => s.status === 'Paid').reduce((sum, s) => sum + s.emi, 0);
+    const primaryRem = (loan.emi * loan.schedule.length) - primaryPd;
+
+    slide4.addChart(pptx.ChartType.pie, [
+      {
+        name: 'Asset Recovery',
+        labels: ['CLEARED', 'REMAINING'],
+        values: [primaryPd, primaryRem]
+      }
+    ], {
+      x: 0.5,
+      y: 1.2,
+      w: 4.5,
+      h: 4.0,
+      showPercent: true,
+      showLegend: true,
+      chartColors: [PRIMARY_ORANGE, '30363d'],
+      legendColor: TEXT_WHITE,
+      legendFontSize: 9
+    });
+
+    slide4.addShape(pptx.ShapeType.rect, {
+      x: 5.2,
+      y: 1.2,
+      w: 4.3,
+      h: 4.0,
+      fill: { color: BG_CARD },
+      line: { color: '30363d', width: 1 }
+    });
+
+    slide4.addText('PRIMARY ASSET TELEMETRY', {
+      x: 5.4,
+      y: 1.4,
+      w: 3.9,
+      h: 0.3,
+      fontSize: 11,
+      bold: true,
+      color: PRIMARY_ORANGE,
+      fontFace: 'Segoe UI'
+    });
+
+    const assetDetailsLines = [
+      { text: 'MACHINE MODEL / NAME\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+      { text: `${loan.machineName.toUpperCase()} (${loan.model})\n\n`, options: { color: TEXT_WHITE, fontSize: 11, bold: true } },
+      { text: 'FINANCIAL TERMS\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+      { text: `Principal Funding: ${formatINRVal(loan.principal)}\nMonthly EMI: ${formatINRVal(loan.emi)} @ ${loan.interestRate}% Interest\n\n`, options: { color: TEXT_WHITE, fontSize: 10 } },
+      { text: 'SCHEDULE STATUS\n', options: { color: TEXT_MUTED, fontSize: 8, bold: true } },
+      { text: `Total Schedule Cycles: ${loan.schedule.length}\nPaid Cycles: ${loan.schedule.filter(s => s.status === 'Paid').length} Reconciled\nPending Cycles: ${loan.schedule.filter(s => s.status === 'Pending').length} Outstanding\n`, options: { color: TEXT_WHITE, fontSize: 10 } }
+    ];
+
+    slide4.addText(assetDetailsLines, {
+      x: 5.4,
+      y: 1.8,
+      w: 3.9,
+      h: 3.2,
+      fontFace: 'Segoe UI',
+      lineSpacing: 13
+    });
+  }
+
+  // --- SLIDE 5: DELINQUENCY & BACKLOG PROTOCOL (OVERDUES) ---
+  const slide5 = pptx.addSlide();
+  addDecorations(slide5, 'Delinquency & Backlog Protocol', 'Overdue amortization cycles and delay penalties');
+
+  const overdueInstallments = [];
+  let totalOverdueAmt = 0;
+  let maxDelayDays = 0;
+
+  allLoans.forEach(l => {
+    l.schedule.forEach(s => {
+      if (s.status === 'Pending' && new Date(s.dueDate) < new Date()) {
+        const delayMs = new Date() - new Date(s.dueDate);
+        const delayDays = Math.floor(delayMs / (1000 * 60 * 60 * 24));
+        const interest = Math.round(s.emi * 0.18 * (delayDays / 365));
+        
+        overdueInstallments.push({
+          machine: l.machineName,
+          installment: s.installment,
+          dueDate: s.dueDate,
+          emi: s.emi,
+          delayDays,
+          interest
+        });
+
+        totalOverdueAmt += s.emi;
+        if (delayDays > maxDelayDays) maxDelayDays = delayDays;
+      }
+    });
+  });
+
+  const totalOverdueInterest = overdueInstallments.reduce((sum, item) => sum + item.interest, 0);
+
+  if (overdueInstallments.length > 0) {
+    slide5.addShape(pptx.ShapeType.rect, {
+      x: 0.5,
+      y: 1.1,
+      w: 9.0,
+      h: 1.1,
+      fill: { color: '200e14' },
+      line: { color: RED_OVERDUE, width: 1 }
+    });
+
+    slide5.addText('CRITICAL DELINQUENCY WARNING', {
+      x: 0.7,
+      y: 1.2,
+      w: 8.6,
+      h: 0.25,
+      fontSize: 10,
+      bold: true,
+      color: RED_OVERDUE,
+      fontFace: 'Segoe UI'
+    });
+
+    slide5.addText(`Outstanding Backlog: ${formatINRVal(totalOverdueAmt)} across ${overdueInstallments.length} cycles. Maximum delay of ${maxDelayDays} days detected. Accrued Delay Interest: ${formatINRVal(totalOverdueInterest)} (Standard 18% Rate).`, {
+      x: 0.7,
+      y: 1.5,
+      w: 8.6,
+      h: 0.6,
+      fontSize: 11,
+      color: TEXT_WHITE,
+      fontFace: 'Segoe UI'
+    });
+
+    const overdueTableData = [
+      ['Machine Asset', 'Cycle', 'Due Date', 'EMI Amount', 'Delay Days', 'Accrued Penalty (18%)'].map(t => ({
+        text: t,
+        options: { bold: true, fill: '1c2128', color: RED_OVERDUE, fontSize: 9 }
+      }))
+    ];
+
+    overdueInstallments.slice(0, 8).forEach(item => {
+      overdueTableData.push([
+        { text: item.machine, options: { color: TEXT_WHITE } },
+        { text: `#${item.installment.toString().padStart(2, '0')}`, options: { color: TEXT_WHITE, fontFace: 'Courier New' } },
+        { text: item.dueDate, options: { color: TEXT_LIGHT, fontFace: 'Courier New' } },
+        { text: formatINRVal(item.emi), options: { color: RED_OVERDUE, bold: true } },
+        { text: `${item.delayDays} Days`, options: { color: RED_OVERDUE } },
+        { text: formatINRVal(item.interest), options: { color: RED_OVERDUE, bold: true } }
+      ]);
+    });
+
+    slide5.addTable(overdueTableData, {
+      x: 0.5,
+      y: 2.4,
+      w: 9.0,
+      fontSize: 8.5,
+      rowH: 0.3,
+      border: { type: 'solid', color: '30363d', width: 1 },
+      valign: 'middle'
+    });
+
+  } else {
+    slide5.addShape(pptx.ShapeType.rect, {
+      x: 0.5,
+      y: 1.1,
+      w: 9.0,
+      h: 1.2,
+      fill: { color: '0f1d17' },
+      line: { color: GREEN_PAID, width: 1 }
+    });
+
+    slide5.addText('PORTFOLIO STATUS: SECURED', {
+      x: 0.7,
+      y: 1.3,
+      w: 8.6,
+      h: 0.3,
+      fontSize: 12,
+      bold: true,
+      color: GREEN_PAID,
+      fontFace: 'Segoe UI'
+    });
+
+    slide5.addText('All active assets are currently on-schedule. No outstanding overdues or delay penalty interests detected for this customer account.', {
+      x: 0.7,
+      y: 1.7,
+      w: 8.6,
+      h: 0.4,
+      fontSize: 11,
+      color: TEXT_WHITE,
+      fontFace: 'Segoe UI'
+    });
+
+    slide5.addText('✓ EXCELLENT REPAYMENT STANDING', {
+      x: 0.5,
+      y: 2.8,
+      w: 9.0,
+      h: 0.5,
+      fontSize: 18,
+      bold: true,
+      color: GREEN_PAID,
+      fontFace: 'Segoe UI',
+      align: 'center'
+    });
+  }
+
+  // --- SLIDE 6: MASTER AMORTIZATION LEDGER ---
+  const rowsPerSlide = 12;
+  const totalSlides = Math.ceil(loan.schedule.length / rowsPerSlide);
+
+  for (let i = 0; i < totalSlides; i++) {
+    const slideTitle = totalSlides > 1 ? `Master Amortization Ledger (Part ${i + 1}/${totalSlides})` : 'Master Amortization Ledger';
+    const ledgerSlide = pptx.addSlide();
+    addDecorations(ledgerSlide, slideTitle, `Detailed repayment schedule for ${loan.machineName.toUpperCase()}`);
+
+    const ledgerHeaders = ['Inst. #', 'Due Date', 'EMI Amount', 'Principal', 'Interest', 'Remaining Balance', 'Status'].map(t => ({
+      text: t,
+      options: { bold: true, fill: '1c2128', color: PRIMARY_ORANGE, fontSize: 9 }
+    }));
+
+    const ledgerTableData = [ledgerHeaders];
+
+    const startIdx = i * rowsPerSlide;
+    const endIdx = startIdx + rowsPerSlide;
+    const chunk = loan.schedule.slice(startIdx, endIdx);
+
+    chunk.forEach(s => {
+      ledgerTableData.push([
+        { text: `#${s.installment.toString().padStart(2, '0')}`, options: { color: TEXT_WHITE, fontFace: 'Courier New' } },
+        { text: s.dueDate, options: { color: TEXT_LIGHT, fontFace: 'Courier New' } },
+        { text: formatINRVal(loan.emi), options: { color: TEXT_WHITE } },
+        { text: formatINRVal(s.principal), options: { color: TEXT_LIGHT } },
+        { text: formatINRVal(s.interest), options: { color: TEXT_LIGHT } },
+        { text: formatINRVal(s.balance), options: { color: TEXT_WHITE, bold: true } },
+        { text: s.status.toUpperCase(), options: { color: s.status === 'Paid' ? GREEN_PAID : BLUE_PENDING, bold: true } }
+      ]);
+    });
+
+    ledgerSlide.addTable(ledgerTableData, {
+      x: 0.5,
+      y: 1.2,
+      w: 9.0,
+      fontSize: 8.5,
+      rowH: 0.3,
+      border: { type: 'solid', color: '30363d', width: 1 },
+      valign: 'middle'
+    });
+
+    ledgerSlide.addText('SECURED ANALYTICAL TERMINAL NODE // SYSTEM TIME: ' + new Date().toLocaleString(), {
+      x: 0.5,
+      y: 5.2,
+      w: 9.0,
+      h: 0.2,
+      fontSize: 7,
+      fontFace: 'Courier New',
+      color: TEXT_MUTED
+    });
+  }
 
   const buffer = await pptx.write('nodebuffer');
   return buffer;
@@ -168,6 +778,8 @@ export const generateGlobalExcelReport = async (loans, payments, months) => {
   const totalRecovery = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
   const totalExposure = loans.reduce((sum, l) => sum + (l.schedule || []).filter(s => s.status === 'Pending').reduce((s, inst) => s + inst.emi, 0), 0);
   
+  let runningBacklogForCalc = loans.reduce((acc, loan) => acc + (loan.schedule || []).filter(s => new Date(s.dueDate) < months[0]?.start && s.status === 'Pending').reduce((s, inst) => s + inst.emi, 0), 0);
+
   const ledgerRows = months.map(m => {
     const opening = runningBacklogForCalc;
     const due = loans.reduce((sum, l) => sum + (l.schedule || []).filter(s => { const d = new Date(s.dueDate); return d >= m.start && d <= m.end; }).reduce((s, inst) => s + inst.emi, 0), 0);
