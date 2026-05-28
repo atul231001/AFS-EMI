@@ -50,7 +50,14 @@ const getTicketActiveApproverId = async (t) => {
 
   let activeFlow = null;
   if (supervisorId) {
-    activeFlow = await ApprovalFlow.findOne({ isActive: true, supervisorId: supervisorId });
+    const supervisor = await FMCSupervisor.findById(supervisorId);
+    if (supervisor && supervisor.approvalFlowId !== undefined) {
+      if (supervisor.approvalFlowId) {
+        activeFlow = await ApprovalFlow.findOne({ _id: supervisor.approvalFlowId, isActive: true });
+      }
+    } else {
+      activeFlow = await ApprovalFlow.findOne({ isActive: true, supervisorId: supervisorId });
+    }
   }
   if (!activeFlow) {
     activeFlow = await ApprovalFlow.findOne({ isActive: true, $or: [{ supervisorId: '' }, { supervisorId: null }] });
@@ -312,7 +319,14 @@ router.post('/tickets/:id/approve', protect, async (req, res) => {
 
     let flow = null;
     if (supervisorId) {
-      flow = await ApprovalFlow.findOne({ isActive: true, supervisorId }).populate('steps.approverId').populate('steps.statusId');
+      const supervisor = await FMCSupervisor.findById(supervisorId);
+      if (supervisor && supervisor.approvalFlowId !== undefined) {
+        if (supervisor.approvalFlowId) {
+          flow = await ApprovalFlow.findOne({ _id: supervisor.approvalFlowId, isActive: true }).populate('steps.approverId').populate('steps.statusId');
+        }
+      } else {
+        flow = await ApprovalFlow.findOne({ isActive: true, supervisorId }).populate('steps.approverId').populate('steps.statusId');
+      }
     }
     if (!flow) {
       flow = await ApprovalFlow.findOne({ isActive: true, $or: [{ supervisorId: '' }, { supervisorId: null }] }).populate('steps.approverId').populate('steps.statusId');
@@ -364,7 +378,22 @@ router.post('/tickets/:id/approve', protect, async (req, res) => {
 
 // ── FMC Supervisors — with linked User account ─────────────────────────────
 router.get('/supervisors', protect, async (req, res) => {
-  try { res.json(await FMCSupervisor.find().sort({ createdAt: -1 })); }
+  try {
+    const supervisors = await FMCSupervisor.find().sort({ createdAt: -1 }).lean();
+    const supervisorIds = supervisors.map(s => s._id);
+    const users = await User.find({ supervisorId: { $in: supervisorIds } }, 'email supervisorId');
+    const emailMap = {};
+    users.forEach(u => {
+      if (u.supervisorId) {
+        emailMap[u.supervisorId.toString()] = u.email;
+      }
+    });
+    const result = supervisors.map(s => ({
+      ...s,
+      email: emailMap[s._id.toString()] || ''
+    }));
+    res.json(result);
+  }
   catch (e) { res.status(500).json({ message: e.message }); }
 });
 
@@ -396,7 +425,9 @@ router.post('/supervisors', protect, async (req, res) => {
       }
     }
 
-    res.status(201).json(supervisor);
+    const supervisorObj = supervisor.toObject();
+    supervisorObj.email = email || '';
+    res.status(201).json(supervisorObj);
   } catch (e) {
     res.status(400).json({ message: e.message });
   }
@@ -430,7 +461,10 @@ router.put('/supervisors/:id', protect, async (req, res) => {
       }
     }
 
-    res.json(supervisor);
+    const supervisorObj = supervisor.toObject();
+    const linkedUser = await User.findOne({ supervisorId: supervisor._id }, 'email');
+    supervisorObj.email = linkedUser ? linkedUser.email : (email || '');
+    res.json(supervisorObj);
   } catch (e) {
     res.status(400).json({ message: e.message });
   }

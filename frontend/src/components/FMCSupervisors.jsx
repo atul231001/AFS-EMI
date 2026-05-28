@@ -4,7 +4,7 @@ import { hasPermission, showNotification, confirmAction } from '../utils';
 import { Plus, Search, User, Phone, MapPin, Shield, Edit3, Trash2, X, Check } from 'lucide-react';
 
 const FMCSupervisors = () => {
-  const { fmcSupervisors = [], fmcContracts = [], user } = state.data;
+  const { fmcSupervisors = [], fmcContracts = [], approvalFlows = [], user } = state.data;
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -51,16 +51,17 @@ const FMCSupervisors = () => {
         <table className="w-full text-left">
           <thead>
             <tr className="bg-bg-active border-b border-border-main">
-              {['Supervisor', 'Employee ID', 'Mobile', 'Skills', 'Assigned Staff', 'Region', 'Status', 'Assigned Contract', 'Actions'].map(h => (
+              {['Supervisor', 'Employee ID', 'Mobile', 'Skills', 'Assigned Staff', 'Region', 'Status', 'Assigned Contract', 'Approval Flow', 'Actions'].map(h => (
                 <th key={h} className="px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-border-main/50">
             {filtered.length === 0 ? (
-              <tr><td colSpan={9} className="px-5 py-16 text-center text-[10px] font-bold text-text-dim/60 uppercase tracking-widest">No supervisors found</td></tr>
+              <tr><td colSpan={10} className="px-5 py-16 text-center text-[10px] font-bold text-text-dim/60 uppercase tracking-widest">No supervisors found</td></tr>
             ) : filtered.map((s, i) => {
               const assignedContract = fmcContracts.find(c => c.assignedSupervisor === s.name || c._id === s.contractId);
+              const assignedFlow = approvalFlows.find(f => f._id === s.approvalFlowId);
               return (
                 <tr key={s._id || i} className="hover:bg-bg-active transition-colors group">
                   <td className="px-5 py-4">
@@ -108,6 +109,15 @@ const FMCSupervisors = () => {
                       : <span className="text-[9px] text-text-dim/60 italic">Unassigned</span>}
                   </td>
                   <td className="px-5 py-4">
+                    {assignedFlow ? (
+                      <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border bg-[#f0883e]/10 text-[#f0883e] border-[#f0883e]/20">
+                        {assignedFlow.name}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-text-dim/60 italic">Default Flow</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
                     <div className="flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
                       {hasPermission(user, 'fmc', 'update') && user?.role === 'OEM' && (
                         <button onClick={() => { setEditing(s); setShowModal(true); }}
@@ -136,16 +146,17 @@ const FMCSupervisors = () => {
 };
 
 const SupervisorModal = ({ supervisor, onClose }) => {
-  const { fmcContracts = [], employees = [] } = state.data;
+  const { fmcContracts = [], employees = [], approvalFlows = [] } = state.data;
   const [form, setForm] = useState(supervisor ? {
     ...supervisor,
-    assignedEmployees: supervisor.assignedEmployees || []
+    assignedEmployees: supervisor.assignedEmployees || [],
+    approvalFlowId: supervisor.approvalFlowId || ''
   } : {
     name: '', employeeId: '', mobile: '', skills: [], region: '',
     status: 'Active', contractId: '', shiftStart: '', shiftEnd: '',
-    assignedEmployees: []
+    assignedEmployees: [], approvalFlowId: ''
   });
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(supervisor ? supervisor.email || '' : '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -208,6 +219,16 @@ const SupervisorModal = ({ supervisor, onClose }) => {
                 className="w-full bg-bg-deep border border-border-main rounded-lg px-4 py-2.5 text-sm text-text-main font-bold focus:border-[#f0883e] outline-none">
                 <option value="">Unassigned</option>
                 {fmcContracts.map(c => <option key={c._id} value={c._id}>{c.agreementNumber}</option>)}
+              </select>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Assign Approval Flow</p>
+              <select value={form.approvalFlowId || ''} onChange={e => set('approvalFlowId', e.target.value)}
+                className="w-full bg-bg-deep border border-border-main rounded-lg px-4 py-2.5 text-sm text-text-main font-bold focus:border-[#f0883e] outline-none">
+                <option value="">No Approval Flow (Uses Default)</option>
+                {approvalFlows.map(f => (
+                  <option key={f._id} value={f._id}>{f.name}</option>
+                ))}
               </select>
             </div>
           </div>

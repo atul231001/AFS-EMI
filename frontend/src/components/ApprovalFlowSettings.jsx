@@ -139,8 +139,12 @@ const ApprovalFlowSettings = () => {
   };
 
   const handleSupervisorChange = (selectedId) => {
+    const supervisor = fmcSupervisors.find(s => s._id === selectedId);
     // Check if a flow already exists for this supervisor/scope
     const existingFlow = approvalFlows.find(f => {
+      if (supervisor && supervisor.approvalFlowId) {
+        return f._id === supervisor.approvalFlowId;
+      }
       const flowSup = f.supervisorId || '';
       const targetSup = selectedId || '';
       return flowSup === targetSup;
@@ -151,7 +155,7 @@ const ApprovalFlowSettings = () => {
       setFlowForm({
         name: existingFlow.name,
         isActive: existingFlow.isActive,
-        supervisorId: existingFlow.supervisorId || '',
+        supervisorId: selectedId,
         steps: (existingFlow.steps || []).map(s => ({
           sequence: s.sequence,
           approverId: typeof s.approverId === 'object' ? s.approverId._id : s.approverId,
@@ -442,23 +446,38 @@ const ApprovalFlowSettings = () => {
           </div>
 
           <div className="space-y-4">
-            {approvalFlows.map(flow => (
-              <div key={flow._id} className={`bg-bg-card border rounded-2xl p-6 transition-all ${flow.isActive ? 'border-primary/40 shadow-[0_10px_30px_rgba(240,136,62,0.05)]' : 'border-border-main'
-                }`}>
-                <div className="flex items-center justify-between border-b border-border-main/50 pb-4 mb-4">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <h4 className="font-bold text-text-main text-sm uppercase tracking-tight">{flow.name}</h4>
-                      <div className="flex items-center gap-2.5 mt-0.5">
-                        <span className="text-[9px] font-mono text-text-dim/60">STEPS: {flow.steps?.length || 0}</span>
-                        <span className="text-[9px] text-[#ffa657] font-black uppercase tracking-wider bg-[#ffa657]/10 px-2 py-0.5 rounded">
-                          {flow.supervisorId
-                            ? `Supervisor: ${fmcSupervisors.find(s => s._id === flow.supervisorId)?.name || 'Unknown'}`
-                            : 'Scope: Global Default'
-                          }
-                        </span>
+            {approvalFlows.map(flow => {
+              const assignedSups = fmcSupervisors.filter(s => {
+                if (s.approvalFlowId !== undefined) {
+                  return s.approvalFlowId === flow._id;
+                }
+                return flow.supervisorId && s._id === flow.supervisorId;
+              });
+              return (
+                <div key={flow._id} className={`bg-bg-card border rounded-2xl p-6 transition-all ${flow.isActive ? 'border-primary/40 shadow-[0_10px_30px_rgba(240,136,62,0.05)]' : 'border-border-main'
+                  }`}>
+                  <div className="flex items-center justify-between border-b border-border-main/50 pb-4 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <h4 className="font-bold text-text-main text-sm uppercase tracking-tight">{flow.name}</h4>
+                        <div className="flex flex-wrap items-center gap-2.5 mt-1.5">
+                          <span className="text-[9px] font-mono text-text-dim/60">STEPS: {flow.steps?.length || 0}</span>
+                          {assignedSups.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-[9px] text-text-dim/60 uppercase font-mono font-bold">Supervisors:</span>
+                              {assignedSups.map(s => (
+                                <span key={s._id} className="text-[9px] text-[#ffa657] font-black uppercase tracking-wider bg-[#ffa657]/10 px-2 py-0.5 rounded border border-[#ffa657]/20">
+                                  {s.name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-[9px] text-[#ffa657] font-black uppercase tracking-wider bg-[#ffa657]/10 px-2 py-0.5 rounded border border-[#ffa657]/20">
+                              {flow.supervisorId ? 'No Supervisors Assigned' : 'Scope: Global Default'}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
                     {flow.isActive ? (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[8px] font-black uppercase tracking-wider">
                         ACTIVE PROTOCOL
@@ -537,7 +556,8 @@ const ApprovalFlowSettings = () => {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {approvalFlows.length === 0 && (
               <div className="py-16 text-center border border-dashed border-border-main rounded-3xl">

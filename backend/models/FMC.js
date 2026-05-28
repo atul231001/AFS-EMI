@@ -68,7 +68,8 @@ const FMCSupervisorSchema = new mongoose.Schema({
   contractId: String,
   shiftStart: String,
   shiftEnd: String,
-  assignedEmployees: [String]
+  assignedEmployees: [String],
+  approvalFlowId: { type: mongoose.Schema.Types.ObjectId, ref: 'ApprovalFlow', default: null }
 }, { timestamps: true });
 
 // ── FMC Daily Hours ────────────────────────────────────────────────────────

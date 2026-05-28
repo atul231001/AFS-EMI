@@ -31,7 +31,14 @@ const TicketFormModal = ({ ticket, onClose, machines, fmcContracts }) => {
 
     let flow = null;
     if (superId) {
-      flow = approvalFlows.find(f => f.isActive && f.supervisorId === superId);
+      const supervisor = fmcSupervisors.find(s => s._id?.toString() === superId?.toString());
+      if (supervisor && supervisor.approvalFlowId !== undefined) {
+        if (supervisor.approvalFlowId) {
+          flow = approvalFlows.find(f => f.isActive && f._id?.toString() === supervisor.approvalFlowId?.toString());
+        }
+      } else {
+        flow = approvalFlows.find(f => f.isActive && f.supervisorId === superId);
+      }
     }
     if (!flow) {
       flow = approvalFlows.find(f => f.isActive && (!f.supervisorId || f.supervisorId === ''));
@@ -151,7 +158,14 @@ const TicketFormModal = ({ ticket, onClose, machines, fmcContracts }) => {
   // Find active flow (supervisor-specific first, falling back to global default)
   let activeFlow = null;
   if (supervisorId) {
-    activeFlow = approvalFlows.find(f => f.isActive && f.supervisorId === supervisorId);
+    const supervisor = fmcSupervisors.find(s => s._id?.toString() === supervisorId?.toString());
+    if (supervisor && supervisor.approvalFlowId !== undefined) {
+      if (supervisor.approvalFlowId) {
+        activeFlow = approvalFlows.find(f => f.isActive && f._id?.toString() === supervisor.approvalFlowId?.toString());
+      }
+    } else {
+      activeFlow = approvalFlows.find(f => f.isActive && f.supervisorId === supervisorId);
+    }
   }
   if (!activeFlow) {
     activeFlow = approvalFlows.find(f => f.isActive && (!f.supervisorId || f.supervisorId === ''));
@@ -424,7 +438,14 @@ const FMCTickets = () => {
 
     let flow = null;
     if (superId) {
-      flow = approvalFlows.find(f => f.isActive && f.supervisorId === superId);
+      const supervisor = fmcSupervisors.find(s => s._id?.toString() === superId?.toString());
+      if (supervisor && supervisor.approvalFlowId !== undefined) {
+        if (supervisor.approvalFlowId) {
+          flow = approvalFlows.find(f => f.isActive && f._id?.toString() === supervisor.approvalFlowId?.toString());
+        }
+      } else {
+        flow = approvalFlows.find(f => f.isActive && f.supervisorId === superId);
+      }
     }
     if (!flow) {
       flow = approvalFlows.find(f => f.isActive && (!f.supervisorId || f.supervisorId === ''));
