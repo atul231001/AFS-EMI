@@ -29,6 +29,39 @@
   --glass-border: rgba(255, 255, 255, 0.05);
 }
 
+.blue {
+  --bg-deep: #0a192f;
+  --bg-card: #112240;
+  --bg-active: #233554;
+  --border-main: #1e3a8a;
+  --text-dim: #94a3b8;
+  --text-main: #f8fafc;
+  --glass-bg: rgba(17, 34, 64, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+}
+
+.green {
+  --bg-deep: #022c22;
+  --bg-card: #064e3b;
+  --bg-active: #065f46;
+  --border-main: #047857;
+  --text-dim: #6ee7b7;
+  --text-main: #ecfdf5;
+  --glass-bg: rgba(6, 78, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+}
+
+.brown {
+  --bg-deep: #291c14;
+  --bg-card: #3b281c;
+  --bg-active: #4d3424;
+  --border-main: #5f402c;
+  --text-dim: #b3886b;
+  --text-main: #f5ebe6;
+  --glass-bg: rgba(59, 40, 28, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+}
+
 @theme {
   --color-primary: var(--color-primary);
   --color-primary-light: var(--color-primary-light);

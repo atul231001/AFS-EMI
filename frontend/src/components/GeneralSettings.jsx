@@ -122,7 +122,7 @@ const GeneralSettings = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <button
                     onClick={() => handleThemeToggle('light')}
                     className={`flex flex-col items-center justify-center gap-4 p-6 rounded-2xl border-2 transition-all cursor-pointer ${theme === 'light' ? 'border-[#f0883e] bg-[#f0883e]/5 text-[#f0883e]' : 'border-white/5 bg-white/[0.02] text-slate-500 hover:border-white/10'}`}
@@ -136,6 +136,27 @@ const GeneralSettings = () => {
                   >
                     <i className="fas fa-moon text-2xl"></i>
                     <span className="text-[10px] font-black uppercase tracking-widest">Abyssal</span>
+                  </button>
+                  <button
+                    onClick={() => handleThemeToggle('blue')}
+                    className={`flex flex-col items-center justify-center gap-4 p-6 rounded-2xl border-2 transition-all cursor-pointer ${theme === 'blue' ? 'border-[#f0883e] bg-[#f0883e]/10 text-[#f0883e]' : 'border-white/5 bg-white/[0.02] text-slate-500 hover:border-white/10'}`}
+                  >
+                    <i className="fas fa-water text-2xl"></i>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Oceanic</span>
+                  </button>
+                  <button
+                    onClick={() => handleThemeToggle('green')}
+                    className={`flex flex-col items-center justify-center gap-4 p-6 rounded-2xl border-2 transition-all cursor-pointer ${theme === 'green' ? 'border-[#f0883e] bg-[#f0883e]/10 text-[#f0883e]' : 'border-white/5 bg-white/[0.02] text-slate-500 hover:border-white/10'}`}
+                  >
+                    <i className="fas fa-leaf text-2xl"></i>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Forest</span>
+                  </button>
+                  <button
+                    onClick={() => handleThemeToggle('brown')}
+                    className={`flex flex-col items-center justify-center gap-4 p-6 rounded-2xl border-2 transition-all cursor-pointer ${theme === 'brown' ? 'border-[#f0883e] bg-[#f0883e]/10 text-[#f0883e]' : 'border-white/5 bg-white/[0.02] text-slate-500 hover:border-white/10'}`}
+                  >
+                    <i className="fas fa-mountain text-2xl"></i>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Earthen</span>
                   </button>
                 </div>
               </div>

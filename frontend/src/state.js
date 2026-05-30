@@ -870,10 +870,10 @@ class State {
   }
 
   applyTheme() {
-    if (this.data.theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    const themes = ['dark', 'blue', 'green', 'brown'];
+    themes.forEach(t => document.documentElement.classList.remove(t));
+    if (this.data.theme && this.data.theme !== 'light') {
+      document.documentElement.classList.add(this.data.theme);
     }
   }
 
