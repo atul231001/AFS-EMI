@@ -360,7 +360,7 @@ const NewAssignment = ({ machines, customers, user }) => {
   };
 
   return (
-    <div className="flex-1 grid grid-cols-12 gap-8 overflow-hidden h-[calc(100vh-180px)] mt-4">
+    <div className="flex-1 grid grid-cols-12 gap-8 min-h-[calc(100vh-180px)] mt-4">
       
       {/* LEFT COLUMN: FINANCIAL PARAMETERS */}
       <div className="col-span-12 lg:col-span-5 bg-bg-card border border-border-main rounded-2xl relative overflow-hidden flex flex-col shadow-2xl">

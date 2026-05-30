@@ -98,7 +98,7 @@ const MachineManagement = () => {
   const paginatedData = filteredMachines.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="space-y-6 animate-fade-in h-[calc(100vh-140px)] flex flex-col">
+    <div className="space-y-6 animate-fade-in min-h-[calc(100vh-140px)] flex flex-col">
       <div className="flex flex-col gap-6 flex-shrink-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>

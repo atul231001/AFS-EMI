@@ -325,18 +325,9 @@ const ApprovalFlowSettings = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Header section */}
-      <div className="flex items-center justify-between border-b border-border-main pb-4">
-        <div>
-          <h2 className="text-2xl font-black text-text-main tracking-tight uppercase italic flex items-center gap-3">
-            <SettingsIcon className="text-primary animate-spin-slow" size={24} /> Approval Flow Settings
-          </h2>
-          <p className="text-[10px] font-bold text-text-dim/60 uppercase tracking-[0.2em] mt-1 font-mono">
-            Define customized ticket statuses and multi-step approval workflows
-          </p>
-        </div>
-
+    <div className="space-y-6 animate-in fade-in duration-300 pb-12">
+      {/* Header section (Title removed, only tabs remain) */}
+      <div className="flex items-center justify-end border-b border-border-main pb-4">
         {/* Tab Controls */}
         <div className="flex items-center gap-2 bg-bg-card border border-border-main p-1.5 rounded-2xl shadow-inner">
           <button
@@ -496,84 +487,84 @@ const ApprovalFlowSettings = () => {
                           )}
                         </div>
                       </div>
-                    {flow.isActive ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[8px] font-black uppercase tracking-wider">
-                        ACTIVE PROTOCOL
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 border border-white/5 text-[8px] font-black uppercase tracking-wider">
-                        INACTIVE
-                      </span>
+                      {flow.isActive ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[8px] font-black uppercase tracking-wider">
+                          ACTIVE PROTOCOL
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 border border-white/5 text-[8px] font-black uppercase tracking-wider">
+                          INACTIVE
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleToggleFlowActive(flow)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${flow.isActive
+                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
+                          : 'bg-slate-800/50 text-slate-400 border-border-main hover:bg-bg-active'
+                          }`}
+                      >
+                        {flow.isActive ? (
+                          <>Active <Check size={10} /></>
+                        ) : (
+                          <>Activate</>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenFlowModal(flow)}
+                        className="p-2 bg-bg-active border border-border-main hover:border-primary/50 rounded-lg text-text-dim hover:text-primary transition-all"
+                        title="Edit Workflow Steps"
+                      >
+                        <Edit3 size={13} />
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteFlow(flow._id)}
+                        className="p-2 bg-bg-active border border-border-main hover:border-red-500/50 rounded-lg text-text-dim hover:text-red-500 transition-all"
+                        title="Decommission Flow"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Steps Visual Chain */}
+                  <div className="flex flex-wrap items-center gap-4 py-2 overflow-x-auto no-scrollbar">
+                    {flow.steps?.map((step, idx) => {
+                      const stepStatus = step.statusId || {};
+                      const stepApprover = step.approverId || {};
+                      return (
+                        <React.Fragment key={idx}>
+                          <div className="bg-bg-deep border border-border-main/60 rounded-xl p-3 flex items-center gap-3 min-w-[200px] relative shadow-inner">
+                            <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-black font-mono">
+                              {step.sequence}
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-black text-text-main uppercase tracking-tight truncate max-w-[130px]">
+                                {stepApprover.name || 'Unknown User'}
+                              </p>
+                              <span
+                                className="inline-block mt-1 text-[8px] font-black uppercase tracking-wider"
+                                style={{ color: stepStatus.color || '#fff' }}
+                              >
+                                Approves to: {stepStatus.name || 'Unknown Status'}
+                              </span>
+                            </div>
+                          </div>
+                          {idx < flow.steps.length - 1 && (
+                            <div className="text-text-dim/40 font-black font-mono">➔</div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                    {(!flow.steps || flow.steps.length === 0) && (
+                      <p className="text-[9px] font-black text-text-dim/40 uppercase tracking-widest">No approval steps defined for this flow</p>
                     )}
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleToggleFlowActive(flow)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${flow.isActive
-                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
-                        : 'bg-slate-800/50 text-slate-400 border-border-main hover:bg-bg-active'
-                        }`}
-                    >
-                      {flow.isActive ? (
-                        <>Active <Check size={10} /></>
-                      ) : (
-                        <>Activate</>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => handleOpenFlowModal(flow)}
-                      className="p-2 bg-bg-active border border-border-main hover:border-primary/50 rounded-lg text-text-dim hover:text-primary transition-all"
-                      title="Edit Workflow Steps"
-                    >
-                      <Edit3 size={13} />
-                    </button>
-
-                    <button
-                      onClick={() => handleDeleteFlow(flow._id)}
-                      className="p-2 bg-bg-active border border-border-main hover:border-red-500/50 rounded-lg text-text-dim hover:text-red-500 transition-all"
-                      title="Decommission Flow"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
                 </div>
-
-                {/* Steps Visual Chain */}
-                <div className="flex flex-wrap items-center gap-4 py-2 overflow-x-auto no-scrollbar">
-                  {flow.steps?.map((step, idx) => {
-                    const stepStatus = step.statusId || {};
-                    const stepApprover = step.approverId || {};
-                    return (
-                      <React.Fragment key={idx}>
-                        <div className="bg-bg-deep border border-border-main/60 rounded-xl p-3 flex items-center gap-3 min-w-[200px] relative shadow-inner">
-                          <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-black font-mono">
-                            {step.sequence}
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black text-text-main uppercase tracking-tight truncate max-w-[130px]">
-                              {stepApprover.name || 'Unknown User'}
-                            </p>
-                            <span
-                              className="inline-block mt-1 text-[8px] font-black uppercase tracking-wider"
-                              style={{ color: stepStatus.color || '#fff' }}
-                            >
-                              Approves to: {stepStatus.name || 'Unknown Status'}
-                            </span>
-                          </div>
-                        </div>
-                        {idx < flow.steps.length - 1 && (
-                          <div className="text-text-dim/40 font-black font-mono">➔</div>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                  {(!flow.steps || flow.steps.length === 0) && (
-                    <p className="text-[9px] font-black text-text-dim/40 uppercase tracking-widest">No approval steps defined for this flow</p>
-                  )}
-                </div>
-              </div>
               );
             })}
 
@@ -782,8 +773,8 @@ const ApprovalFlowSettings = () => {
                             setSupSearchTerm('');
                           }}
                           className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${!flowForm.supervisorId
-                              ? 'bg-primary/10 text-primary border border-primary/20'
-                              : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
+                            ? 'bg-primary/10 text-primary border border-primary/20'
+                            : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
                             }`}
                         >
                           Global Default (All Supervisors)
@@ -805,8 +796,8 @@ const ApprovalFlowSettings = () => {
                                   setSupSearchTerm('');
                                 }}
                                 className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isSelected
-                                    ? 'bg-primary/10 text-primary border border-primary/20'
-                                    : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
+                                  ? 'bg-primary/10 text-primary border border-primary/20'
+                                  : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
                                   }`}
                               >
                                 Dedicated to Supervisor: {s.name}
@@ -902,8 +893,8 @@ const ApprovalFlowSettings = () => {
                                     setApproverSearchTerm('');
                                   }}
                                   className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${!step.approverId
-                                      ? 'bg-primary/10 text-primary'
-                                      : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
                                     }`}
                                 >
                                   Select approver...
@@ -924,8 +915,8 @@ const ApprovalFlowSettings = () => {
                                           setApproverSearchTerm('');
                                         }}
                                         className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${isSelected
-                                            ? 'bg-primary/10 text-primary'
-                                            : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
+                                          ? 'bg-primary/10 text-primary'
+                                          : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
                                           }`}
                                       >
                                         {u.name} ({u.email})

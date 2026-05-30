@@ -85,8 +85,8 @@ const GeneralSettings = () => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all border ${activeTab === tab.id
-                ? 'bg-[#f0883e]/10 border-[#f0883e]/30 text-[#f0883e]'
-                : 'bg-transparent border-transparent text-[#768390] hover:bg-white/5'
+              ? 'bg-[#f0883e]/10 border-[#f0883e]/30 text-[#f0883e]'
+              : 'bg-transparent border-transparent text-[#768390] hover:bg-white/5'
               }`}
           >
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${activeTab === tab.id ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-[#161b22] text-[#444c56]'}`}>

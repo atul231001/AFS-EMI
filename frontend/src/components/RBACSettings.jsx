@@ -137,7 +137,7 @@ const RBACSettings = () => {
   };
 
   return (
-    <div className="flex gap-8 h-[calc(100vh-250px)] animate-fade-in">
+    <div className="flex gap-8 min-h-[calc(100vh-250px)] animate-fade-in">
       {/* Sidebar: Role List */}
       <div className="w-72 flex flex-col gap-4">
         <div className="flex items-center justify-between px-2">

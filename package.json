@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "server": "node --watch backend/server.js",
+    "server": "node backend/server.js",
+    "build": "cd frontend && npm run build && cd .. && cross-env NODE_ENV=production node backend/server.js",
     "client": "npm --prefix frontend run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "seed": "node seed.js"
@@ -11,6 +12,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",

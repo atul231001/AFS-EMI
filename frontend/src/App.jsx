@@ -171,7 +171,7 @@ const App = () => {
         <Sidebar />
         <main className="flex-1 flex flex-col min-w-0 transition-all relative overflow-hidden">
           <Header />
-          <div id="content-area" className="flex-1 overflow-y-auto custom-scrollbar px-6 lg:px-[4rem] py-8">
+          <div id="content-area" className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 lg:px-[4rem] py-8">
             <div className="max-w-[1600px] mx-auto">
               {renderContent()}
             </div>
