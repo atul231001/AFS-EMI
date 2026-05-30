@@ -7,7 +7,7 @@ import {
   Info, Calendar, Weight, History, Box, Truck, DollarSign, ShieldCheck, ExternalLink,
   HardHat, Eye, Edit3, Trash2, Plus, Search, ChevronDown, UploadCloud, FileCode, BookOpen,
   Paperclip, Check, Settings2, Hash, LayoutGrid, List, RefreshCw, CheckCircle2,
-  ChevronLeft, ChevronRight, Shield
+  ChevronLeft, ChevronRight, Shield, CreditCard, TrendingUp, AlertCircle, Clock
 } from 'lucide-react';
 
 const MachineManagement = () => {
@@ -87,7 +87,35 @@ const MachineManagement = () => {
     );
   }
 
-  const filteredMachines = machines.filter(m =>
+  let baseMachines = machines;
+
+  const isCustomer = user?.role === 'CUSTOMER' || (!isAdmin && user?.role !== 'SUPERVISOR');
+
+  if (isCustomer) {
+    const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
+    const isFMC = user?.type?.toUpperCase() === 'FMC' || (state.data.fmcContracts || []).some(c =>
+      (c.customerId && userCustId && (c.customerId?._id || c.customerId).toString() === userCustId) ||
+      (c.customerName === user?.name)
+    );
+
+    if (isFMC) {
+      const myContracts = (state.data.fmcContracts || []).filter(c =>
+        (c.customerId && userCustId && c.customerId.toString() === userCustId) ||
+        (c.customerName === user?.name)
+      );
+      const myMachineIds = myContracts.flatMap(c => c.machines || []);
+      baseMachines = machines.filter(m => myMachineIds.includes(m._id));
+    } else {
+      const clientLoans = (state.data.loans || []).filter(l => {
+        const loanCustId = (l.customerId?._id || l.customerId)?.toString();
+        return loanCustId && userCustId && loanCustId === userCustId;
+      });
+      const myMachineNames = clientLoans.map(l => l.machineName);
+      baseMachines = machines.filter(m => myMachineNames.includes(m.name));
+    }
+  }
+
+  const filteredMachines = baseMachines.filter(m =>
     m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     m.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     m.category?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -1188,9 +1216,10 @@ const WarrantyTab = ({ formData, setFormData }) => {
 const MachineDetailModal = ({ isOpen, onClose, machine }) => {
   const [heroImage, setHeroImage] = useState('');
   const [activeDetailTab, setActiveDetailTab] = useState('TECHNICAL PROFILE');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const { loans = [], user } = state.data;
-  const machineLoan = loans.find(l => l.machineId === machine?._id);
+  const machineLoan = loans.find(l => l.machineName === machine?.name || l.machineId === machine?._id);
 
   const technicalSpecs = [
     { label: 'Category', value: machine?.category || 'N/A' },
@@ -1386,68 +1415,160 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
               </div>
             </div>
           ) : (
-            <div className="h-full p-8 overflow-y-auto custom-scrollbar">
+            <div className="h-full bg-[#0d1117] flex flex-col overflow-y-auto custom-scrollbar">
               {machineLoan ? (
-                <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="bg-bg-card border border-border-main rounded-2xl p-6 flex flex-col justify-between h-36">
-                      <p className="text-[11px] font-black text-text-dim uppercase tracking-widest">Total Principal</p>
-                      <p className="text-3xl font-mono font-black text-text-main">₹{(machineLoan.principal / 100000).toFixed(1)}L</p>
+                <div className="flex-1 flex flex-col p-6 space-y-6">
+                  {/* FINANCIAL METRICS */}
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-4 shrink-0">
+                    <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
+                      <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">NEXT EMI <CreditCard size={14} className="text-[#f0883e]" /></p>
+                      <p className="text-xl font-black italic tracking-tighter text-[#f0883e]">₹{machineLoan.emi.toLocaleString()}</p>
                     </div>
-                    <div className="bg-bg-card border border-border-main rounded-2xl p-6 flex flex-col justify-between h-36">
-                      <p className="text-[11px] font-black text-primary uppercase tracking-widest">Monthly EMI</p>
-                      <p className="text-3xl font-mono font-black text-primary">₹{(machineLoan.emi / 1000).toFixed(1)}k</p>
+                    <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
+                      <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">TOTAL PAID <TrendingUp size={14} className="text-[#3fb950]" /></p>
+                      <p className="text-xl font-black italic tracking-tighter text-[#3fb950]">₹{((machineLoan.schedule.filter(s => s.status === 'Paid').length) * machineLoan.emi).toLocaleString()}</p>
                     </div>
-                    <div className="bg-bg-card border border-border-main rounded-2xl p-6 flex flex-col justify-between h-36">
-                      <p className="text-[11px] font-black text-blue-500 uppercase tracking-widest">Tenure</p>
-                      <p className="text-3xl font-mono font-black text-blue-500">{machineLoan.tenure} <span className="text-xs uppercase">Years</span></p>
+                    <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
+                      <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">OUTSTANDING BAL <AlertCircle size={14} className="text-white" /></p>
+                      <p className="text-xl font-black italic tracking-tighter text-white">₹{(machineLoan.schedule.find(s => s.status === 'Pending') || machineLoan.schedule[machineLoan.schedule.length - 1])?.balance?.toLocaleString()}</p>
                     </div>
-                    <div className="bg-bg-card border border-border-main rounded-2xl p-6 flex flex-col justify-between h-36">
-                      <p className="text-[11px] font-black text-green-500 uppercase tracking-widest">Paid Ratio</p>
-                      <p className="text-3xl font-mono font-black text-green-500">
-                        {Math.round((machineLoan.schedule.filter(s => s.status === 'Paid').length / machineLoan.schedule.length) * 100)}%
-                      </p>
+                    <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
+                      <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">OVERDUE INTEREST <History size={14} className="text-rose-500" /></p>
+                      <p className="text-xl font-black italic tracking-tighter text-rose-500">₹0</p>
                     </div>
-                    <div className="bg-bg-card border border-border-main rounded-3xl overflow-hidden shadow-2xl col-span-full">
-                      <div className="px-8 py-5 border-b border-border-main bg-bg-deep/50 flex items-center justify-between">
-                        <h3 className="text-xs font-black text-text-main uppercase tracking-[0.2em]">Repayment Schedule</h3>
-                        <span className="text-[10px] font-mono text-text-dim uppercase">Authorized Plan Protocol</span>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                          <thead>
-                            <tr className="bg-bg-card border-b border-border-main">
-                              <th className="px-8 py-4 text-[10px] font-black text-text-dim uppercase tracking-widest">Instalment</th>
-                              <th className="px-8 py-4 text-[10px] font-black text-text-dim uppercase tracking-widest">Due Date</th>
-                              <th className="px-8 py-4 text-[10px] font-black text-text-dim uppercase tracking-widest">EMI Payload</th>
-                              <th className="px-8 py-4 text-[10px] font-black text-text-dim uppercase tracking-widest">Status</th>
-                              <th className="px-8 py-4 text-[10px] font-black text-text-dim uppercase tracking-widest text-right">Verification</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border-main/50">
-                            {machineLoan.schedule.slice(0, 12).map((inst, i) => (
-                              <tr key={i} className="hover:bg-bg-active/30 transition-colors">
-                                <td className="px-8 py-4 font-mono text-xs text-text-dim">{inst.installment.toString().padStart(2, '0')}</td>
-                                <td className="px-8 py-4 font-mono text-xs text-text-main uppercase">{inst.dueDate}</td>
-                                <td className="px-8 py-4 font-mono text-xs text-primary font-bold">₹{inst.emi.toLocaleString()}</td>
-                                <td className="px-8 py-4">
-                                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${inst.status === 'Paid' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-text-dim/10 text-text-dim border border-text-dim/20'}`}>
-                                    {inst.status}
-                                  </span>
-                                </td>
-                                <td className="px-8 py-4 text-right">
-                                  <ShieldCheck size={14} className={inst.status === 'Paid' ? 'text-green-500 ml-auto' : 'text-border-main ml-auto'} />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      {machineLoan.schedule.length > 12 && (
-                        <div className="p-4 bg-bg-deep/30 text-center border-t border-border-main">
-                          <p className="text-[10px] font-black text-text-dim uppercase tracking-widest">Additional cycles truncated for performance</p>
+                    <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
+                      <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">LAST PAYMENT <Calendar size={14} className="text-[#768390]" /></p>
+                      <p className="text-xl font-black italic tracking-tighter text-[#768390]">{machineLoan.schedule.filter(s => s.status === 'Paid').pop()?.dueDate || '--'}</p>
+                    </div>
+                    <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
+                      <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">NEXT PAYMENT <Clock size={14} className="text-[#58a6ff]" /></p>
+                      <p className="text-xl font-black italic tracking-tighter text-[#58a6ff]">{machineLoan.schedule.find(s => s.status === 'Pending')?.dueDate || 'DONE'}</p>
+                    </div>
+                  </div>
+
+                  {/* SCHEDULE & OVERDUE TABS */}
+                  <div className="flex-1 bg-[#161b22] border border-[#30363d] rounded-xl p-6 flex flex-col">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 shrink-0 gap-4">
+                      <div className="flex items-center gap-6">
+                        <div>
+                          <h3 className="text-lg font-black text-white tracking-tighter uppercase italic">Repayment Schedule</h3>
+                          <p className="text-[9px] text-[#768390] font-bold uppercase tracking-widest mt-0.5">Financing Schedule Details</p>
                         </div>
-                      )}
+                        <div className="hidden sm:block h-8 w-px bg-[#30363d]" />
+                        <div className="flex p-1 bg-[#0d1117] border border-[#30363d] rounded-xl">
+                          <button
+                            onClick={() => setShowAdvanced(false)}
+                            className={`px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${!showAdvanced ? 'bg-[#30363d] text-[#f0883e]' : 'text-[#444c56] hover:text-[#768390]'}`}
+                          >
+                            Schedule
+                          </button>
+                          <button
+                            onClick={() => setShowAdvanced(true)}
+                            className={`px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${showAdvanced ? 'bg-[#30363d] text-rose-500' : 'text-[#444c56] hover:text-[#768390]'}`}
+                          >
+                            Overdue Interest
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <span className="text-[8px] font-black text-[#768390] uppercase block">Progress</span>
+                          <span className="text-sm font-black text-[#f0883e] font-mono italic">{Math.round((machineLoan.schedule.filter(s => s.status === 'Paid').length / (machineLoan.schedule.length || 1)) * 100)}%</span>
+                        </div>
+                        <div className="w-24 h-1.5 bg-[#0d1117] rounded-full overflow-hidden border border-[#30363d]">
+                          <div className="h-full bg-[#f0883e] shadow-[0_0_10px_rgba(240,136,62,0.5)]" style={{ width: `${(machineLoan.schedule.filter(s => s.status === 'Paid').length / (machineLoan.schedule.length || 1)) * 100}%` }}></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-lg overflow-hidden flex flex-col">
+                      <div className="overflow-y-auto flex-1 custom-scrollbar min-h-[300px]">
+                        {!showAdvanced ? (
+                          <table className="w-full text-left border-collapse">
+                            <thead className="sticky top-0 bg-[#1c2128] z-10 border-b border-[#30363d]">
+                              <tr className="text-[9px] font-bold text-[#768390] uppercase tracking-widest">
+                                <th className="px-5 py-3 font-mono">#ID</th>
+                                <th className="px-5 py-3">Due Date</th>
+                                <th className="px-5 py-3 text-right">Principal</th>
+                                <th className="px-5 py-3 text-right">Interest</th>
+                                <th className="px-5 py-3 text-right">Balance</th>
+                                <th className="px-5 py-3 text-center">Status</th>
+                                <th className="px-5 py-3 text-center">Received Date</th>
+                                <th className="px-5 py-3 text-right text-red-500">Overdue</th>
+                                <th className="px-5 py-3 text-right">Delay Int.</th>
+                                <th className="px-5 py-3 text-center">Receipt</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#30363d]/50">
+                              {machineLoan.schedule.map(s => (
+                                <tr key={s.installment} className="hover:bg-[#f0883e]/5 transition-colors group">
+                                  <td className="px-5 py-2.5 text-[10px] font-mono font-bold text-[#444c56] group-hover:text-[#f0883e] transition-colors">{s.installment.toString().padStart(2, '0')}</td>
+                                  <td className="px-5 py-2.5 text-[10px] font-bold text-white uppercase italic">{s.dueDate}</td>
+                                  <td className="px-5 py-2.5 text-[10px] font-mono text-[#768390] text-right">₹{s.principal?.toLocaleString() || 0}</td>
+                                  <td className="px-5 py-2.5 text-[10px] font-mono text-rose-400/70 text-right">₹{s.interest?.toLocaleString() || 0}</td>
+                                  <td className="px-5 py-2.5 text-[10px] font-mono font-bold text-white text-right italic">₹{s.balance?.toLocaleString() || 0}</td>
+                                  <td className="px-5 py-2.5 text-center">
+                                    <div className="flex items-center justify-center">
+                                      {s.status === 'Paid' ? (
+                                        <span className="flex items-center gap-1.5 px-2 py-0.5 bg-[#3fb950]/10 text-[#3fb950] rounded border border-[#3fb950]/20 text-[8px] font-bold uppercase tracking-tighter">
+                                          <CheckCircle2 size={10} /> CLEAR
+                                        </span>
+                                      ) : (
+                                        <span className="flex items-center gap-1.5 px-2 py-0.5 bg-[#f0883e]/10 text-[#f0883e] rounded border border-[#f0883e]/20 text-[8px] font-bold uppercase tracking-tighter">
+                                          <History size={10} /> PENDING
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-5 py-2.5 text-center text-[10px] font-mono text-[#768390]">
+                                    {s.status === 'Paid' ? s.dueDate : '--'}
+                                  </td>
+                                  <td className="px-5 py-2.5 text-right text-[10px] font-mono text-red-500 font-bold">
+                                    {s.status === 'Pending' && new Date(s.dueDate) < new Date() ? `₹${machineLoan.emi.toLocaleString()}` : '—'}
+                                  </td>
+                                  <td className="px-5 py-2.5 text-right text-[10px] font-mono text-rose-500">
+                                    {s.status === 'Paid' ? '--' : '--'}
+                                  </td>
+                                  <td className="px-5 py-2.5 text-center">
+                                    {s.status === 'Paid' ? (
+                                      <button
+                                        className="p-1.5 hover:bg-[#f0883e]/20 rounded-md text-[#f0883e] transition-all"
+                                        title="Download Receipt"
+                                      >
+                                        <Download size={14} />
+                                      </button>
+                                    ) : (
+                                      <span className="text-[#444c56] opacity-30 cursor-not-allowed">
+                                        <Download size={14} />
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div className="p-8 text-center">
+                            <History size={48} className="mx-auto text-rose-500/20 mb-4" />
+                            <h3 className="text-sm font-black text-white uppercase italic mb-2">Overdue Interest</h3>
+                            <p className="text-[10px] text-[#768390] font-bold uppercase tracking-widest max-w-xs mx-auto mb-6">Penalty calculation based on standard contract grace period and delay dates.</p>
+                            <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
+                              <div className="p-4 bg-[#1c2128] border border-[#30363d] rounded-2xl">
+                                <p className="text-[8px] font-bold text-[#768390] uppercase mb-1">Grace Period</p>
+                                <p className="text-lg font-black text-white italic">05 DAYS</p>
+                              </div>
+                              <div className="p-4 bg-[#1c2128] border border-[#30363d] rounded-2xl">
+                                <p className="text-[8px] font-bold text-[#768390] uppercase mb-1">Penalty Rate</p>
+                                <p className="text-lg font-black text-rose-500 italic">2.0% PM</p>
+                              </div>
+                              <div className="p-4 bg-[#1c2128] border border-[#30363d] rounded-2xl">
+                                <p className="text-[8px] font-bold text-[#768390] uppercase mb-1">Total Accrued</p>
+                                <p className="text-lg font-black text-[#f0883e] italic">₹0</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

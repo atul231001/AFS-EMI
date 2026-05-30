@@ -35,34 +35,82 @@ const CustomerDashboard = () => {
     const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
     return loanCustId && userCustId && loanCustId === userCustId;
   });
+  
   const totalFinanced = clientLoans.reduce((sum, l) => sum + (l.principal || 0), 0);
+  
+  let totalPaidAmt = 0;
+  let totalOutstanding = 0;
+  let overdueAmount = 0;
+  let lastPaymentDate = null;
+
+  clientLoans.forEach(loan => {
+    const paid = (loan.schedule || []).filter(s => s.status === 'Paid');
+    const pending = (loan.schedule || []).filter(s => s.status === 'Pending');
+    
+    totalPaidAmt += paid.length * (loan.emi || 0);
+    
+    const nextInstallment = pending.length > 0 ? pending[0] : loan.schedule[loan.schedule.length - 1];
+    if (nextInstallment) {
+      totalOutstanding += nextInstallment.balance || 0;
+    }
+
+    pending.forEach(s => {
+      if (new Date(s.dueDate) < new Date()) {
+        overdueAmount += loan.emi; 
+      }
+    });
+
+    paid.forEach(s => {
+      if (!lastPaymentDate || new Date(s.dueDate) > new Date(lastPaymentDate)) {
+        lastPaymentDate = s.dueDate;
+      }
+    });
+  });
+
   const nextPayment = clientLoans
     .flatMap(l => (l.schedule || []).filter(s => s.status === 'Pending'))
     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
 
   return (
     <div className="space-y-8 animate-slide-up pb-10">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard icon={Truck} label="SECURED ASSETS" value={clientLoans.length} accent="text-primary" />
-        <div className="bg-bg-card border border-primary/30 rounded-xl p-6 relative overflow-hidden shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-1 bg-bg-card border border-primary/30 rounded-xl p-6 relative overflow-hidden shadow-sm flex flex-col justify-center">
           <span className="text-[11px] font-bold text-primary tracking-widest font-mono uppercase block mb-4">NEXT SETTLEMENT</span>
-          <span className="text-3xl font-bold text-text-main font-mono">{nextPayment ? formatINR(nextPayment.emi) : 'CLEAR'}</span>
+          <span className="text-3xl font-bold text-text-main font-mono mb-2">{nextPayment ? formatINR(nextPayment.emi) : 'CLEAR'}</span>
+          {nextPayment && <span className="text-[10px] font-bold text-text-dim uppercase tracking-widest">DUE: {nextPayment.dueDate}</span>}
         </div>
-        <StatCard icon={History} label="TOTAL FINANCED" value={formatINR(totalFinanced)} accent="text-text-dim" />
+        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-4">
+          <StatCard icon={TrendingUp} label="TOTAL PAID" value={formatINR(totalPaidAmt)} accent="text-[#3fb950]" />
+          <StatCard icon={AlertCircle} label="OUTSTANDING BAL" value={formatINR(totalOutstanding)} accent="text-white" />
+          <StatCard icon={History} label="OVERDUE AMOUNT" value={formatINR(overdueAmount)} accent="text-rose-500" />
+          <StatCard icon={Truck} label="SECURED ASSETS" value={clientLoans.length} accent="text-primary" />
+          <StatCard icon={History} label="TOTAL FINANCED" value={formatINR(totalFinanced)} accent="text-text-dim" />
+          <StatCard icon={History} label="LAST PAYMENT" value={lastPaymentDate || '--'} accent="text-[#768390]" />
+        </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="bg-[#161b22] border border-[#30363d] rounded-xl p-8">
-          <h3 className="text-[11px] font-bold font-mono tracking-[0.2em] text-[#768390] uppercase mb-6">Payment Terminal</h3>
-          <div className="p-6 bg-[#0d1117] border border-[#30363d] rounded-xl flex items-center justify-between">
-            <div><p className="text-[10px] font-bold text-[#768390] uppercase tracking-widest mb-1">Payments Pending</p><p className="text-2xl font-bold text-white font-mono">{formatINR(nextPayment?.emi || 0)}</p></div>
-            <div><p className="text-[10px] font-bold text-[#768390] uppercase tracking-widest mb-1">Payments Pending</p><p className="text-2xl font-bold text-white font-mono">{formatINR(nextPayment?.emi || 0)}</p></div>
-            <button className="px-6 py-2.5 bg-[#f0883e] text-black font-black text-[11px] uppercase tracking-widest rounded-md" disabled={!nextPayment}>Pay Now</button>
+        <section className="bg-bg-card border border-border-main rounded-xl p-8">
+          <h3 className="text-[11px] font-bold font-mono tracking-[0.2em] text-text-dim uppercase mb-6">Payment Terminal</h3>
+          <div className="p-6 bg-bg-deep border border-border-main rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest mb-1">Next EMI Due</p>
+              <p className="text-2xl font-bold text-text-main font-mono">{formatINR(nextPayment?.emi || 0)}</p>
+            </div>
+            <div className="w-px h-8 bg-border-main hidden sm:block"></div>
+            <div>
+              <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest mb-1">Overdue Penalty</p>
+              <p className="text-2xl font-bold text-rose-500 font-mono">{formatINR(overdueAmount)}</p>
+            </div>
+            <button className="px-6 py-3 bg-primary text-black font-black text-[11px] uppercase tracking-widest rounded-lg hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(240,136,62,0.15)] active:scale-95 whitespace-nowrap" disabled={!nextPayment}>Pay Now</button>
           </div>
         </section>
         <section className="bg-bg-card border border-border-main rounded-xl p-8 flex flex-col justify-between shadow-sm">
           <h3 className="text-[11px] font-bold font-mono tracking-[0.2em] text-text-dim uppercase mb-4">Strategic Support</h3>
-          <p className="text-[12px] text-text-dim leading-relaxed">Access 24/7 technical assistance for your Liugong assets.</p>
-          <div className="grid grid-cols-2 gap-3 mt-8"><button className="py-3 bg-bg-deep border border-border-main rounded-lg text-[10px] font-black text-text-main uppercase tracking-widest hover:bg-bg-active transition-all">Request NOC</button><button className="py-3 bg-bg-deep border border-border-main rounded-lg text-[10px] font-black text-text-main uppercase tracking-widest hover:bg-bg-active transition-all">Contact Ops</button></div>
+          <p className="text-[12px] text-text-dim leading-relaxed">Access 24/7 technical assistance for your Liugong assets. Fast-track your service requests.</p>
+          <div className="grid grid-cols-2 gap-3 mt-8">
+            <button className="py-3 bg-bg-deep border border-border-main rounded-lg text-[10px] font-black text-text-main uppercase tracking-widest hover:bg-bg-active transition-all">Request NOC</button>
+            <button className="py-3 bg-bg-deep border border-border-main rounded-lg text-[10px] font-black text-text-main uppercase tracking-widest hover:bg-bg-active transition-all">Contact Ops</button>
+          </div>
         </section>
       </div>
     </div>

@@ -12,20 +12,15 @@ const PaymentTracker = () => {
 
   // const totalCollected = payments.reduce((acc, p) => acc + p.amount, 0);
 
+  const isAdmin = user?.role === 'OEM' || user?.role === 'Admin';
+  const isCustomer = user?.role === 'CUSTOMER' || (!isAdmin && user?.role !== 'SUPERVISOR');
+
   // 1. Process Settled Payments
-  const settledEntries = (user?.role === 'CUSTOMER'
+  const settledEntries = (isCustomer
     ? payments.filter(p => {
       const pCustId = (p.loanId?.customerId?._id || p.loanId?.customerId)?.toString();
       return pCustId && uCustId && pCustId === uCustId;
     })
-
-    // 1. Process Settled Payments
-    // const settledEntries = (user?.role === 'CUSTOMER' 
-    //   ? payments.filter(p => {
-    //       const pCustId = (p.loanId?.customerId?._id || p.loanId?.customerId)?.toString();
-    //       return pCustId && uCustId && pCustId === uCustId;
-    //     })
-
     : payments
   ).map(p => ({
     ...p,
@@ -37,7 +32,7 @@ const PaymentTracker = () => {
   }));
 
   // 2. Process Pending EMIs from Loans
-  const clientLoans = user?.role === 'CUSTOMER'
+  const clientLoans = isCustomer
     ? loans.filter(l => {
       const lCustId = (l.customerId?._id || l.customerId)?.toString();
       return lCustId && uCustId && lCustId === uCustId;
