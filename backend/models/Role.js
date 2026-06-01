@@ -33,6 +33,16 @@ const roleSchema = new mongoose.Schema({
       read: { type: Boolean, default: true },
       update: { type: Boolean, default: false }
     },
+    financing_scheduling: {
+      read: { type: Boolean, default: false },
+      update: { type: Boolean, default: false },
+      approve: { type: Boolean, default: false }
+    },
+    financing_invoicing: {
+      read: { type: Boolean, default: false },
+      update: { type: Boolean, default: false },
+      approve: { type: Boolean, default: false }
+    },
     settlements: {
       read: { type: Boolean, default: true },
       create: { type: Boolean, default: false },

@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { state } from '../state';
 import { showNotification, calculateFinanceNorms, formatINR, hasPermission } from '../utils';
-import { 
-  LayoutGrid, 
-  List, 
-  PieChart, 
-  PlusCircle, 
-  ArrowRight, 
-  TrendingUp, 
-  History, 
-  Calculator, 
-  ChevronDown, 
-  Zap, 
-  ShieldCheck, 
+import {
+  LayoutGrid,
+  List,
+  PieChart,
+  PlusCircle,
+  ArrowRight,
+  TrendingUp,
+  History,
+  Calculator,
+  ChevronDown,
+  Zap,
+  ShieldCheck,
   Plus,
-  Check
+  Check,
+  X
 } from 'lucide-react';
 
 const getMachineImage = (m) => {
@@ -41,22 +42,22 @@ const LoanAssignment = () => {
             {activeTab === 'new' ? 'Assign Asset to Client' : 'Financed Asset Management'}
           </p>
         </div>
-        
+
         {activeTab !== 'new' && (
           <div className="flex items-center gap-6">
             <div className="glass-tabs">
-              <div className="tab-indicator" style={{ 
-                left: (loanListView || 'card') === 'card' ? '0px' : '50%', 
-                width: '50%' 
+              <div className="tab-indicator" style={{
+                left: (loanListView || 'card') === 'card' ? '0px' : '50%',
+                width: '50%'
               }}></div>
-              <button 
-                className={`glass-tab ${(loanListView || 'card') === 'card' ? 'active' : ''}`} 
+              <button
+                className={`glass-tab ${(loanListView || 'card') === 'card' ? 'active' : ''}`}
                 onClick={() => handleToggleView('card')}
               >
                 <LayoutGrid size={14} className="mr-2" /> Cards
               </button>
-              <button 
-                className={`glass-tab ${(loanListView || 'card') === 'list' ? 'active' : ''}`} 
+              <button
+                className={`glass-tab ${(loanListView || 'card') === 'list' ? 'active' : ''}`}
                 onClick={() => handleToggleView('list')}
               >
                 <List size={14} className="mr-2" /> List
@@ -77,13 +78,15 @@ const LoanAssignment = () => {
 
 const PortfolioCardView = ({ loans, machines, user }) => {
   const pendingLoans = loans.filter(l => {
+    if (l.approvalStatus === 'Rejected') return false;
     const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
     return paidCount < l.schedule.length;
   });
 
   const paidLoans = loans.filter(l => {
+    if (l.approvalStatus === 'Rejected') return false;
     const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
-    return paidCount === l.schedule.length;
+    return paidCount === l.schedule.length && l.schedule.length > 0;
   });
 
   const renderLoanCard = (l) => {
@@ -106,11 +109,11 @@ const PortfolioCardView = ({ loans, machines, user }) => {
           <div className="grid grid-cols-2 gap-2">
             <div className="p-2 rounded-xl bg-bg-active">
               <p className="text-[0.4375rem] font-black text-text-dim uppercase tracking-widest">Principal</p>
-              <p className="text-[0.625rem] font-black text-text-main">₹{(l.principal/100000).toFixed(1)}L</p>
+              <p className="text-[0.625rem] font-black text-text-main">₹{(l.principal / 100000).toFixed(1)}L</p>
             </div>
             <div className="p-2 rounded-xl bg-[#f0883e]/5 border border-[#f0883e]/10">
               <p className="text-[0.4375rem] font-black text-[#f0883e] uppercase tracking-widest">Monthly EMI</p>
-              <p className="text-[0.625rem] font-black text-text-main">₹{(l.emi/1000).toFixed(0)}k</p>
+              <p className="text-[0.625rem] font-black text-text-main">₹{(l.emi / 1000).toFixed(0)}k</p>
             </div>
           </div>
 
@@ -138,11 +141,34 @@ const PortfolioCardView = ({ loans, machines, user }) => {
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-border-main">
             <div className="text-[0.5rem] font-black text-text-dim uppercase truncate max-w-[100px]">
-               {l.customerId?.name || 'Unknown'}
+              {l.customerId?.name || 'Unknown'}
             </div>
-            <button onClick={() => state.setState({ selectedLoanId: l._id, view: 'loan-details', previousView: 'loans' })} className="w-7 h-7 bg-[#f0883e] text-black rounded-lg flex items-center justify-center transition-all hover:scale-110 cursor-pointer">
-              <ArrowRight size={14} />
-            </button>
+            {l.approvalStatus === 'Pending Approval' ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                  <History size={10} /> Pending Approval
+                </span>
+                {l.approvalFlowId?.steps?.[l.approvalStep]?.approverId === user?._id && (
+                  <button
+                    onClick={async () => {
+                      const res = await state.approveLoan(l._id);
+                      if (res.success) {
+                        showNotification('Asset financing approved!');
+                      } else {
+                        showNotification(res.message || 'Approval failed', 'error');
+                      }
+                    }}
+                    className="px-2 py-1 bg-primary text-black text-[9px] rounded font-black uppercase hover:opacity-90 transition-all cursor-pointer shadow-lg shadow-primary/20"
+                  >
+                    Approve
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button onClick={() => state.setState({ selectedLoanId: l._id, view: 'loan-details', previousView: 'loans' })} className="w-7 h-7 bg-[#f0883e] text-black rounded-lg flex items-center justify-center transition-all hover:scale-110 cursor-pointer">
+                <ArrowRight size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -190,13 +216,15 @@ const PortfolioCardView = ({ loans, machines, user }) => {
 
 const PortfolioListView = ({ loans, machines, user }) => {
   const pendingLoans = loans.filter(l => {
+    if (l.approvalStatus === 'Rejected') return false;
     const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
     return paidCount < l.schedule.length;
   });
 
   const paidLoans = loans.filter(l => {
+    if (l.approvalStatus === 'Rejected') return false;
     const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
-    return paidCount === l.schedule.length;
+    return paidCount === l.schedule.length && l.schedule.length > 0;
   });
 
   const renderTable = (list, title, colorClass) => (
@@ -243,8 +271,8 @@ const PortfolioListView = ({ loans, machines, user }) => {
                       <td className="px-4 py-2">
                         <div className="font-black text-text-main text-[0.625rem]">{l.customerId?.name || 'Unknown'}</div>
                       </td>
-                      <td className="px-4 py-2 font-black text-text-dim text-[0.625rem]">₹{(l.principal/100000).toFixed(1)}L</td>
-                      <td className="px-4 py-2 font-black text-[#f0883e] text-[0.625rem]">₹{(l.emi/1000).toFixed(1)}k</td>
+                      <td className="px-4 py-2 font-black text-text-dim text-[0.625rem]">₹{(l.principal / 100000).toFixed(1)}L</td>
+                      <td className="px-4 py-2 font-black text-[#f0883e] text-[0.625rem]">₹{(l.emi / 1000).toFixed(1)}k</td>
                       <td className="px-4 py-2 font-black text-[#3fb950] text-[0.625rem]">{paidCount} / {l.schedule.length}</td>
                       <td className="px-4 py-2 font-black text-[#f0883e] text-[0.625rem]">{pendingCount}</td>
                       <td className="px-4 py-2">
@@ -256,9 +284,32 @@ const PortfolioListView = ({ loans, machines, user }) => {
                         </div>
                       </td>
                       <td className="px-4 py-2 text-right">
-                        <button onClick={() => state.setState({ selectedLoanId: l._id, view: 'loan-details', previousView: 'loans' })} className="w-7 h-7 bg-[#f0883e] text-black rounded-lg inline-flex items-center justify-center transition-all hover:scale-110 cursor-pointer">
-                          <ArrowRight size={14} />
-                        </button>
+                        {l.approvalStatus === 'Pending Approval' ? (
+                          <div className="flex items-center justify-end gap-3">
+                            <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                              <History size={10} /> Pending
+                            </span>
+                            {l.approvalFlowId?.steps?.[l.approvalStep]?.approverId === user?._id && (
+                              <button
+                                onClick={async () => {
+                                  const res = await state.approveLoan(l._id);
+                                  if (res.success) {
+                                    showNotification('Asset financing approved!');
+                                  } else {
+                                    showNotification(res.message || 'Approval failed', 'error');
+                                  }
+                                }}
+                                className="px-3 py-1 bg-primary text-black text-[10px] rounded-lg font-black uppercase hover:opacity-90 transition-all cursor-pointer shadow-lg shadow-primary/20"
+                              >
+                                Approve
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <button onClick={() => state.setState({ selectedLoanId: l._id, view: 'loan-details', previousView: 'loans' })} className="w-7 h-7 bg-[#f0883e] text-black rounded-lg inline-flex items-center justify-center transition-all hover:scale-110 cursor-pointer">
+                            <ArrowRight size={14} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -287,21 +338,76 @@ const NewAssignment = ({ machines, customers, user }) => {
   const [formData, setFormData] = useState({
     customerId: '',
     machineName: '',
-    serialNumber: '',
+    emiStartDate: new Date().toISOString().split('T')[0],
     tenure: 3,
+    machinePrice: 0,
+    discountPercentage: 0,
+    discountAmount: 0,
     downPayment: 0,
     interestRate: 12,
-    fee: 5000
+    delayInterest: 2, // Overdue/Delay interest default
+    selectedAttachments: [],
+    manualCharges: []
   });
 
-  const selectedMachine = machines.find(m => m.name === formData.machineName);
-  const price = selectedMachine?.pricing?.totalPrice || 0;
-  const P = Math.max(0, (price - (parseFloat(formData.downPayment) || 0)) + (parseFloat(formData.fee) || 0));
+  const isMachineSelected = !!formData.machineName;
+  const selectedMachineModel = machines.find(m => m.name === formData.machineName);
+  const availableAttachments = selectedMachineModel?.attachments || [];
+
+  let attachmentTotal = 0;
+  availableAttachments.forEach(att => {
+    const attName = `${att.type} - ${att.config}`;
+    const isSelected = formData.selectedAttachments.some(sa => sa.name === attName);
+    
+    if (att.isStandard) {
+      if (!isSelected) {
+        attachmentTotal -= (parseFloat(att.amount) || 0);
+      }
+    } else {
+      if (isSelected) {
+        attachmentTotal += (parseFloat(att.amount) || 0);
+      }
+    }
+  });
+
+  const manualChargesTotal = formData.manualCharges.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+  const finalPrice = Math.max(0, formData.machinePrice - formData.discountAmount);
+  const P = Math.max(0, (finalPrice - (parseFloat(formData.downPayment) || 0)) + attachmentTotal + manualChargesTotal);
   const norms = calculateFinanceNorms(P, formData.interestRate, formData.tenure);
+
+  const calculateEndDate = () => {
+    if (!formData.emiStartDate || !formData.tenure) return 'N/A';
+    const startDate = new Date(formData.emiStartDate);
+    startDate.setMonth(startDate.getMonth() + parseInt(formData.tenure));
+    return startDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  // Generate Schedule on the fly for display
+  const schedule = [];
+  let currentBalance = P;
+  const baseDate = formData.emiStartDate ? new Date(formData.emiStartDate) : new Date();
+
+  for (let i = 1; i <= norms.n; i++) {
+    const interest = Math.round(currentBalance * norms.r);
+    const principalPaid = norms.emi - interest;
+    currentBalance -= principalPaid;
+    const dueDate = new Date(baseDate);
+    dueDate.setMonth(dueDate.getMonth() + i);
+
+    schedule.push({
+      installment: i,
+      dueDate: dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      emi: norms.emi,
+      principal: principalPaid,
+      interest: interest,
+      balance: Math.max(0, currentBalance),
+      status: 'Pending'
+    });
+  }
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    
+
     if (!formData.customerId) {
       showNotification('Error: Please select a client', 'error');
       return;
@@ -310,36 +416,14 @@ const NewAssignment = ({ machines, customers, user }) => {
       showNotification('Error: Please select an asset', 'error');
       return;
     }
-    if (!formData.serialNumber) {
-      showNotification('Error: Serial number is required', 'error');
+    if (!formData.emiStartDate) {
+      showNotification('Error: EMI Start Date is required', 'error');
       return;
     }
 
     if (P <= 0 || norms.emi <= 0) {
       showNotification('Error: Invalid financial details', 'error');
       return;
-    }
-
-    const schedule = [];
-    let balance = P;
-    const startDate = new Date();
-
-    for (let i = 1; i <= norms.n; i++) {
-      const interest = Math.round(balance * norms.r);
-      const principalPaid = norms.emi - interest;
-      balance -= principalPaid;
-      const dueDate = new Date(startDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
-
-      schedule.push({
-        installment: i,
-        dueDate: dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-        emi: norms.emi,
-        principal: principalPaid,
-        interest: interest,
-        balance: Math.max(0, balance),
-        status: 'Pending'
-      });
     }
 
     const newLoan = {
@@ -352,21 +436,27 @@ const NewAssignment = ({ machines, customers, user }) => {
 
     const result = await state.addLoan(newLoan);
     if (result.success) {
-      showNotification('Financing plan approved successfully!');
-      state.setState({ view: 'financed-machines' });
+      showNotification('Financing plan submitted successfully!');
+      if (result.data && result.data.approvalStatus !== 'Approved') {
+        state.setState({ view: 'financing-pipeline' });
+      } else {
+        state.setState({ view: 'financed-machines' });
+      }
     } else {
       showNotification(`Failed: ${result.message}`, 'error');
     }
   };
 
+  const attachmentOptions = ["None", ...availableAttachments.map(a => `${a.type} - ${a.config} (₹${a.amount})`)];
+
   return (
-    <div className="flex-1 grid grid-cols-12 gap-8 min-h-[calc(100vh-180px)] mt-4">
-      
+    <div className="flex-1 grid grid-cols-12 gap-8 min-h-[calc(100vh-180px)] h-[calc(100vh-180px)] mt-4">
+
       {/* LEFT COLUMN: FINANCIAL PARAMETERS */}
       <div className="col-span-12 lg:col-span-5 bg-bg-card border border-border-main rounded-2xl relative overflow-hidden flex flex-col shadow-2xl">
         {/* GitHub Style Vertical Progress Line */}
         <div className="absolute left-6 top-8 bottom-8 w-px bg-border-main" />
-        
+
         <div className="p-8 space-y-8 relative z-10 flex flex-col h-full">
           <div className="flex items-center gap-4">
             <div className="w-8 h-8 bg-[#f0883e] text-black rounded-full flex items-center justify-center font-black text-xs shadow-[0_0_15px_rgba(240,136,62,0.3)]">1</div>
@@ -375,70 +465,228 @@ const NewAssignment = ({ machines, customers, user }) => {
 
           <div className="pl-12 space-y-6 flex-1 overflow-y-auto no-scrollbar">
             <div className="grid grid-cols-2 gap-6">
-              <SearchableDropdown 
-                label="Client" 
+              <SearchableDropdown
+                label="Client"
                 selected={customers.find(c => c._id === formData.customerId)?.name || "Select Client..."}
-                onSelect={(val) => setFormData({...formData, customerId: customers.find(c => c.name === val)?._id})}
-                options={customers.map(c => c.name)} 
+                onSelect={(val) => setFormData({ ...formData, customerId: customers.find(c => c.name === val)?._id })}
+                options={customers.map(c => c.name)}
               />
-              <SearchableDropdown 
-                label="Equipment Model" 
+              <SearchableDropdown
+                label="Equipment Model"
                 selected={formData.machineName || "Select Asset..."}
-                onSelect={(val) => setFormData({...formData, machineName: val})}
-                options={machines.map(m => m.name)} 
+                onSelect={(val) => {
+                  const sm = machines.find(m => m.name === val);
+                  const standardAtts = (sm?.attachments || []).filter(a => a.isStandard).map(a => ({ name: `${a.type} - ${a.config}`, amount: a.amount, isStandard: true }));
+                  setFormData({
+                    ...formData,
+                    machineName: val,
+                    machinePrice: sm?.pricing?.totalPrice || 0,
+                    discountPercentage: 0,
+                    discountAmount: 0,
+                    selectedAttachments: standardAtts
+                  });
+                }}
+                options={machines.map(m => m.name)}
               />
             </div>
 
+            {isMachineSelected && availableAttachments.length > 0 && (
+              <div className="space-y-3 bg-[#0d1117] border border-[#30363d] rounded-xl p-5 shadow-inner">
+                <p className="text-[10px] font-bold text-[#768390] uppercase tracking-wider flex items-center justify-between">
+                  <span>Configure Attachments</span>
+                  <span className="text-[#f0883e] font-mono">Total: ₹{attachmentTotal.toLocaleString()}</span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {availableAttachments.map((att, idx) => {
+                    const attName = `${att.type} - ${att.config}`;
+                    const isSelected = formData.selectedAttachments.some(sa => sa.name === attName);
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setFormData({ ...formData, selectedAttachments: formData.selectedAttachments.filter(sa => sa.name !== attName) });
+                          } else {
+                            setFormData({ ...formData, selectedAttachments: [...formData.selectedAttachments, { name: attName, amount: att.amount, isStandard: att.isStandard }] });
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-2 border ${isSelected ? 'bg-[#f0883e]/10 border-[#f0883e]/50 text-[#f0883e]' : 'bg-[#161b22] border-[#30363d] text-[#768390] hover:text-white hover:border-[#444c56]'}`}
+                      >
+                        {attName} <span className="font-mono opacity-60 font-medium">(₹{att.amount.toLocaleString()})</span>
+                        {att.isStandard && <span className="text-[8px] bg-[#30363d] px-1 py-0.5 rounded uppercase text-white tracking-widest border border-white/5">STD</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Serial Number</p>
-                <input 
-                  type="text" 
-                  value={formData.serialNumber}
-                  onChange={e => setFormData({...formData, serialNumber: e.target.value})}
-                  placeholder="e.g. LG922E-2024-X" 
-                  className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-dim font-mono focus:border-[#58a6ff] outline-none transition-all" 
+                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Asset Base Price (₹)</p>
+                <input
+                  type="number"
+                  disabled
+                  value={formData.machinePrice}
+                  onChange={e => {
+                    const price = parseFloat(e.target.value) || 0;
+                    const amount = (price * formData.discountPercentage) / 100;
+                    setFormData({ ...formData, machinePrice: price, discountAmount: amount });
+                  }}
+                  className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Discount (%)</p>
+                  <input
+                    type="number"
+                    step="0.1"
+                    disabled={!isMachineSelected}
+                    value={formData.discountPercentage}
+                    onChange={e => {
+                      const perc = parseFloat(e.target.value) || 0;
+                      const amount = (formData.machinePrice * perc) / 100;
+                      setFormData({ ...formData, discountPercentage: perc, discountAmount: amount });
+                    }}
+                    className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Discount (₹)</p>
+                  <input
+                    type="number"
+                    disabled={!isMachineSelected}
+                    value={formData.discountAmount}
+                    onChange={e => {
+                      const amount = parseFloat(e.target.value) || 0;
+                      const perc = formData.machinePrice ? (amount / formData.machinePrice) * 100 : 0;
+                      setFormData({ ...formData, discountAmount: amount, discountPercentage: perc });
+                    }}
+                    className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6">
+              <div>
+                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">EMI Start Date</p>
+                <input
+                  type="date"
+                  disabled={!isMachineSelected}
+                  value={formData.emiStartDate}
+                  onChange={e => setFormData({ ...formData, emiStartDate: e.target.value })}
+                  className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Tenure (Years)</p>
-                <input 
-                  type="number" 
+                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Tenure (Months)</p>
+                <input
+                  type="number"
+                  disabled={!isMachineSelected}
                   value={formData.tenure}
-                  onChange={e => setFormData({...formData, tenure: parseInt(e.target.value) || 1})}
-                  className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all" 
+                  onChange={e => setFormData({ ...formData, tenure: parseInt(e.target.value) || 1 })}
+                  className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 />
+              </div>
+              <div className="flex flex-col">
+                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Est. End Date</p>
+                <div className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-main font-bold outline-none cursor-not-allowed opacity-70 flex items-center h-[34px]">
+                  {calculateEndDate()}
+                </div>
               </div>
             </div>
 
             <div className="bg-bg-deep/50 border border-border-main rounded-xl p-5 grid grid-cols-2 gap-8 shadow-inner">
               <div>
                 <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Down Payment (₹)</p>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
+                  disabled={!isMachineSelected}
                   value={formData.downPayment}
-                  onChange={e => setFormData({...formData, downPayment: parseFloat(e.target.value) || 0})}
-                  className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none" 
+                  onChange={e => setFormData({ ...formData, downPayment: parseFloat(e.target.value) || 0 })}
+                  className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
               <div className="border-l border-border-main pl-8">
                 <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Interest Rate (% p.a.)</p>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   step="0.1"
+                  disabled={!isMachineSelected}
                   value={formData.interestRate}
-                  onChange={e => setFormData({...formData, interestRate: parseFloat(e.target.value) || 0})}
-                  className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none" 
+                  onChange={e => setFormData({ ...formData, interestRate: parseFloat(e.target.value) || 0 })}
+                  className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
 
-            <div>
-              <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Processing Fee (₹)</p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-mono font-bold text-text-dim">{formData.fee}</span>
-                <div className="h-px flex-1 bg-border-main" />
+            <div className="grid grid-cols-2 gap-6 items-end">
+              <div>
+                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Overdue Interest (%/mo)</p>
+                <input
+                  type="number"
+                  step="0.1"
+                  disabled={!isMachineSelected}
+                  value={formData.delayInterest}
+                  onChange={e => setFormData({ ...formData, delayInterest: parseFloat(e.target.value) || 0 })}
+                  className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                />
               </div>
+              <div className={`flex flex-col justify-end pb-2 ${!isMachineSelected ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Manual Charges</p>
+                  <div
+                    onClick={() => setFormData({ ...formData, manualCharges: [...formData.manualCharges, { name: '', amount: 0 }] })}
+                    className="text-[10px] text-[#f0883e] flex items-center gap-1 font-bold uppercase tracking-wider hover:underline cursor-pointer"
+                  >
+                    <Plus size={12} /> Add Charge
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Manual Charges List */}
+            <div className={`space-y-3 ${!isMachineSelected ? 'opacity-50 pointer-events-none' : ''}`}>
+              {formData.manualCharges.map((charge, index) => (
+                <div key={index} className="flex gap-4">
+                  <input
+                    type="text"
+                    placeholder="Charge Name"
+                    value={charge.name}
+                    onChange={e => {
+                      const newCharges = [...formData.manualCharges];
+                      newCharges[index].name = e.target.value;
+                      setFormData({ ...formData, manualCharges: newCharges });
+                    }}
+                    className="flex-1 bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Amount (₹)"
+                    value={charge.amount}
+                    onChange={e => {
+                      const newCharges = [...formData.manualCharges];
+                      newCharges[index].amount = parseFloat(e.target.value) || 0;
+                      setFormData({ ...formData, manualCharges: newCharges });
+                    }}
+                    className="w-32 bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newCharges = [...formData.manualCharges];
+                      newCharges.splice(index, 1);
+                      setFormData({ ...formData, manualCharges: newCharges });
+                    }}
+                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-md transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
             </div>
 
             <div className="mt-auto pt-6 border-t border-border-main flex items-end justify-between">
@@ -453,12 +701,19 @@ const NewAssignment = ({ machines, customers, user }) => {
             </div>
           </div>
 
-          {hasPermission(user, 'new_financing', 'create') && (
-            <button 
+          {hasPermission(user, 'new_financing', 'create') ? (
+            <button
               onClick={handleSubmit}
               className="w-full mt-6 py-4 bg-[#f0883e] text-black font-black text-xs uppercase tracking-widest rounded-xl hover:bg-[#ffab70] transition-all shadow-[0_10px_20px_rgba(240,136,62,0.15)] active:scale-95"
             >
-              Approve & Assign Asset
+              Submit Financing Request
+            </button>
+          ) : (
+            <button
+              disabled
+              className="w-full mt-6 py-4 bg-bg-active text-text-dim font-black text-xs uppercase tracking-widest rounded-xl cursor-not-allowed border border-border-main"
+            >
+              No Permission to Submit
             </button>
           )}
         </div>
@@ -466,51 +721,54 @@ const NewAssignment = ({ machines, customers, user }) => {
 
       {/* RIGHT COLUMN: SELECTION & PROJECTIONS */}
       <div className="col-span-12 lg:col-span-7 flex flex-col gap-6 overflow-hidden">
-        
+
         <h2 className="text-xs font-bold text-text-dim uppercase tracking-[0.3em] flex items-center gap-3">
-           <Zap size={14} className="text-[#f0883e]" /> Select Asset & Projections
+          <Zap size={14} className="text-[#f0883e]" /> Select Asset & Projections
         </h2>
 
         {/* STATS STRIP */}
         <div className="grid grid-cols-3 gap-4 shrink-0">
-           <StatCard label="Total Interest" value={formatINR(norms.totalInterest)} icon={TrendingUp} />
-           <StatCard label="Total Repayment" value={formatINR(norms.totalPayable)} icon={History} />
-           <StatCard label="Monthly EMI" value={formatINR(norms.emi)} icon={Calculator} accent />
+          <StatCard label="Total Interest" value={formatINR(norms.totalInterest)} icon={TrendingUp} />
+          <StatCard label="Total Repayment" value={formatINR(norms.totalPayable)} icon={History} />
+          <StatCard label="Monthly EMI" value={formatINR(norms.emi)} icon={Calculator} accent />
         </div>
 
-        {/* ASSET CARDS GRID */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-4">
-           <div className="grid grid-cols-2 gap-4">
-              {machines.map((m, i) => (
-                <div 
-                  key={i} 
-                  onClick={() => setFormData({...formData, machineName: m.name})}
-                  className={`group relative p-4 rounded-xl border transition-all cursor-pointer ${formData.machineName === m.name ? 'bg-bg-active border-[#f0883e]/50 shadow-[0_0_20px_rgba(240,136,62,0.05)]' : 'bg-bg-card border-border-main hover:border-text-dim'}`}
-                >
-                  <div className="flex items-center gap-4">
-                     <div className="w-16 h-16 bg-bg-deep border border-border-main rounded-lg overflow-hidden group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-                       <img src={getMachineImage(m)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" alt="" />
-                     </div>
-                     <div className="min-w-0">
-                        <h4 className="font-bold text-text-main text-sm tracking-tight truncate">{m.name}</h4>
-                        <p className="text-[10px] text-text-dim/60 font-mono tracking-wider uppercase mb-1">{m.model}</p>
-                        <p className="text-sm font-mono font-black text-[#f0883e]">{formatINR(m.pricing?.totalPrice || 0)}</p>
-                     </div>
-                  </div>
-                  {formData.machineName === m.name && (
-                    <div className="absolute top-3 right-3 w-4 h-4 bg-[#f0883e] rounded-full flex items-center justify-center shadow-lg">
-                      <Check size={10} className="text-black stroke-[4]" />
-                    </div>
-                  )}
-                  <ArrowRight size={14} className="absolute bottom-3 right-3 text-border-main group-hover:text-text-dim transition-colors" />
-                </div>
-              ))}
-              
-              <div className="border border-dashed border-border-main rounded-xl p-4 flex flex-col items-center justify-center text-text-dim/60 hover:bg-bg-active hover:border-text-dim transition-all cursor-pointer group">
-                 <Plus size={24} className="mb-2 group-hover:scale-110 transition-transform" />
-                 <span className="text-[10px] font-bold uppercase tracking-widest">New Financing Plan</span>
-              </div>
-           </div>
+        {/* REPAYMENT SCHEDULE TABLE */}
+        <div className="flex-1 overflow-hidden flex flex-col bg-bg-card border border-border-main rounded-2xl shadow-xl">
+          <div className="bg-bg-active border-b border-border-main p-3">
+            <h3 className="text-[10px] font-bold text-text-dim uppercase tracking-widest flex items-center justify-between">
+              <span>Amortization Schedule</span>
+              <span className="text-[#3fb950] font-black">{schedule.length} Installments</span>
+            </h3>
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <table className="w-full text-left compact-table">
+              <thead className="sticky top-0 bg-bg-card shadow-sm">
+                <tr>
+                  <th className="px-4 py-3 text-[9px] font-bold text-text-dim uppercase tracking-widest">Installment</th>
+                  <th className="px-4 py-3 text-[9px] font-bold text-text-dim uppercase tracking-widest">Due Date</th>
+                  <th className="px-4 py-3 text-[9px] font-bold text-text-dim uppercase tracking-widest">Principal</th>
+                  <th className="px-4 py-3 text-[9px] font-bold text-text-dim uppercase tracking-widest">Interest</th>
+                  <th className="px-4 py-3 text-[9px] font-bold text-text-dim uppercase tracking-widest">EMI</th>
+                  <th className="px-4 py-3 text-[9px] font-bold text-text-dim uppercase tracking-widest text-right">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-main/50">
+                {schedule.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-text-dim text-[10px] font-bold uppercase tracking-widest">Configure parameters to view schedule</td></tr>
+                ) : schedule.map(s => (
+                  <tr key={s.installment} className="hover:bg-bg-active transition-colors">
+                    <td className="px-4 py-2 font-mono text-[10px] font-black text-text-main">#{s.installment}</td>
+                    <td className="px-4 py-2 font-mono text-[10px] text-text-main">{s.dueDate}</td>
+                    <td className="px-4 py-2 font-mono text-[10px] text-text-main">{formatINR(s.principal)}</td>
+                    <td className="px-4 py-2 font-mono text-[10px] text-[#f0883e]">{formatINR(s.interest)}</td>
+                    <td className="px-4 py-2 font-mono text-[10px] font-black text-text-main">{formatINR(s.emi)}</td>
+                    <td className="px-4 py-2 font-mono text-[10px] text-text-dim text-right">{formatINR(s.balance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* FOOTER STATUS BAR */}
@@ -531,15 +789,15 @@ const NewAssignment = ({ machines, customers, user }) => {
 
 const StatCard = ({ label, value, icon: Icon, accent = false }) => (
   <div className={`p-4 rounded-xl border border-border-main bg-bg-card flex flex-col justify-between h-24 hover:border-text-dim transition-colors group ${accent ? 'border-b-2 border-b-[#f0883e]' : ''}`}>
-     <div className="flex items-center justify-between">
-        <span className="text-[9px] font-bold text-text-dim uppercase tracking-widest">{label}</span>
-        <Icon size={12} className="text-text-dim/40 group-hover:text-text-dim transition-colors" />
-     </div>
-     <p className={`text-xl font-mono font-black tracking-tighter ${accent ? 'text-[#f0883e]' : 'text-text-main'}`}>{value}</p>
+    <div className="flex items-center justify-between">
+      <span className="text-[9px] font-bold text-text-dim uppercase tracking-widest">{label}</span>
+      <Icon size={12} className="text-text-dim/40 group-hover:text-text-dim transition-colors" />
+    </div>
+    <p className={`text-xl font-mono font-black tracking-tighter ${accent ? 'text-[#f0883e]' : 'text-text-main'}`}>{value}</p>
   </div>
 );
 
-const SearchableDropdown = ({ label, options, selected, onSelect, placeholder = "Select..." }) => {
+const SearchableDropdown = ({ label, options, selected, onSelect, placeholder = "Select...", disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef(null);
@@ -556,16 +814,17 @@ const SearchableDropdown = ({ label, options, selected, onSelect, placeholder = 
     };
   }, []);
 
-  const filteredOptions = options.filter(opt => 
+  const filteredOptions = options.filter(opt =>
     (opt || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div ref={dropdownRef} className="relative w-full">
+    <div ref={dropdownRef} className={`relative w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
       <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">{label}</p>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-bg-deep border border-border-main rounded-md text-xs text-text-main hover:border-text-dim transition-all"
+      <button
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`w-full flex items-center justify-between px-3 py-2 bg-bg-deep border border-border-main rounded-md text-xs text-text-main transition-all ${disabled ? 'cursor-not-allowed' : 'hover:border-text-dim'}`}
       >
         <span className="truncate">{selected || placeholder}</span>
         <ChevronDown size={14} className="text-text-dim/60 transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
@@ -574,8 +833,8 @@ const SearchableDropdown = ({ label, options, selected, onSelect, placeholder = 
       {isOpen && (
         <div className="absolute z-50 mt-1 w-full bg-bg-card border border-border-main rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <div className="p-2 border-b border-border-main">
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Filter..."
               className="w-full bg-bg-deep border border-border-main rounded py-1 px-2 text-[10px] text-text-main focus:outline-none focus:border-[#58a6ff]"
               value={searchTerm}

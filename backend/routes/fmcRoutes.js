@@ -50,18 +50,19 @@ const getTicketActiveApproverId = async (t) => {
   }
 
   let activeFlow = null;
+  const flowQuery = { isActive: true, $or: [{ type: 'TICKET' }, { type: { $exists: false } }, { type: null }] };
+
   if (supervisorId) {
     const supervisor = await FMCSupervisor.findById(supervisorId);
-    if (supervisor && supervisor.approvalFlowId !== undefined) {
-      if (supervisor.approvalFlowId) {
-        activeFlow = await ApprovalFlow.findOne({ _id: supervisor.approvalFlowId, isActive: true });
-      }
-    } else {
-      activeFlow = await ApprovalFlow.findOne({ isActive: true, supervisorId: supervisorId });
+    if (supervisor && supervisor.approvalFlowId) {
+      activeFlow = await ApprovalFlow.findOne({ _id: supervisor.approvalFlowId, ...flowQuery });
+    }
+    if (!activeFlow) {
+      activeFlow = await ApprovalFlow.findOne({ supervisorId: supervisorId, ...flowQuery });
     }
   }
   if (!activeFlow) {
-    activeFlow = await ApprovalFlow.findOne({ isActive: true, $or: [{ supervisorId: '' }, { supervisorId: null }] });
+    activeFlow = await ApprovalFlow.findOne({ $or: [{ supervisorId: '' }, { supervisorId: null }], ...flowQuery });
   }
   if (!activeFlow) return null;
 
@@ -137,9 +138,10 @@ router.get('/approval-flows', protect, async (req, res) => {
 router.post('/approval-flows', protect, async (req, res) => {
   try {
     const supervisorId = req.body.supervisorId || '';
-    const existing = await ApprovalFlow.findOne({ supervisorId });
+    const type = req.body.type || 'TICKET';
+    const existing = await ApprovalFlow.findOne({ supervisorId, type });
     if (existing) {
-      return res.status(400).json({ message: 'An approval flow already exists for this supervisor/scope. You can only edit the existing flow.' });
+      return res.status(400).json({ message: 'An approval flow already exists for this type and scope. You can only edit the existing flow.' });
     }
     const doc = await ApprovalFlow.create(req.body);
     res.status(201).json(await doc.populate(['steps.approverId', 'steps.statusId']));
@@ -148,9 +150,10 @@ router.post('/approval-flows', protect, async (req, res) => {
 router.put('/approval-flows/:id', protect, async (req, res) => {
   try {
     const supervisorId = req.body.supervisorId || '';
-    const existing = await ApprovalFlow.findOne({ supervisorId, _id: { $ne: req.params.id } });
+    const type = req.body.type || 'TICKET';
+    const existing = await ApprovalFlow.findOne({ supervisorId, type, _id: { $ne: req.params.id } });
     if (existing) {
-      return res.status(400).json({ message: 'An approval flow already exists for this supervisor/scope. You can only edit the existing flow.' });
+      return res.status(400).json({ message: 'An approval flow already exists for this type and scope. You can only edit the existing flow.' });
     }
     const doc = await ApprovalFlow.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('steps.approverId').populate('steps.statusId');
     res.json(doc);
@@ -184,7 +187,7 @@ router.get('/tickets', protect, async (req, res) => {
       const visibleTickets = [];
       for (const t of allTickets) {
         const activeApproverId = await getTicketActiveApproverId(t);
-        const hasApprovedBefore = t.approvalHistory?.some(h => 
+        const hasApprovedBefore = t.approvalHistory?.some(h =>
           (h.approverId?._id || h.approverId)?.toString() === req.user._id.toString()
         );
         if (activeApproverId === req.user._id.toString() || hasApprovedBefore) {
@@ -214,7 +217,7 @@ router.post('/tickets', protect, async (req, res) => {
       }
     }
 
-    const payload = { 
+    const payload = {
       ...req.body,
       status: 'Requested',
       currentStepIndex: 0,
@@ -246,8 +249,8 @@ router.put('/tickets/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access Denied: Approvers are not allowed to edit tickets.' });
     }
 
-    const isOwner = ticket.createdBy?.toString() === req.user._id.toString() || 
-                    ticket.supervisorId?.toString() === req.user.supervisorId?.toString();
+    const isOwner = ticket.createdBy?.toString() === req.user._id.toString() ||
+      ticket.supervisorId?.toString() === req.user.supervisorId?.toString();
     if (!isOwner) {
       return res.status(403).json({ message: 'Access Denied: Supervisors can only read and update their own tickets.' });
     }
@@ -267,11 +270,11 @@ router.delete('/tickets/:id', protect, async (req, res) => {
   try {
     const ticket = await FMCTicket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
-    
+
     const adminCheck = await isUserAdmin(req.user);
     if (req.user.role === 'SUPERVISOR') {
-      const isOwner = ticket.createdBy?.toString() === req.user._id.toString() || 
-                      ticket.supervisorId?.toString() === req.user.supervisorId?.toString();
+      const isOwner = ticket.createdBy?.toString() === req.user._id.toString() ||
+        ticket.supervisorId?.toString() === req.user.supervisorId?.toString();
       if (!isOwner) {
         return res.status(403).json({ message: 'Access Denied: Supervisors can only delete their own tickets.' });
       }
@@ -293,14 +296,11 @@ router.post('/tickets/:id/approve', protect, async (req, res) => {
     if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
     const adminCheck = await isUserAdmin(req.user);
-    if (adminCheck) {
-      return res.status(403).json({ message: 'Access Denied: Admins are not allowed to approve or reject tickets.' });
-    }
 
     const { notes, action } = req.body;
 
     const activeApproverId = await getTicketActiveApproverId(ticket);
-    if (!activeApproverId || activeApproverId !== req.user._id.toString()) {
+    if (!adminCheck && (!activeApproverId || activeApproverId !== req.user._id.toString())) {
       return res.status(403).json({ message: 'You are not the designated approver for this step.' });
     }
 
@@ -319,18 +319,19 @@ router.post('/tickets/:id/approve', protect, async (req, res) => {
     }
 
     let flow = null;
+    const flowQuery = { isActive: true, $or: [{ type: 'TICKET' }, { type: { $exists: false } }, { type: null }] };
+    
     if (supervisorId) {
       const supervisor = await FMCSupervisor.findById(supervisorId);
-      if (supervisor && supervisor.approvalFlowId !== undefined) {
-        if (supervisor.approvalFlowId) {
-          flow = await ApprovalFlow.findOne({ _id: supervisor.approvalFlowId, isActive: true }).populate('steps.approverId').populate('steps.statusId');
-        }
-      } else {
-        flow = await ApprovalFlow.findOne({ isActive: true, supervisorId }).populate('steps.approverId').populate('steps.statusId');
+      if (supervisor && supervisor.approvalFlowId) {
+        flow = await ApprovalFlow.findOne({ _id: supervisor.approvalFlowId, ...flowQuery }).populate('steps.approverId').populate('steps.statusId');
+      }
+      if (!flow) {
+        flow = await ApprovalFlow.findOne({ supervisorId, ...flowQuery }).populate('steps.approverId').populate('steps.statusId');
       }
     }
     if (!flow) {
-      flow = await ApprovalFlow.findOne({ isActive: true, $or: [{ supervisorId: '' }, { supervisorId: null }] }).populate('steps.approverId').populate('steps.statusId');
+      flow = await ApprovalFlow.findOne({ $or: [{ supervisorId: '' }, { supervisorId: null }], ...flowQuery }).populate('steps.approverId').populate('steps.statusId');
     }
 
     if (!flow) {
@@ -349,7 +350,7 @@ router.post('/tickets/:id/approve', protect, async (req, res) => {
     if (action === 'Approved') {
       const isFinalStep = ticket.currentStepIndex + 1 >= flow.steps.length;
       const targetStatus = currentStep.statusId?.name || (isFinalStep ? 'Approved' : `Pending for Level ${ticket.currentStepIndex + 2} Approval`);
-      
+
       ticket.status = targetStatus;
       ticket.currentStepIndex += 1;
       ticket.approvalHistory.push({

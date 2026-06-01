@@ -154,3 +154,149 @@ export const generateReceiptPDF = async (loan, installment) => {
   await browser.close();
   return pdf;
 };
+
+export const generateAgreementPDF = async (loan) => {
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  const page = await browser.newPage();
+
+  const formatINR = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
+  const assetName = loan.machineName.toUpperCase();
+  const endDateStr = new Date(new Date(loan.emiStartDate || Date.now()).setMonth(new Date(loan.emiStartDate || Date.now()).getMonth() + loan.tenure)).toLocaleDateString('en-IN');
+
+  const html = `
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #ffffff; padding: 60px; color: #1e293b; line-height: 1.6; }
+        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #f0883e; padding-bottom: 20px; }
+        h1 { font-size: 28px; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
+        h2 { font-size: 18px; color: #64748b; margin: 5px 0 0; font-weight: 500; }
+        .section { margin-bottom: 30px; }
+        .section h3 { font-size: 16px; color: #f0883e; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .label { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold; }
+        .value { font-size: 16px; color: #0f172a; font-weight: 600; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #f1f5f9; padding: 10px; font-size: 12px; color: #64748b; text-transform: uppercase; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        .signatures { margin-top: 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; }
+        .sig-line { border-top: 1px solid #0f172a; margin-top: 60px; padding-top: 10px; font-weight: bold; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>FINANCING AGREEMENT</h1>
+        <h2>LiuGong Industrial Finance Division</h2>
+      </div>
+
+      <div class="section">
+        <h3>1. Parties to the Agreement</h3>
+        <p>This agreement is entered into between <strong>LiuGong Machinery Corp.</strong> (hereinafter referred to as the "Financier") and <strong>${customerName}</strong> (hereinafter referred to as the "Client").</p>
+      </div>
+
+      <div class="section">
+        <h3>2. Financed Asset Details</h3>
+        <div class="details-grid">
+          <div>
+            <div class="label">Asset Model</div>
+            <div class="value">${assetName}</div>
+          </div>
+          <div>
+            <div class="label">Agreement ID</div>
+            <div class="value">AGR-${loan._id.toString().toUpperCase()}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>3. Financing Schedule & Terms</h3>
+        <div class="details-grid">
+          <div>
+            <div class="label">Principal Amount</div>
+            <div class="value">${formatINR(loan.principal)}</div>
+          </div>
+          <div>
+            <div class="label">Tenure (Months)</div>
+            <div class="value">${loan.tenure}</div>
+          </div>
+          <div>
+            <div class="label">Monthly EMI</div>
+            <div class="value">${formatINR(loan.emi)}</div>
+          </div>
+          <div>
+            <div class="label">Interest Rate</div>
+            <div class="value">${loan.interestRate}%</div>
+          </div>
+          <div>
+            <div class="label">EMI Start Date</div>
+            <div class="value">${loan.emiStartDate || 'TBD'}</div>
+          </div>
+          <div>
+            <div class="label">Estimated End Date</div>
+            <div class="value">${endDateStr}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>4. Repayment Schedule</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Installment #</th>
+              <th>Due Date</th>
+              <th>Principal</th>
+              <th>Interest</th>
+              <th>Total EMI</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${loan.schedule.slice(0, 5).map(s => `
+              <tr>
+                <td>${s.installment}</td>
+                <td>${s.dueDate}</td>
+                <td>${formatINR(s.principal)}</td>
+                <td>${formatINR(s.interest)}</td>
+                <td>${formatINR(loan.emi)}</td>
+              </tr>
+            `).join('')}
+            ${loan.schedule.length > 5 ? '<tr><td colspan="5" style="text-align: center; font-style: italic;">... remaining schedule omitted for brevity ...</td></tr>' : ''}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="signatures">
+        <div>
+          <div class="sig-line">Authorized Signatory (LiuGong)</div>
+        </div>
+        <div>
+          <div class="sig-line">Authorized Signatory (Client)</div>
+          <p style="font-size: 10px; color: #64748b; margin-top: 5px;">${customerName}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await page.setContent(html, { waitUntil: 'networkidle0' });
+  const pdf = await page.pdf({
+    format: 'A4',
+    printBackground: true,
+    margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+  });
+
+  await browser.close();
+  return pdf;
+};

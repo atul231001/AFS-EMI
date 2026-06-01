@@ -22,6 +22,7 @@ import FMCDailyHours from './components/FMCDailyHours.jsx';
 import FMCTickets from './components/FMCTickets.jsx';
 import FMCBilling from './components/FMCBilling.jsx';
 import ORMDashboard from './components/ORMDashboard.jsx';
+import FinancingPipeline from './components/FinancingPipeline.jsx';
 import ForceResetPasswordPage from './components/ForceResetPasswordPage.jsx';
 
 import { hasPermission, getFirstAuthorizedView } from './utils';
@@ -104,6 +105,9 @@ const App = () => {
         if (user?.type?.toUpperCase() === 'FMC' && user?.role !== 'OEM') return <AccessDenied />;
         if (!hasPermission(user, 'financing', 'read')) return <AccessDenied />;
         return <LoanAssignment />;
+      case 'financing-pipeline':
+        if (!hasPermission(user, 'financing', 'read')) return <AccessDenied />;
+        return <FinancingPipeline />;
       case 'payments':
       case 'customer-payments':
         if (!hasPermission(user, 'settlements', 'read')) return <AccessDenied />;
@@ -171,7 +175,7 @@ const App = () => {
         <Sidebar />
         <main className="flex-1 flex flex-col min-w-0 transition-all relative overflow-hidden">
           <Header />
-          <div id="content-area" className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 lg:px-[4rem] py-8">
+          <div id="content-area" className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 lg:px-[4rem] pt-8 pb-24">
             <div className="max-w-[1600px] mx-auto">
               {renderContent()}
             </div>

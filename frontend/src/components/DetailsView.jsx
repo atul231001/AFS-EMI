@@ -290,10 +290,10 @@ const LoanDetails = () => {
         </header>
 
         {/* CONTENT GRID */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-px bg-[#30363d] overflow-hidden">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-px bg-[#30363d] overflow-y-auto lg:overflow-hidden">
 
           {/* COLUMN 1: ASSET & TERMS */}
-          <div className="lg:col-span-3 bg-[#161b22] p-5 flex flex-col gap-5 overflow-hidden">
+          <div className="lg:col-span-3 bg-[#161b22] p-5 flex flex-col gap-5 lg:overflow-y-auto">
             <div className="relative group rounded-lg overflow-hidden border border-[#30363d] bg-[#0d1117] aspect-video shrink-0 shadow-lg">
               <img src={machine.img || (machine.images && machine.images[0]) || 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=1200'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4">
@@ -322,7 +322,7 @@ const LoanDetails = () => {
           </div>
 
           {/* COLUMN 2: FINANCIAL METRICS & LEDGER */}
-          <div className="lg:col-span-9 bg-[#161b22] flex flex-col overflow-hidden">
+          <div className="lg:col-span-9 bg-[#161b22] flex flex-col overflow-visible lg:overflow-hidden">
             <div className="p-5 grid grid-cols-1 md:grid-cols-6 gap-5 bg-[#0d1117]/50 border-b border-[#30363d] shrink-0">
               <StatBox label="NEXT EMI" value={formatINR(loan.emi)} icon={CreditCard} color="text-[#f0883e]" />
               <StatBox label="TOTAL PAID" value={formatINR(totalPaidAmt)} icon={TrendingUp} color="text-[#3fb950]" />
@@ -332,7 +332,7 @@ const LoanDetails = () => {
               <StatBox label="NEXT PAYMENT" value={loan.schedule.find(s => s.status === 'Pending')?.dueDate || 'DONE'} icon={Clock} color="text-[#58a6ff]" />
             </div>
 
-            <div className="flex-1 p-5 flex flex-col overflow-hidden">
+            <div className="flex-1 p-5 flex flex-col overflow-visible lg:overflow-hidden">
               <div className="flex items-center justify-between mb-5 shrink-0">
                 <div className="flex items-center gap-6">
                   <div>

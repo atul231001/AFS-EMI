@@ -8,6 +8,7 @@ const approvalFlowStepSchema = new mongoose.Schema({
 
 const approvalFlowSchema = new mongoose.Schema({
   name: { type: String, default: 'Default Ticket Approval Flow' },
+  type: { type: String, enum: ['TICKET', 'FINANCING'], default: 'TICKET' },
   steps: [approvalFlowStepSchema],
   isActive: { type: Boolean, default: true },
   supervisorId: { type: String, default: '' }

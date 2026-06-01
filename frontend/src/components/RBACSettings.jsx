@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { state } from '../state';
-import { 
-  Layout, 
-  Users, 
-  Construction, 
-  CreditCard, 
-  HandCoins, 
+import {
+  Layout,
+  Users,
+  Construction,
+  CreditCard,
+  HandCoins,
   Settings as SettingsIcon,
   Shield,
   Trash2,
@@ -16,7 +16,9 @@ import {
   X,
   ChevronRight,
   Wrench,
-  Layers
+  Layers,
+  CalendarCheck,
+  FileCheck
 } from 'lucide-react';
 import { showNotification, hasPermission } from '../utils';
 
@@ -57,7 +59,9 @@ const RBACSettings = () => {
     { key: 'service_desk', label: 'Service Desk', icon: Wrench, actions: ['read', 'create', 'update', 'delete'] },
     { key: 'settings_parent', label: 'Settings', icon: SettingsIcon, actions: ['read'] },
     { key: 'settings_general', label: 'General Settings', icon: SettingsIcon, actions: ['read', 'update'], isSub: true },
-    { key: 'settings_rbac', label: 'Role Permissions', icon: Lock, actions: ['read', 'update'], isSub: true }
+    { key: 'settings_rbac', label: 'Role Permissions', icon: Lock, actions: ['read', 'update'], isSub: true },
+    { key: 'financing_scheduling', label: 'Scheduling Stage', icon: CalendarCheck, actions: ['read', 'approve'], isSub: true },
+    { key: 'financing_invoicing', label: 'Invoice Stage', icon: FileCheck, actions: ['read', 'approve'], isSub: true }
   ];
 
   const handleTogglePermission = (module, action) => {
@@ -68,10 +72,10 @@ const RBACSettings = () => {
       showNotification('Access Denied: Insufficient clearance to modify security protocols.', 'error');
       return;
     }
-    
+
     const permissions = JSON.parse(JSON.stringify(selectedRole.permissions || {}));
     if (!permissions[module]) permissions[module] = {};
-    
+
     const currentStatus = !!permissions[module][action];
     const newStatus = !currentStatus;
     permissions[module][action] = newStatus;
@@ -88,15 +92,15 @@ const RBACSettings = () => {
     }
 
     state.updateRole(selectedRoleId, { permissions }).then(() => {
-       showNotification(`PROTOCOL MODIFIED: ${module.toUpperCase()} ${action.toUpperCase()} updated.`);
+      showNotification(`PROTOCOL MODIFIED: ${module.toUpperCase()} ${action.toUpperCase()} updated.`);
     }).catch(err => {
-       showNotification(`Protocol Sync Failed: ${err.message}`, 'error');
+      showNotification(`Protocol Sync Failed: ${err.message}`, 'error');
     });
   };
 
   const handleCreateRole = async () => {
     if (!newRoleName) return;
-    
+
     const defaultPermissions = {
       dashboard: { read: true },
       customers: { read: true, create: false, update: false, delete: false },
@@ -110,13 +114,15 @@ const RBACSettings = () => {
       service_desk: { read: true, create: false, update: false, delete: false },
       settings_parent: { read: true },
       settings_general: { read: true, update: false },
-      settings_rbac: { read: false, update: false }
+      settings_rbac: { read: false, update: false },
+      financing_scheduling: { read: true, approve: false },
+      financing_invoicing: { read: true, approve: false }
     };
 
     try {
-      const newRole = await state.addRole({ 
-        name: newRoleName, 
-        permissions: defaultPermissions 
+      const newRole = await state.addRole({
+        name: newRoleName,
+        permissions: defaultPermissions
       });
       setNewRoleName('');
       setIsCreating(false);
@@ -143,7 +149,7 @@ const RBACSettings = () => {
         <div className="flex items-center justify-between px-2">
           <h3 className="text-[10px] font-black text-[#f0883e] uppercase tracking-widest">OEM Personnel Profiles</h3>
           {hasPermission(user, 'settings_rbac', 'create') && (
-            <button 
+            <button
               onClick={() => setIsCreating(true)}
               className="p-1.5 bg-[#f0883e]/10 text-[#f0883e] rounded-md hover:bg-[#f0883e]/20 transition-all"
             >
@@ -157,11 +163,10 @@ const RBACSettings = () => {
             <div
               key={role._id}
               onClick={() => setSelectedRoleId(role._id)}
-              className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all group cursor-pointer ${
-                selectedRoleId === role._id 
-                  ? 'bg-[#f0883e]/10 border-[#f0883e]/30 shadow-lg' 
+              className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all group cursor-pointer ${selectedRoleId === role._id
+                  ? 'bg-[#f0883e]/10 border-[#f0883e]/30 shadow-lg'
                   : 'bg-transparent border-transparent hover:bg-black/5 dark:hover:bg-white/[0.02] text-slate-400'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${selectedRoleId === role._id ? 'bg-[#f0883e] text-black' : 'bg-bg-deep dark:bg-slate-800 text-text-dim group-hover:bg-bg-active dark:group-hover:bg-slate-700'}`}>
@@ -169,11 +174,11 @@ const RBACSettings = () => {
                 </div>
                 <div className="text-left">
                   <p className={`text-xs font-bold uppercase tracking-tight ${selectedRoleId === role._id ? 'text-[#f0883e]' : 'text-text-main'}`}>{role.name}</p>
-                  <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest mt-0.5">LVL-{role._id.substring(role._id.length-4)}</p>
+                  <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest mt-0.5">LVL-{role._id.substring(role._id.length - 4)}</p>
                 </div>
               </div>
               {selectedRoleId === role._id && role.name.toLowerCase() !== 'admin' && hasPermission(user, 'settings_rbac', 'delete') && (
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); handleDeleteRole(role._id); }}
                   className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-500 hover:text-red-500 transition-all cursor-pointer"
                 >
@@ -199,16 +204,16 @@ const RBACSettings = () => {
             <p className="text-[10px] text-slate-500 font-mono tracking-widest mt-1 uppercase">Configure personnel clearances for internal system modules</p>
           </div>
           <div className="flex items-center gap-2">
-             <div className="flex items-center gap-4 px-4 py-2 bg-black/20 rounded-lg border border-white/5">
-                <div className="flex items-center gap-1.5">
-                   <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                   <span className="text-[8px] font-black text-slate-400 uppercase">Authorized</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                   <div className="w-2 h-2 bg-slate-700 rounded-full border border-white/10"></div>
-                   <span className="text-[8px] font-black text-slate-400 uppercase">Restricted</span>
-                </div>
-             </div>
+            <div className="flex items-center gap-4 px-4 py-2 bg-black/20 rounded-lg border border-white/5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                <span className="text-[8px] font-black text-slate-400 uppercase">Authorized</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 bg-slate-700 rounded-full border border-white/10"></div>
+                <span className="text-[8px] font-black text-slate-400 uppercase">Restricted</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -220,6 +225,7 @@ const RBACSettings = () => {
                 <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Read</th>
                 <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Create</th>
                 <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Update</th>
+                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Approve</th>
                 <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Delete</th>
               </tr>
             </thead>
@@ -237,17 +243,16 @@ const RBACSettings = () => {
                       </div>
                     </div>
                   </td>
-                  {['read', 'create', 'update', 'delete'].map(action => (
+                  {['read', 'create', 'update', 'approve', 'delete'].map(action => (
                     <td key={action} className="p-6 text-center">
                       {mod.actions.includes(action) ? (
                         <button
                           onClick={() => handleTogglePermission(mod.key, action)}
                           disabled={selectedRole?.name?.toLowerCase() === 'admin'}
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                            (selectedRole?.permissions[mod.key]?.[action] || selectedRole?.name?.toLowerCase() === 'admin')
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${(selectedRole?.permissions[mod.key]?.[action] || selectedRole?.name?.toLowerCase() === 'admin')
                               ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
                               : 'bg-bg-deep dark:bg-slate-900/50 text-text-dim dark:text-slate-700 border border-border-main dark:border-white/5 opacity-40 hover:opacity-100 hover:border-slate-700'
-                          } ${selectedRole?.name?.toLowerCase() === 'admin' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-110 active:scale-95'}`}
+                            } ${selectedRole?.name?.toLowerCase() === 'admin' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-110 active:scale-95'}`}
                         >
                           {(selectedRole?.permissions[mod.key]?.[action] || selectedRole?.name?.toLowerCase() === 'admin') ? (
                             <Check size={18} className="stroke-[3]" />
@@ -257,7 +262,7 @@ const RBACSettings = () => {
                         </button>
                       ) : (
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center opacity-10 mx-auto">
-                           <Lock size={14} className="text-slate-600" />
+                          <Lock size={14} className="text-slate-600" />
                         </div>
                       )}
                     </td>
@@ -282,16 +287,16 @@ const RBACSettings = () => {
             </div>
 
             <div className="space-y-4">
-               <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Protocol Identity (Role Name)</label>
-                  <input 
-                    type="text" 
-                    value={newRoleName}
-                    onChange={(e) => setNewRoleName(e.target.value)}
-                    placeholder="e.g. OPERATIONS_MANAGER"
-                    className="w-full bg-black/40 border-white/10 rounded-2xl p-4 text-xs font-bold text-white uppercase tracking-wider focus:border-[#f0883e]/50 outline-none transition-all"
-                  />
-               </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Protocol Identity (Role Name)</label>
+                <input
+                  type="text"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder="e.g. OPERATIONS_MANAGER"
+                  className="w-full bg-black/40 border-white/10 rounded-2xl p-4 text-xs font-bold text-white uppercase tracking-wider focus:border-[#f0883e]/50 outline-none transition-all"
+                />
+              </div>
             </div>
 
             <div className="flex gap-4">

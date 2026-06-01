@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
@@ -16,6 +17,7 @@ import roleRoutes from './routes/roleRoutes.js';
 import fmcRoutes from './routes/fmcRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 import { initScheduler } from './services/schedulerService.js';
 
 dotenv.config({ path: './backend/.env' });
@@ -32,6 +34,7 @@ app.use((req, res, next) => {
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use('/uploads', express.static(path.join(process.cwd(), 'backend', 'uploads')));
 
 // Routes
 app.use('/api/customers', customerRoutes);
@@ -45,6 +48,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/fmc', fmcRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get('/', (req, res) => {
   res.send('EMI Platform API is running...');

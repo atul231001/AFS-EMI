@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { state } from '../state';
 import { showNotification, confirmAction, hasPermission } from '../utils';
+import { usePersistentState } from '../hooks/usePersistentState';
 import Modal from './Modal.jsx';
 import {
   X, Download, Cpu, Zap, Settings, FileText, Maximize2,
@@ -17,7 +18,7 @@ const MachineManagement = () => {
   const [detailMachine, setDetailMachine] = useState(null);
 
   const isAdmin = user?.role === 'OEM' || user?.role === 'Admin';
-  const [localColConfig, setLocalColConfig] = useState({ identity: true, status: true, specs: true, valuation: true, dataSync: true, control: true });
+  const [localColConfig, setLocalColConfig] = usePersistentState('machine_col_config', { identity: true, status: true, specs: true, valuation: true, dataSync: true, control: true });
   const [showColConfig, setShowColConfig] = useState(false);
   const colConfigRef = useRef(null);
 
@@ -33,23 +34,15 @@ const MachineManagement = () => {
     };
   }, []);
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = usePersistentState('machine_search', '');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
   const globalConfig = systemConfig?.machineColumns || localColConfig;
 
   const toggleColumn = (key) => {
-    if (!isAdmin) return showNotification('Access Denied: Only Admin can modify global view protocols', 'error');
     const newConfig = { ...localColConfig, [key]: !localColConfig[key] };
     setLocalColConfig(newConfig);
-    state.updateConfig({ machineColumns: newConfig });
   };
-
-  useEffect(() => {
-    if (globalConfig) {
-      setLocalColConfig(globalConfig);
-    }
-  }, [globalConfig]);
 
   const handleAddMachine = () => {
     setEditingMachine(null);
@@ -172,8 +165,7 @@ const MachineManagement = () => {
                 {showColConfig && (
                   <div className="absolute top-full right-0 mt-3 w-72 bg-bg-card border border-border-main rounded-2xl shadow-2xl z-[60] p-4 animate-in fade-in zoom-in-95 duration-200">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-[10px] font-black text-text-main uppercase tracking-widest">Global View Protocols</h4>
-                      {!isAdmin && <span className="text-[7px] font-bold text-red-500 uppercase flex items-center gap-1"><ShieldCheck size={10} /> Read Only</span>}
+                      <h4 className="text-[10px] font-black text-text-main uppercase tracking-widest">View Protocols</h4>
                     </div>
                     <div className="grid grid-cols-1 gap-2">
                       {[
@@ -185,10 +177,9 @@ const MachineManagement = () => {
                       ].map(col => (
                         <button
                           key={col.id}
-                          disabled={!isAdmin}
                           onClick={() => toggleColumn(col.id)}
                           className={`flex items-center gap-2 p-2 rounded-lg text-[8px] font-black uppercase transition-all ${localColConfig[col.id] ? 'bg-[#f0883e]/10 text-[#f0883e]' : 'bg-bg-deep text-text-dim hover:text-slate-400'
-                            } ${!isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            }`}
                         >
                           {localColConfig[col.id] ? <Check size={10} /> : <div className="w-[10px] h-[10px] border border-slate-700 rounded-sm" />}
                           {col.label}

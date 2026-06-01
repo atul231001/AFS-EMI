@@ -20,7 +20,7 @@ const PRESET_COLORS = [
 
 const ApprovalFlowSettings = () => {
   const [stateData, setStateData] = useState(state.data);
-  const [activeTab, setActiveTab] = useState('statuses'); // 'statuses' or 'flows'
+  const [activeTab, setActiveTab] = useState('ticket-flows'); // 'statuses', 'ticket-flows', 'financing-flows'
 
   // Status Modal State
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -30,7 +30,7 @@ const ApprovalFlowSettings = () => {
   // Flow Modal State
   const [flowModalOpen, setFlowModalOpen] = useState(false);
   const [editingFlow, setEditingFlow] = useState(null);
-  const [flowForm, setFlowForm] = useState({ name: '', isActive: true, steps: [], supervisorId: '' });
+  const [flowForm, setFlowForm] = useState({ name: '', isActive: true, type: 'TICKET', steps: [], supervisorId: '' });
 
   // Searchable Supervisor Dropdown State
   const [supSearchTerm, setSupSearchTerm] = useState('');
@@ -138,6 +138,7 @@ const ApprovalFlowSettings = () => {
       setFlowForm({
         name: flow.name,
         isActive: flow.isActive,
+        type: activeTab === 'financing-flows' ? 'FINANCING' : (flow.type || 'TICKET'),
         supervisorId: flow.supervisorId || '',
         steps: (flow.steps || []).map(s => ({
           sequence: s.sequence,
@@ -147,7 +148,7 @@ const ApprovalFlowSettings = () => {
       });
     } else {
       setEditingFlow(null);
-      setFlowForm({ name: '', isActive: true, steps: [], supervisorId: '' });
+      setFlowForm({ name: '', isActive: true, type: activeTab === 'financing-flows' ? 'FINANCING' : 'TICKET', steps: [], supervisorId: '' });
     }
     setSupSearchTerm('');
     setSupDropdownOpen(false);
@@ -157,9 +158,14 @@ const ApprovalFlowSettings = () => {
   };
 
   const handleSupervisorChange = (selectedId) => {
-    const supervisor = fmcSupervisors.find(s => s._id === selectedId);
-    // Check if a flow already exists for this supervisor/scope
+    const scopeData = activeTab === 'financing-flows' ? employees : fmcSupervisors;
+    const supervisor = scopeData.find(s => s._id === selectedId);
+    // Check if a flow already exists for this supervisor/scope AND type
+    const flowType = activeTab === 'financing-flows' ? 'FINANCING' : 'TICKET';
     const existingFlow = approvalFlows.find(f => {
+      const isSameType = (f.type || 'TICKET') === flowType;
+      if (!isSameType) return false;
+      
       if (supervisor && supervisor.approvalFlowId) {
         return f._id === supervisor.approvalFlowId;
       }
@@ -173,6 +179,7 @@ const ApprovalFlowSettings = () => {
       setFlowForm({
         name: existingFlow.name,
         isActive: existingFlow.isActive,
+        type: activeTab === 'financing-flows' ? 'FINANCING' : (existingFlow.type || 'TICKET'),
         supervisorId: selectedId,
         steps: (existingFlow.steps || []).map(s => ({
           sequence: s.sequence,
@@ -183,11 +190,13 @@ const ApprovalFlowSettings = () => {
       showNotification('Loaded existing approval flow configuration', 'info');
     } else {
       setEditingFlow(null);
-      const selectedSupervisor = fmcSupervisors.find(s => s._id === selectedId);
-      const defaultName = selectedSupervisor ? `Approval Flow for ${selectedSupervisor.name}` : 'Default Ticket Approval Flow';
+      const scopeData = activeTab === 'financing-flows' ? employees : fmcSupervisors;
+      const selectedSupervisor = scopeData.find(s => s._id === selectedId);
+      const defaultName = selectedSupervisor ? `Approval Flow for ${selectedSupervisor.name}` : (activeTab === 'financing-flows' ? 'Default Financing Approval Flow' : 'Default Ticket Approval Flow');
       setFlowForm({
         name: defaultName,
         isActive: true,
+        type: activeTab === 'financing-flows' ? 'FINANCING' : 'TICKET',
         supervisorId: selectedId,
         steps: []
       });
@@ -274,7 +283,7 @@ const ApprovalFlowSettings = () => {
     const isDup = approvalFlows.some(f => {
       if (editingFlow && f._id === editingFlow._id) return false;
       const flowSupervisor = f.supervisorId || '';
-      return flowSupervisor === targetSupervisor;
+      return flowSupervisor === targetSupervisor && (f.type || 'TICKET') === flowForm.type;
     });
 
     if (isDup) {
@@ -340,13 +349,22 @@ const ApprovalFlowSettings = () => {
             Ticket Statuses
           </button>
           <button
-            onClick={() => setActiveTab('flows')}
-            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'flows'
+            onClick={() => setActiveTab('ticket-flows')}
+            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'ticket-flows'
               ? 'bg-primary text-white shadow-md'
               : 'text-text-dim hover:text-text-main'
               }`}
           >
-            Approval Flows
+            Ticket Approval Flow
+          </button>
+          <button
+            onClick={() => setActiveTab('financing-flows')}
+            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'financing-flows'
+              ? 'bg-primary text-white shadow-md'
+              : 'text-text-dim hover:text-text-main'
+              }`}
+          >
+            Financing Approval Flow
           </button>
         </div>
       </div>
@@ -442,10 +460,12 @@ const ApprovalFlowSettings = () => {
       )}
 
       {/* --- TAB CONTENT: APPROVAL FLOWS --- */}
-      {activeTab === 'flows' && (
+      {(activeTab === 'ticket-flows' || activeTab === 'financing-flows') && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black text-primary uppercase tracking-widest pl-1 font-mono">Workflow Configurations</h3>
+            <h3 className="text-xs font-black text-primary uppercase tracking-widest pl-1 font-mono">
+              {activeTab === 'ticket-flows' ? 'Ticket Workflow Configurations' : 'Financing Workflow Configurations'}
+            </h3>
             <button
               onClick={() => handleOpenFlowModal()}
               className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-[11px] font-black rounded-xl hover:opacity-90 transition-all shadow-lg shadow-primary/20"
@@ -455,13 +475,17 @@ const ApprovalFlowSettings = () => {
           </div>
 
           <div className="space-y-4">
-            {approvalFlows.map(flow => {
-              const assignedSups = fmcSupervisors.filter(s => {
+            {approvalFlows.filter(f => activeTab === 'financing-flows' ? f.type === 'FINANCING' : (f.type === 'TICKET' || !f.type)).map(flow => {
+              const scopeData = activeTab === 'financing-flows' ? employees : fmcSupervisors;
+              const assignedEntities = scopeData.filter(s => {
                 if (s.approvalFlowId !== undefined) {
                   return s.approvalFlowId === flow._id;
                 }
                 return flow.supervisorId && s._id === flow.supervisorId;
               });
+              const entityLabel = activeTab === 'financing-flows' ? 'Employees' : 'Supervisors';
+              const noEntityMessage = `No ${entityLabel} Assigned`;
+
               return (
                 <div key={flow._id} className={`bg-bg-card border rounded-2xl p-6 transition-all ${flow.isActive ? 'border-primary/40 shadow-[0_10px_30px_rgba(240,136,62,0.05)]' : 'border-border-main'
                   }`}>
@@ -471,10 +495,10 @@ const ApprovalFlowSettings = () => {
                         <h4 className="font-bold text-text-main text-sm uppercase tracking-tight">{flow.name}</h4>
                         <div className="flex flex-wrap items-center gap-2.5 mt-1.5">
                           <span className="text-[9px] font-mono text-text-dim/60">STEPS: {flow.steps?.length || 0}</span>
-                          {assignedSups.length > 0 ? (
+                          {assignedEntities.length > 0 ? (
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-[9px] text-text-dim/60 uppercase font-mono font-bold">Supervisors:</span>
-                              {assignedSups.map(s => (
+                              <span className="text-[9px] text-text-dim/60 uppercase font-mono font-bold">{entityLabel}:</span>
+                              {assignedEntities.map(s => (
                                 <span key={s._id} className="text-[9px] text-[#ffa657] font-black uppercase tracking-wider bg-[#ffa657]/10 px-2 py-0.5 rounded border border-[#ffa657]/20">
                                   {s.name}
                                 </span>
@@ -482,7 +506,7 @@ const ApprovalFlowSettings = () => {
                             </div>
                           ) : (
                             <span className="text-[9px] text-[#ffa657] font-black uppercase tracking-wider bg-[#ffa657]/10 px-2 py-0.5 rounded border border-[#ffa657]/20">
-                              {flow.supervisorId ? 'No Supervisors Assigned' : 'Scope: Global Default'}
+                              {flow.supervisorId ? noEntityMessage : 'Scope: Global Default'}
                             </span>
                           )}
                         </div>
@@ -568,7 +592,7 @@ const ApprovalFlowSettings = () => {
               );
             })}
 
-            {approvalFlows.length === 0 && (
+            {approvalFlows.filter(f => activeTab === 'financing-flows' ? f.type === 'FINANCING' : (f.type === 'TICKET' || !f.type)).length === 0 && (
               <div className="py-16 text-center border border-dashed border-border-main rounded-3xl">
                 <ListOrdered size={36} className="mx-auto text-text-dim/40 mb-3 animate-pulse" />
                 <p className="text-[10px] font-bold text-text-dim/60 uppercase tracking-widest">No approval flows configured yet</p>
@@ -732,7 +756,7 @@ const ApprovalFlowSettings = () => {
 
               {/* Scope / Supervisor Assignment with Search */}
               <div className="space-y-1.5 relative" ref={supervisorRef}>
-                <label className="text-[10px] font-black text-text-dim uppercase tracking-wider">Scope (Supervisor Context)</label>
+                <label className="text-[10px] font-black text-text-dim uppercase tracking-wider">{activeTab === 'financing-flows' ? 'Scope (Employee Context)' : 'Scope (Supervisor Context)'}</label>
                 <div className="relative">
                   {/* Selected Item / Search Input Display */}
                   <div
@@ -741,8 +765,8 @@ const ApprovalFlowSettings = () => {
                   >
                     <span className="truncate">
                       {flowForm.supervisorId
-                        ? `Dedicated to Supervisor: ${fmcSupervisors.find(s => s._id === flowForm.supervisorId)?.name || 'Unknown'}`
-                        : 'Global Default (All Supervisors)'}
+                        ? `Dedicated to ${activeTab === 'financing-flows' ? 'Employee' : 'Supervisor'}: ${(activeTab === 'financing-flows' ? employees : fmcSupervisors).find(s => s._id === flowForm.supervisorId)?.name || 'Unknown'}`
+                        : `Global Default (All ${activeTab === 'financing-flows' ? 'Employees' : 'Supervisors'})`}
                     </span>
                     <ChevronDown size={14} className={`text-text-dim transition-transform ${supDropdownOpen ? 'rotate-180' : ''}`} />
                   </div>
@@ -777,11 +801,11 @@ const ApprovalFlowSettings = () => {
                             : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
                             }`}
                         >
-                          Global Default (All Supervisors)
+                          Global Default (All {activeTab === 'financing-flows' ? 'Employees' : 'Supervisors'})
                         </div>
 
-                        {/* Filtered Supervisors */}
-                        {fmcSupervisors
+                        {/* Filtered Supervisors/Employees */}
+                        {(activeTab === 'financing-flows' ? employees : fmcSupervisors)
                           .filter(s =>
                             s.name.toLowerCase().includes(supSearchTerm.toLowerCase())
                           )
@@ -800,16 +824,16 @@ const ApprovalFlowSettings = () => {
                                   : 'text-text-dim hover:bg-bg-deep hover:text-text-main'
                                   }`}
                               >
-                                Dedicated to Supervisor: {s.name}
+                                Dedicated to {activeTab === 'financing-flows' ? 'Employee' : 'Supervisor'}: {s.name}
                               </div>
                             );
                           })}
 
-                        {fmcSupervisors.filter(s =>
+                        {(activeTab === 'financing-flows' ? employees : fmcSupervisors).filter(s =>
                           s.name.toLowerCase().includes(supSearchTerm.toLowerCase())
                         ).length === 0 && supSearchTerm && (
                             <div className="text-center py-4 text-[10px] font-bold text-text-dim/50 uppercase tracking-widest">
-                              No supervisors match search
+                              No {activeTab === 'financing-flows' ? 'employees' : 'supervisors'} match search
                             </div>
                           )}
                       </div>

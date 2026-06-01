@@ -30,18 +30,18 @@ const TicketFormModal = ({ ticket, onClose, machines, fmcContracts }) => {
     }
 
     let flow = null;
+    const ticketFlows = approvalFlows.filter(f => f.type === 'TICKET' || !f.type);
     if (superId) {
       const supervisor = fmcSupervisors.find(s => s._id?.toString() === superId?.toString());
-      if (supervisor && supervisor.approvalFlowId !== undefined) {
-        if (supervisor.approvalFlowId) {
-          flow = approvalFlows.find(f => f.isActive && f._id?.toString() === supervisor.approvalFlowId?.toString());
-        }
-      } else {
-        flow = approvalFlows.find(f => f.isActive && f.supervisorId === superId);
+      if (supervisor && supervisor.approvalFlowId) {
+        flow = ticketFlows.find(f => f.isActive && f._id?.toString() === supervisor.approvalFlowId?.toString());
+      }
+      if (!flow) {
+        flow = ticketFlows.find(f => f.isActive && f.supervisorId === superId);
       }
     }
     if (!flow) {
-      flow = approvalFlows.find(f => f.isActive && (!f.supervisorId || f.supervisorId === ''));
+      flow = ticketFlows.find(f => f.isActive && (!f.supervisorId || f.supervisorId === ''));
     }
     if (!flow) return null;
 
@@ -142,8 +142,9 @@ const TicketFormModal = ({ ticket, onClose, machines, fmcContracts }) => {
 
   // Resolve supervisor context based on logged-in user or selected contract
   let supervisorId = null;
-  // const { fmcSupervisors = [] } = state.data;
-  if (user?.role === 'SUPERVISOR') {
+  if (ticket && ticket.supervisorId) {
+    supervisorId = ticket.supervisorId.toString();
+  } else if (!ticket && user?.role === 'SUPERVISOR') {
     supervisorId = (user.supervisorId?._id || user.supervisorId)?.toString();
   } else if (form.contractId) {
     const contract = fmcContracts.find(c => c._id === form.contractId);
@@ -157,18 +158,18 @@ const TicketFormModal = ({ ticket, onClose, machines, fmcContracts }) => {
 
   // Find active flow (supervisor-specific first, falling back to global default)
   let activeFlow = null;
+  const ticketFlows = approvalFlows.filter(f => f.type === 'TICKET');
   if (supervisorId) {
     const supervisor = fmcSupervisors.find(s => s._id?.toString() === supervisorId?.toString());
-    if (supervisor && supervisor.approvalFlowId !== undefined) {
-      if (supervisor.approvalFlowId) {
-        activeFlow = approvalFlows.find(f => f.isActive && f._id?.toString() === supervisor.approvalFlowId?.toString());
-      }
-    } else {
-      activeFlow = approvalFlows.find(f => f.isActive && f.supervisorId === supervisorId);
+    if (supervisor && supervisor.approvalFlowId) {
+      activeFlow = ticketFlows.find(f => f.isActive && f._id?.toString() === supervisor.approvalFlowId?.toString());
+    }
+    if (!activeFlow) {
+      activeFlow = ticketFlows.find(f => f.isActive && f.supervisorId === supervisorId);
     }
   }
   if (!activeFlow) {
-    activeFlow = approvalFlows.find(f => f.isActive && (!f.supervisorId || f.supervisorId === ''));
+    activeFlow = ticketFlows.find(f => f.isActive && (!f.supervisorId || f.supervisorId === ''));
   }
 
   const currentStepIndex = ticket ? ticket.currentStepIndex || 0 : 0;
@@ -358,9 +359,9 @@ const TicketFormModal = ({ ticket, onClose, machines, fmcContracts }) => {
               {/* Approval interactive box */}
               {currentStepIndex < activeFlow.steps.length && (() => {
                 const activeApproverId = getTicketActiveApproverId(ticket);
-                const isCurrentUserApprover = user?._id?.toString() === activeApproverId && !isAdmin;
+                const isCurrentUserApprover = user?._id?.toString() === activeApproverId;
 
-                if (!isCurrentUserApprover) return null;
+                if (!isCurrentUserApprover && !isAdmin) return null;
 
                 return (
                   <div className="bg-bg-deep border border-primary/20 rounded-2xl p-5 mt-5 space-y-4 shadow-xl">
@@ -437,18 +438,18 @@ const FMCTickets = () => {
     }
 
     let flow = null;
+    const ticketFlows = approvalFlows.filter(f => f.type === 'TICKET' || !f.type);
     if (superId) {
       const supervisor = fmcSupervisors.find(s => s._id?.toString() === superId?.toString());
-      if (supervisor && supervisor.approvalFlowId !== undefined) {
-        if (supervisor.approvalFlowId) {
-          flow = approvalFlows.find(f => f.isActive && f._id?.toString() === supervisor.approvalFlowId?.toString());
-        }
-      } else {
-        flow = approvalFlows.find(f => f.isActive && f.supervisorId === superId);
+      if (supervisor && supervisor.approvalFlowId) {
+        flow = ticketFlows.find(f => f.isActive && f._id?.toString() === supervisor.approvalFlowId?.toString());
+      }
+      if (!flow) {
+        flow = ticketFlows.find(f => f.isActive && f.supervisorId === superId);
       }
     }
     if (!flow) {
-      flow = approvalFlows.find(f => f.isActive && (!f.supervisorId || f.supervisorId === ''));
+      flow = ticketFlows.find(f => f.isActive && (!f.supervisorId || f.supervisorId === ''));
     }
     if (!flow) return null;
 

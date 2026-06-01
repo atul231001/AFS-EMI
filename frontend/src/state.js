@@ -5,6 +5,8 @@ import { lightenDarkenColor } from './utils';
 
 const INITIAL_STATE = {
   view: (() => {
+    const storedFilters = JSON.parse(localStorage.getItem('app_filters') || '{}');
+    if (storedFilters.view) return storedFilters.view;
     const user = JSON.parse(localStorage.getItem('emi_user'));
     if (!user) return 'landing';
     if (user.mustResetPassword) return 'force-reset-password';
@@ -65,8 +67,8 @@ const INITIAL_STATE = {
     from: 'EMI Portal <no-reply@emiportal.com>',
     secure: false
   },
-  loanListView: 'card',
-  machineListView: 'list',
+  loanListView: JSON.parse(localStorage.getItem('app_filters') || '{}').loanListView || 'card',
+  machineListView: JSON.parse(localStorage.getItem('app_filters') || '{}').machineListView || 'list',
   selectedCustomerId: null,
   selectedLoanId: null,
   loading: false,
@@ -108,6 +110,14 @@ class State {
     if (this.data.isAuthenticated) {
       this.init();
     }
+  }
+
+  get apiUrl() {
+    return BASE_URL;
+  }
+
+  get token() {
+    return this.data.user?.token;
   }
 
   getHeaders() {
@@ -196,6 +206,10 @@ class State {
     document.documentElement.style.setProperty('--color-primary-dark', lightenDarkenColor(accent, -30));
   }
 
+  async fetchData() {
+    return this.init();
+  }
+
   async init() {
     this.setState({ loading: true });
     try {
@@ -271,6 +285,18 @@ class State {
       localStorage.setItem('emi_theme', this.data.theme);
       this.applyTheme();
     }
+    
+    // Persist UI states
+    const persistKeys = ['view', 'loanListView', 'machineListView'];
+    const shouldPersist = persistKeys.some(k => newData[k] !== undefined);
+    if (shouldPersist) {
+      const filters = JSON.parse(localStorage.getItem('app_filters') || '{}');
+      persistKeys.forEach(k => {
+        if (this.data[k] !== undefined) filters[k] = this.data[k];
+      });
+      localStorage.setItem('app_filters', JSON.stringify(filters));
+    }
+    
     this.notify();
   }
 
@@ -554,6 +580,25 @@ class State {
       return { success: true, data };
     } catch (err) {
       console.error('Add Loan Error:', err);
+      return { success: false, message: err.message };
+    }
+  }
+
+  async approveLoan(loanId, action = 'Approved', notes = '') {
+    try {
+      const res = await fetch(`${BASE_URL}/loans/${loanId}/approve`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ action, notes })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Approval failed');
+      
+      const list = this.data.loans.map(l => l._id === data._id ? data : l);
+      this.setState({ loans: list });
+      return { success: true, data };
+    } catch (err) {
+      console.error('Approve Loan Error:', err);
       return { success: false, message: err.message };
     }
   }

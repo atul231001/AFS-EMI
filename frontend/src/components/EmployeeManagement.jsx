@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { state } from '../state';
 import { showNotification, confirmAction, hasPermission } from '../utils';
+import { usePersistentState } from '../hooks/usePersistentState';
 import Modal from './Modal.jsx';
 import {
   X, Search, Edit3, Trash2, UserPlus, ShieldCheck, Mail, Phone,
@@ -19,10 +20,10 @@ const EmployeeManagement = () => {
     name: true, customId: true, phone: true, email: true, role: true, status: true, control: true
   };
 
-  const [localColConfig, setLocalColConfig] = useState(globalConfig || defaultConfig);
+  const [localColConfig, setLocalColConfig] = usePersistentState('employee_col_config', globalConfig || defaultConfig);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = usePersistentState('employee_search', '');
   const [showColConfig, setShowColConfig] = useState(false);
   const colConfigRef = useRef(null);
 
@@ -52,17 +53,9 @@ const EmployeeManagement = () => {
   });
 
   const toggleColumn = (key) => {
-    if (!isAdmin) return showNotification('Access Denied: Only Admin can modify global view protocols', 'error');
     const newConfig = { ...localColConfig, [key]: !localColConfig[key] };
     setLocalColConfig(newConfig);
-    state.updateConfig({ employeeColumns: newConfig });
   };
-
-  useEffect(() => {
-    if (globalConfig) {
-      setLocalColConfig(globalConfig);
-    }
-  }, [globalConfig]);
 
   const checkDuplicate = (field, value) => {
     if (!value) return;
@@ -199,8 +192,7 @@ const EmployeeManagement = () => {
               {showColConfig && (
                 <div className="absolute top-full right-0 mt-3 w-72 bg-bg-card border border-border-main rounded-2xl shadow-2xl z-[60] p-4 animate-in fade-in zoom-in-95 duration-200">
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-[10px] font-black text-text-main uppercase tracking-widest">Global View Protocols</h4>
-                    {!isAdmin && <span className="text-[7px] font-bold text-red-500 uppercase flex items-center gap-1"><ShieldCheck size={10} /> Read Only</span>}
+                    <h4 className="text-[10px] font-black text-text-main uppercase tracking-widest">View Protocols</h4>
                   </div>
                   <div className="grid grid-cols-1 gap-2">
                     {[
@@ -214,10 +206,9 @@ const EmployeeManagement = () => {
                     ].map(col => (
                       <button
                         key={col.id}
-                        disabled={!isAdmin}
                         onClick={() => toggleColumn(col.id)}
                         className={`flex items-center gap-2 p-2 rounded-lg text-[8px] font-black uppercase transition-all ${localColConfig[col.id] ? 'bg-[#f0883e]/10 text-[#f0883e]' : 'bg-bg-deep text-text-dim hover:text-slate-400'
-                          } ${!isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          }`}
                       >
                         {localColConfig[col.id] ? <Check size={10} /> : <div className="w-[10px] h-[10px] border border-slate-700 rounded-sm" />}
                         {col.label}

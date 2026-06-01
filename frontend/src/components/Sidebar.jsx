@@ -53,14 +53,19 @@ const Sidebar = () => {
       module: 'financing',
       subItems: [
         {
-          id: 'financed-machines',
-          label: 'Financed Machines',
-          module: 'financed_machines'
-        },
-        {
           id: 'new-financing',
           label: 'New Financing',
           module: 'new_financing'
+        },
+        {
+          id: 'financing-pipeline',
+          label: 'Financing Pipeline',
+          module: 'new_financing'
+        },
+        {
+          id: 'financed-machines',
+          label: 'Financed Machines',
+          module: 'financed_machines'
         }
       ].filter((si) => hasPermission(user, si.module, 'read'))
     },

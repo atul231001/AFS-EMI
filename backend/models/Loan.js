@@ -5,7 +5,7 @@ const loanSchema = new mongoose.Schema({
   machineName: String,
   model: String,
   invoiceNumber: String,
-  serialNumber: String,
+  emiStartDate: String,
   startDate: { type: String, default: () => new Date().toLocaleDateString('en-IN') },
   principal: Number,
   emi: Number,
@@ -13,7 +13,30 @@ const loanSchema = new mongoose.Schema({
   interestRate: Number,
   downPayment: Number,
   delayInterest: { type: Number, default: 0 },
+  selectedAttachments: [{
+    name: String,
+    amount: Number,
+    isStandard: Boolean
+  }],
+  manualCharges: [{
+    name: String,
+    amount: Number
+  }],
   status: { type: String, default: 'Active' },
+  approvalStatus: { type: String, default: 'Pending Approval' },
+  approvalHistory: [{
+    action: String,
+    notes: String,
+    approverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approverName: String,
+    status: String,
+    date: { type: Date, default: Date.now }
+  }],
+  approvalStep: { type: Number, default: 0 },
+  approvalFlowId: { type: mongoose.Schema.Types.ObjectId, ref: 'ApprovalFlow' },
+  agreementGenerated: { type: Boolean, default: false },
+  agreementUrl: { type: String },
+  invoiceUrl: { type: String },
   schedule: [{
     installment: Number,
     dueDate: String,

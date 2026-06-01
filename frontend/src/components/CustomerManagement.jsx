@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { state } from '../state';
 import { showNotification, formatINR, confirmAction, hasPermission } from '../utils';
+import { usePersistentState } from '../hooks/usePersistentState';
 import Modal from './Modal.jsx';
 import {
   X, Search, Check, ChevronDown, FileText, MapPin, Building2,
@@ -88,11 +89,11 @@ const CustomerManagement = () => {
     bankAcc: true, ifsc: true, status: true, type: true, city: true, pin: true, address: true, overdue: true, control: true
   };
 
-  const [localColConfig, setLocalColConfig] = useState(globalConfig || defaultConfig);
+  const [localColConfig, setLocalColConfig] = usePersistentState('customer_col_config', globalConfig || defaultConfig);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
-  const [filterType, setFilterType] = useState('EMI');
-  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = usePersistentState('customer_filter_type', 'EMI');
+  const [search, setSearch] = usePersistentState('customer_search', '');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showColConfig, setShowColConfig] = useState(false);
   const colConfigRef = useRef(null);
@@ -115,23 +116,15 @@ const CustomerManagement = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = usePersistentState('customer_adv_filters', {
     status: 'All',
     city: 'All'
   });
 
   const toggleColumn = (key) => {
-    if (!isAdmin) return showNotification('Access Denied: Only Admin can modify global view protocols', 'error');
     const newConfig = { ...localColConfig, [key]: !localColConfig[key] };
     setLocalColConfig(newConfig);
-    state.updateConfig({ customerColumns: newConfig });
   };
-
-  useEffect(() => {
-    if (globalConfig) {
-      setLocalColConfig(globalConfig);
-    }
-  }, [globalConfig]);
 
   const cities = ['All', ...new Set((customers || []).filter(Boolean).map(c => c.city).filter(Boolean))];
 
@@ -237,8 +230,7 @@ const CustomerManagement = () => {
               {showColConfig && (
                 <div className="absolute top-full right-0 mt-3 w-80 bg-bg-card border border-border-main rounded-2xl shadow-2xl z-[60] p-4 animate-in fade-in zoom-in-95 duration-200">
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-[10px] font-black text-text-main uppercase tracking-widest">Global View Protocols</h4>
-                    {!isAdmin && <span className="text-[7px] font-bold text-red-500 uppercase flex items-center gap-1"><ShieldCheck size={10} /> Read Only</span>}
+                    <h4 className="text-[10px] font-black text-text-main uppercase tracking-widest">View Protocols</h4>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {[
@@ -260,22 +252,15 @@ const CustomerManagement = () => {
                     ].map(col => (
                       <button
                         key={col.id}
-                        disabled={!isAdmin}
                         onClick={() => toggleColumn(col.id)}
                         className={`flex items-center gap-2 p-2 rounded-lg text-[8px] font-black uppercase transition-all ${localColConfig[col.id] ? 'bg-[#f0883e]/10 text-[#f0883e]' : 'bg-bg-deep text-text-dim hover:text-slate-400'
-                          } ${!isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          }`}
                       >
                         {localColConfig[col.id] ? <Check size={10} /> : <div className="w-[10px] h-[10px] border border-slate-700 rounded-sm" />}
                         {col.label}
                       </button>
                     ))}
                   </div>
-                  {isAdmin && (
-                    <div className="mt-4 pt-4 border-t border-border-main flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#f0883e] animate-pulse" />
-                      <p className="text-[7px] font-bold text-slate-500 uppercase">Changes will be broadcasted to all users</p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>

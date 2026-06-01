@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { state } from '../state';
 import { formatINR, showNotification } from '../utils';
+import { usePersistentState } from '../hooks/usePersistentState';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import {
@@ -182,8 +183,8 @@ const DateFilter = ({ range, onChange }) => (
 
 const ORMDashboard = () => {
   const { loans = [], payments = [] } = state.data;
-  const [selectedAssets, setSelectedAssets] = useState(['ALL MACHINES']);
-  const [dateRange, setDateRange] = useState({
+  const [selectedAssets, setSelectedAssets] = usePersistentState('orm_selected_assets', ['ALL MACHINES']);
+  const [dateRange, setDateRange] = usePersistentState('orm_date_range', {
     start: new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
   });

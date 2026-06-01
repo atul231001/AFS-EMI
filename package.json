@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "server": "node backend/server.js",
+    "server": "nodemon backend/server.js",
     "build": "cd frontend && npm run build && cd .. && cross-env NODE_ENV=production node backend/server.js",
     "client": "npm --prefix frontend run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
@@ -19,7 +19,9 @@
     "file-saver": "^2.0.5",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.1",
+    "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
+    "pdf-parse": "^2.4.5",
     "pptxgenjs": "^4.0.1",
     "puppeteer": "^24.43.1"
   },
