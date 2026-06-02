@@ -166,7 +166,7 @@ const EmployeeManagement = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 min-h-[calc(100vh-140px)] flex flex-col">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 h-[calc(100vh-140px)] overflow-hidden flex flex-col">
       <div className="flex flex-col gap-6 flex-shrink-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
@@ -315,6 +315,15 @@ const EmployeeManagement = () => {
             <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
               Showing <span className="text-text-main">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredEmployees.length)}</span> of <span className="text-[#f0883e]">{filteredEmployees.length}</span> Personnel
             </p>
+            <div className="flex items-center gap-2 border-l border-border-main pl-4">
+              <select
+                value={itemsPerPage}
+                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
+              >
+                {[5, 10, 25, 50].map(v => <option key={v} value={v}>{v} / Page</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

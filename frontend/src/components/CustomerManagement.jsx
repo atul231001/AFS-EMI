@@ -204,7 +204,7 @@ const CustomerManagement = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 min-h-[calc(100vh-140px)] flex flex-col">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 h-[calc(100vh-140px)] overflow-hidden flex flex-col">
       <div className="flex flex-col gap-6 flex-shrink-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>

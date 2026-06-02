@@ -78,13 +78,13 @@ const LoanAssignment = () => {
 
 const PortfolioCardView = ({ loans, machines, user }) => {
   const pendingLoans = loans.filter(l => {
-    if (l.approvalStatus === 'Rejected') return false;
+    if (l.approvalStatus !== 'Active') return false;
     const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
     return paidCount < l.schedule.length;
   });
 
   const paidLoans = loans.filter(l => {
-    if (l.approvalStatus === 'Rejected') return false;
+    if (l.approvalStatus !== 'Active') return false;
     const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
     return paidCount === l.schedule.length && l.schedule.length > 0;
   });
@@ -216,13 +216,13 @@ const PortfolioCardView = ({ loans, machines, user }) => {
 
 const PortfolioListView = ({ loans, machines, user }) => {
   const pendingLoans = loans.filter(l => {
-    if (l.approvalStatus === 'Rejected') return false;
+    if (l.approvalStatus !== 'Active') return false;
     const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
     return paidCount < l.schedule.length;
   });
 
   const paidLoans = loans.filter(l => {
-    if (l.approvalStatus === 'Rejected') return false;
+    if (l.approvalStatus !== 'Active') return false;
     const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
     return paidCount === l.schedule.length && l.schedule.length > 0;
   });
@@ -358,7 +358,7 @@ const NewAssignment = ({ machines, customers, user }) => {
   availableAttachments.forEach(att => {
     const attName = `${att.type} - ${att.config}`;
     const isSelected = formData.selectedAttachments.some(sa => sa.name === attName);
-    
+
     if (att.isStandard) {
       if (!isSelected) {
         attachmentTotal -= (parseFloat(att.amount) || 0);
@@ -373,7 +373,7 @@ const NewAssignment = ({ machines, customers, user }) => {
   const manualChargesTotal = formData.manualCharges.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
   const finalPrice = Math.max(0, formData.machinePrice - formData.discountAmount);
   const P = Math.max(0, (finalPrice - (parseFloat(formData.downPayment) || 0)) + attachmentTotal + manualChargesTotal);
-  const norms = calculateFinanceNorms(P, formData.interestRate, formData.tenure);
+  const norms = calculateFinanceNorms(P, parseFloat(formData.interestRate) || 0, parseInt(formData.tenure) || 0);
 
   const calculateEndDate = () => {
     if (!formData.emiStartDate || !formData.tenure) return 'N/A';
@@ -546,9 +546,11 @@ const NewAssignment = ({ machines, customers, user }) => {
                     disabled={!isMachineSelected}
                     value={formData.discountPercentage}
                     onChange={e => {
-                      const perc = parseFloat(e.target.value) || 0;
+                      const raw = e.target.value.replace(/^0+(?=\d)/, '');
+                      let perc = parseFloat(raw) || 0;
+                      if (perc > 100) perc = 100;
                       const amount = (formData.machinePrice * perc) / 100;
-                      setFormData({ ...formData, discountPercentage: perc, discountAmount: amount });
+                      setFormData({ ...formData, discountPercentage: raw && parseFloat(raw) > 100 ? '100' : raw, discountAmount: amount });
                     }}
                     className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   />
@@ -560,9 +562,11 @@ const NewAssignment = ({ machines, customers, user }) => {
                     disabled={!isMachineSelected}
                     value={formData.discountAmount}
                     onChange={e => {
-                      const amount = parseFloat(e.target.value) || 0;
+                      const raw = e.target.value.replace(/^0+(?=\d)/, '');
+                      let amount = parseFloat(raw) || 0;
+                      if (amount > formData.machinePrice) amount = formData.machinePrice;
                       const perc = formData.machinePrice ? (amount / formData.machinePrice) * 100 : 0;
-                      setFormData({ ...formData, discountAmount: amount, discountPercentage: perc });
+                      setFormData({ ...formData, discountAmount: raw && parseFloat(raw) > formData.machinePrice ? formData.machinePrice.toString() : raw, discountPercentage: perc });
                     }}
                     className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   />
@@ -587,7 +591,7 @@ const NewAssignment = ({ machines, customers, user }) => {
                   type="number"
                   disabled={!isMachineSelected}
                   value={formData.tenure}
-                  onChange={e => setFormData({ ...formData, tenure: parseInt(e.target.value) || 1 })}
+                  onChange={e => setFormData({ ...formData, tenure: e.target.value.replace(/^0+(?=\d)/, '') })}
                   className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
@@ -606,7 +610,13 @@ const NewAssignment = ({ machines, customers, user }) => {
                   type="number"
                   disabled={!isMachineSelected}
                   value={formData.downPayment}
-                  onChange={e => setFormData({ ...formData, downPayment: parseFloat(e.target.value) || 0 })}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/^0+(?=\d)/, '');
+                    const val = parseFloat(raw) || 0;
+                    const finalPrice = Math.max(0, formData.machinePrice - (parseFloat(formData.discountAmount) || 0));
+                    const maxDownPayment = finalPrice + attachmentTotal + manualChargesTotal;
+                    setFormData({ ...formData, downPayment: raw && val > maxDownPayment ? maxDownPayment.toString() : raw });
+                  }}
                   className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
@@ -617,7 +627,7 @@ const NewAssignment = ({ machines, customers, user }) => {
                   step="0.1"
                   disabled={!isMachineSelected}
                   value={formData.interestRate}
-                  onChange={e => setFormData({ ...formData, interestRate: parseFloat(e.target.value) || 0 })}
+                  onChange={e => setFormData({ ...formData, interestRate: e.target.value.replace(/^0+(?=\d)/, '') })}
                   className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
@@ -631,7 +641,7 @@ const NewAssignment = ({ machines, customers, user }) => {
                   step="0.1"
                   disabled={!isMachineSelected}
                   value={formData.delayInterest}
-                  onChange={e => setFormData({ ...formData, delayInterest: parseFloat(e.target.value) || 0 })}
+                  onChange={e => setFormData({ ...formData, delayInterest: e.target.value.replace(/^0+(?=\d)/, '') })}
                   className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
@@ -639,8 +649,21 @@ const NewAssignment = ({ machines, customers, user }) => {
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Manual Charges</p>
                   <div
-                    onClick={() => setFormData({ ...formData, manualCharges: [...formData.manualCharges, { name: '', amount: 0 }] })}
-                    className="text-[10px] text-[#f0883e] flex items-center gap-1 font-bold uppercase tracking-wider hover:underline cursor-pointer"
+                    onClick={() => {
+                      const charges = formData.manualCharges;
+                      if (charges.length > 0) {
+                        const last = charges[charges.length - 1];
+                        if (!last.name.trim() || last.amount === '' || last.amount < 0) {
+                          showNotification('Please fill the previous charge details first.', 'error');
+                          return;
+                        }
+                      }
+                      setFormData({ ...formData, manualCharges: [...charges, { name: '', amount: 0 }] });
+                    }}
+                    className={`text-[10px] flex items-center gap-1 font-bold uppercase tracking-wider transition-colors ${formData.manualCharges.length > 0 && (!formData.manualCharges[formData.manualCharges.length - 1].name.trim() || formData.manualCharges[formData.manualCharges.length - 1].amount === '' || formData.manualCharges[formData.manualCharges.length - 1].amount < 0)
+                        ? 'text-text-dim cursor-not-allowed opacity-50'
+                        : 'text-[#f0883e] hover:underline cursor-pointer'
+                      }`}
                   >
                     <Plus size={12} /> Add Charge
                   </div>

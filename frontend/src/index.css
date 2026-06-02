@@ -109,18 +109,14 @@
   }
 }
 
-/* Custom Scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Global Hidden Scrollbar */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-border-main rounded-full hover:bg-text-dim/50 transition-colors;
+*::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes pulse-soft {

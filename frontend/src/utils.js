@@ -54,10 +54,10 @@ export const confirmAction = async (title, text, icon = 'warning') => {
  * R = Annual Interest Rate (%)
  * N = Tenure in Months
  */
-export const calculateFinanceNorms = (principal, annualRate, tenureYears) => {
+export const calculateFinanceNorms = (principal, annualRate, tenureMonths) => {
   const P = principal;
   const r = (annualRate / 12) / 100; // Monthly rate
-  const n = tenureYears * 12; // Total months
+  const n = tenureMonths; // Total months
 
   if (P <= 0 || r < 0 || n <= 0) return { emi: 0, totalPayable: 0, totalInterest: 0 };
 

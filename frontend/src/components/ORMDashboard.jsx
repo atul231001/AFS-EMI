@@ -189,24 +189,25 @@ const ORMDashboard = () => {
     end: new Date().toISOString().split('T')[0]
   });
 
-  const machineOptions = ['ALL MACHINES', ...new Set(loans.map(l => l.machineName))];
+  const getLoanLabel = (l) => `${l.machineName} (${l.invoiceNumber || l._id.toString().substring(l._id.toString().length - 4)})`;
 
-  // Filtered Loans based on machine selection
+  const machineOptions = ['ALL MACHINES', ...loans.map(getLoanLabel)];
+
+  // Filtered Loans based on individual fleet selection
   const filteredLoans = selectedAssets.includes('ALL MACHINES')
     ? loans
-    : loans.filter(l => selectedAssets.includes(l.machineName));
+    : loans.filter(l => selectedAssets.includes(getLoanLabel(l)));
 
-  // Filtered Payments based on machine selection AND date range
+  // Filtered Payments based on individual fleet selection AND date range
   const filteredPayments = payments.filter(p => {
     const paymentDate = new Date(p.date);
     const inDateRange = paymentDate >= new Date(dateRange.start) && paymentDate <= new Date(dateRange.end);
 
     if (selectedAssets.includes('ALL MACHINES')) return inDateRange;
 
-    // Find the loan associated with this payment to check machineName
-    // (Assuming payment has loanId or we can match it)
+    // Find the loan associated with this payment to check its label
     const associatedLoan = loans.find(l => l._id === p.loanId);
-    return inDateRange && associatedLoan && selectedAssets.includes(associatedLoan.machineName);
+    return inDateRange && associatedLoan && selectedAssets.includes(getLoanLabel(associatedLoan));
   });
 
   const [showGlobalReportFormats, setShowGlobalReportFormats] = useState(false);

@@ -3,7 +3,7 @@ import { state } from '../state';
 import { hasPermission, showNotification, confirmAction } from '../utils';
 import {
   Plus, Search, AlertTriangle, Camera, Edit3, Trash2,
-  Clock, User, Wrench, ChevronUp, ChevronDown, X, Check, ListOrdered
+  Clock, User, Wrench, ChevronUp, ChevronDown, X, Check, ListOrdered, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 // ── Ticket Form Modal ──────────────────────────────────────────────────────
@@ -420,6 +420,9 @@ const FMCTickets = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingTicket, setEditingTicket] = useState(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   const isAdmin = user?.role === 'ADMIN' || user?.email === 'oem@liugong.com' || (user?.roleId?.name || '').toUpperCase().includes('ADMIN');
   const isSupervisor = user?.role === 'SUPERVISOR';
   const isApprover = !isAdmin && !isSupervisor;
@@ -556,7 +559,9 @@ const FMCTickets = () => {
     return matchesSearch && matchesSev && matchesStatus;
   });
 
-  // Async delete handler for tickets
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedData = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const handleDelete = async (id, e) => {
     e.stopPropagation();
     const ok = await confirmAction('Delete Ticket?', 'This will permanently remove the ticket.', 'warning');
@@ -587,143 +592,201 @@ const FMCTickets = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-text-main tracking-tight uppercase italic">FMC Service Desk</h2>
-          <p className="text-[10px] font-bold text-text-dim/60 uppercase tracking-[0.2em] mt-1 font-mono">
-            Breakdown Ticket Management — {fmcTickets.filter(t => !['Closed', 'Resolved'].includes(t.status)).length} Open
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <select value={filterSev} onChange={e => setFilterSev(e.target.value)}
-            className="bg-bg-card border border-border-main rounded-xl px-3 py-2.5 text-xs text-text-dim font-bold focus:border-[#f0883e] outline-none">
-            <option>All</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option>
-          </select>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="bg-bg-card border border-border-main rounded-xl px-3 py-2.5 text-xs text-text-dim font-bold focus:border-[#f0883e] outline-none">
-            <option value="All">All</option>
-            {getFilterStatuses().map(statusName => (
-              <option key={statusName} value={statusName}>{statusName}</option>
-            ))}
-          </select>
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim/60" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tickets..." className="pl-9 pr-4 py-2.5 bg-bg-card border border-border-main rounded-xl text-xs text-text-main font-bold focus:border-[#f0883e] outline-none w-56" />
+    <div className="space-y-6 animate-in fade-in h-[calc(100vh-140px)] overflow-hidden flex flex-col">
+      <div className="flex flex-col gap-6 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-text-main tracking-tight uppercase italic">FMC Service Desk</h2>
+            <p className="text-[10px] font-bold text-text-dim/60 uppercase tracking-[0.2em] mt-1 font-mono">
+              Breakdown Ticket Management — {fmcTickets.filter(t => !['Closed', 'Resolved'].includes(t.status)).length} Open
+            </p>
           </div>
-          {user?.role === 'SUPERVISOR' && (
-            <button onClick={() => { setEditingTicket(null); setShowModal(true); }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#f85149] text-white text-[11px] font-black rounded-xl hover:bg-red-400 transition-all shadow-lg shadow-red-500/20">
-              <Plus size={14} /> RAISE TICKET
+          <div className="flex items-center gap-3">
+            <select value={filterSev} onChange={e => setFilterSev(e.target.value)}
+              className="bg-bg-card border border-border-main rounded-xl px-3 py-2.5 text-xs text-text-dim font-bold focus:border-[#f0883e] outline-none">
+              <option>All</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option>
+            </select>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              className="bg-bg-card border border-border-main rounded-xl px-3 py-2.5 text-xs text-text-dim font-bold focus:border-[#f0883e] outline-none">
+              <option value="All">All</option>
+              {getFilterStatuses().map(statusName => (
+                <option key={statusName} value={statusName}>{statusName}</option>
+              ))}
+            </select>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim/60" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tickets..." className="pl-9 pr-4 py-2.5 bg-bg-card border border-border-main rounded-xl text-xs text-text-main font-bold focus:border-[#f0883e] outline-none w-56" />
+            </div>
+            {user?.role === 'SUPERVISOR' && (
+              <button onClick={() => { setEditingTicket(null); setShowModal(true); }}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#f85149] text-white text-[11px] font-black rounded-xl hover:bg-red-400 transition-all shadow-lg shadow-red-500/20">
+                <Plus size={14} /> RAISE TICKET
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-6 border-b border-border-main mb-6 px-2">
+          {isAdmin && (
+            <button
+              className={`pb-3 px-1 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'ALL' ? 'border-[#f0883e] text-[#f0883e]' : 'border-transparent text-text-dim hover:text-text-main'}`}
+              onClick={() => setActiveTab('ALL')}
+            >
+              All Tickets
             </button>
+          )}
+          {isSupervisor && (
+            <button
+              className={`pb-3 px-1 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'ALL' ? 'border-[#f0883e] text-[#f0883e]' : 'border-transparent text-text-dim hover:text-text-main'}`}
+              onClick={() => setActiveTab('ALL')}
+            >
+              My Tickets
+            </button>
+          )}
+          {isApprover && (
+            <>
+              <button
+                className={`flex items-center gap-2 pb-3 px-1 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'MY_APPROVALS' ? 'border-[#f0883e] text-[#f0883e]' : 'border-transparent text-text-dim hover:text-text-main'}`}
+                onClick={() => setActiveTab('MY_APPROVALS')}
+              >
+                My Pending Approvals
+                {fmcTickets.filter(isTicketPendingForUser).length > 0 && (
+                  <span className="bg-[#f0883e] text-black w-5 h-5 flex items-center justify-center rounded-full text-[9px] animate-pulse">
+                    {fmcTickets.filter(isTicketPendingForUser).length}
+                  </span>
+                )}
+              </button>
+              <button
+                className={`pb-3 px-1 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'COMPLETED_APPROVALS' ? 'border-[#f0883e] text-[#f0883e]' : 'border-transparent text-text-dim hover:text-text-main'}`}
+                onClick={() => setActiveTab('COMPLETED_APPROVALS')}
+              >
+                Completed Approvals
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-6 border-b border-border-main mb-6 px-2">
-        {isAdmin && (
-          <button
-            className={`pb-3 px-1 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'ALL' ? 'border-[#f0883e] text-[#f0883e]' : 'border-transparent text-text-dim hover:text-text-main'}`}
-            onClick={() => setActiveTab('ALL')}
-          >
-            All Tickets
-          </button>
-        )}
-        {isSupervisor && (
-          <button
-            className={`pb-3 px-1 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'ALL' ? 'border-[#f0883e] text-[#f0883e]' : 'border-transparent text-text-dim hover:text-text-main'}`}
-            onClick={() => setActiveTab('ALL')}
-          >
-            My Tickets
-          </button>
-        )}
-        {isApprover && (
-          <>
-            <button
-              className={`flex items-center gap-2 pb-3 px-1 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'MY_APPROVALS' ? 'border-[#f0883e] text-[#f0883e]' : 'border-transparent text-text-dim hover:text-text-main'}`}
-              onClick={() => setActiveTab('MY_APPROVALS')}
-            >
-              My Pending Approvals
-              {fmcTickets.filter(isTicketPendingForUser).length > 0 && (
-                <span className="bg-[#f0883e] text-black w-5 h-5 flex items-center justify-center rounded-full text-[9px] animate-pulse">
-                  {fmcTickets.filter(isTicketPendingForUser).length}
-                </span>
-              )}
-            </button>
-            <button
-              className={`pb-3 px-1 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'COMPLETED_APPROVALS' ? 'border-[#f0883e] text-[#f0883e]' : 'border-transparent text-text-dim hover:text-text-main'}`}
-              onClick={() => setActiveTab('COMPLETED_APPROVALS')}
-            >
-              Completed Approvals
-            </button>
-          </>
-        )}
-      </div>
-
-      <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-2xl">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-bg-active border-b border-border-main">
-              {['Ticket #', 'Supervisor', 'Machine / Type', 'Severity', 'Description', 'Location', 'Status', 'Next Approver', 'Actions'].map(h => (
-                <th key={h} className="px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-main/50">
-            {filtered.length === 0 ? (
-              <tr><td colSpan={9} className="px-5 py-16 text-center text-[10px] font-bold text-text-dim/60 uppercase tracking-widest">No tickets found</td></tr>
-            ) : filtered.map((t, i) => (
-              <tr key={t._id || i} onClick={() => { setEditingTicket(t); setShowModal(true); }} className="hover:bg-bg-active transition-colors group cursor-pointer">
-                <td className="px-5 py-4">
-                  <span className="font-mono font-black text-[#f0883e] text-xs">{t.ticketNumber}</span>
-                  <p className="text-[8px] font-mono text-text-dim/60 mt-0.5">{t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : '—'}</p>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="text-xs text-text-main font-bold">{getSupervisorName(t)}</span>
-                </td>
-                <td className="px-5 py-4">
-                  <p className="font-black text-text-main text-xs">{t.machineName || '—'}</p>
-                  <p className="text-[9px] font-mono text-text-dim/60">{t.breakdownType}</p>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border"
-                    style={{ background: `${sevColor[t.severity]}15`, color: sevColor[t.severity], borderColor: `${sevColor[t.severity]}30` }}>
-                    {t.severity}
-                  </span>
-                </td>
-                <td className="px-5 py-4 max-w-xs">
-                  <p className="text-xs text-text-dim truncate">{t.description}</p>
-                </td>
-                <td className="px-5 py-4 font-mono text-xs text-text-dim">{t.location || '—'}</td>
-                <td className="px-5 py-4">
-                  <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border"
-                    style={{ background: `${getStatusColor(t.status)}15`, color: getStatusColor(t.status), borderColor: `${getStatusColor(t.status)}30` }}>
-                    {t.status}
-                  </span>
-                </td>
-                <td className="px-5 py-4">
-                  {getNextApproverName(t) || '—'}
-                </td>
-                <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
-                    {user?.role === 'SUPERVISOR' && (t.currentStepIndex || 0) === 0 && t.status === 'Requested' && (
-                      <button onClick={() => { setEditingTicket(t); setShowModal(true); }}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-bg-active text-text-dim hover:text-[#f0883e] hover:bg-[#f0883e]/10 border border-border-main transition-all">
-                        <Edit3 size={13} />
-                      </button>
-                    )}
-                    {user?.role === 'SUPERVISOR' && (t.currentStepIndex || 0) === 0 && t.status === 'Requested' && (
-                      <button onClick={(e) => handleDelete(t._id, e)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-bg-active text-text-dim hover:text-rose-500 hover:bg-rose-500/10 border border-border-main transition-all">
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                </td>
+      <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-2xl flex-1 flex flex-col min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
+          <table className="w-full text-left relative">
+            <thead className="sticky top-0 z-[40] bg-bg-active shadow-sm">
+              <tr className="border-b border-border-main">
+                {['Ticket #', 'Supervisor', 'Machine / Type', 'Severity', 'Description', 'Location', 'Status', 'Next Approver', 'Actions'].map(h => (
+                  <th key={h} className="px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim bg-bg-active">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border-main/50">
+              {paginatedData.length === 0 ? (
+                <tr><td colSpan={9} className="px-5 py-16 text-center text-[10px] font-bold text-text-dim/60 uppercase tracking-widest">No tickets found</td></tr>
+              ) : paginatedData.map((t, i) => (
+                <tr key={t._id || i} onClick={() => { setEditingTicket(t); setShowModal(true); }} className="hover:bg-bg-active transition-colors group cursor-pointer">
+                  <td className="px-5 py-4">
+                    <span className="font-mono font-black text-[#f0883e] text-xs">{t.ticketNumber}</span>
+                    <p className="text-[8px] font-mono text-text-dim/60 mt-0.5">{t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : '—'}</p>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="text-xs text-text-main font-bold">{getSupervisorName(t)}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <p className="font-black text-text-main text-xs">{t.machineName || '—'}</p>
+                    <p className="text-[9px] font-mono text-text-dim/60">{t.breakdownType}</p>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border"
+                      style={{ background: `${sevColor[t.severity]}15`, color: sevColor[t.severity], borderColor: `${sevColor[t.severity]}30` }}>
+                      {t.severity}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 max-w-xs">
+                    <p className="text-xs text-text-dim truncate">{t.description}</p>
+                  </td>
+                  <td className="px-5 py-4 font-mono text-xs text-text-dim">{t.location || '—'}</td>
+                  <td className="px-5 py-4">
+                    <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border"
+                      style={{ background: `${getStatusColor(t.status)}15`, color: getStatusColor(t.status), borderColor: `${getStatusColor(t.status)}30` }}>
+                      {t.status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    {getNextApproverName(t) || '—'}
+                  </td>
+                  <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                      {user?.role === 'SUPERVISOR' && (t.currentStepIndex || 0) === 0 && t.status === 'Requested' && (
+                        <button onClick={() => { setEditingTicket(t); setShowModal(true); }}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg bg-bg-active text-text-dim hover:text-[#f0883e] hover:bg-[#f0883e]/10 border border-border-main transition-all">
+                          <Edit3 size={13} />
+                        </button>
+                      )}
+                      {user?.role === 'SUPERVISOR' && (t.currentStepIndex || 0) === 0 && t.status === 'Requested' && (
+                        <button onClick={(e) => handleDelete(t._id, e)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg bg-bg-active text-text-dim hover:text-rose-500 hover:bg-rose-500/10 border border-border-main transition-all">
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="bg-bg-card border-t border-border-main p-4 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
+              Showing <span className="text-text-main">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of <span className="text-[#f0883e]">{filtered.length}</span> Tickets
+            </p>
+            <div className="flex items-center gap-2 border-l border-border-main pl-4">
+              <select
+                value={itemsPerPage}
+                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
+              >
+                {[5, 10, 25, 50].map(v => <option key={v} value={v}>{v} / Page</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => prev - 1)}
+              className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className="flex items-center gap-1">
+              {[...Array(totalPages)].map((_, i) => {
+                const page = i + 1;
+                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === page ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'}`}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="text-text-dim/50">...</span>;
+                }
+                return null;
+              })}
+            </div>
+            <button
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(prev => prev + 1)}
+              className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
       </div>
       {showModal && <TicketFormModal ticket={editingTicket} onClose={() => { setShowModal(false); setEditingTicket(null); }} machines={availableMachines} fmcContracts={availableContracts} />}
     </div>

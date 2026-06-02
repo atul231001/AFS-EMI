@@ -12,6 +12,9 @@ const loanSchema = new mongoose.Schema({
   tenure: Number,
   interestRate: Number,
   downPayment: Number,
+  machinePrice: Number,
+  discountAmount: Number,
+  discountPercentage: Number,
   delayInterest: { type: Number, default: 0 },
   selectedAttachments: [{
     name: String,

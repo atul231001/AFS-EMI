@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { state } from '../state';
 import { showNotification, formatINR, hasPermission } from '../utils';
-import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye } from 'lucide-react';
+import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const FinancingFormModal = ({ loan, onClose }) => {
   const { user, approvalFlows = [], employees = [], machines = [], customers = [] } = state.data;
@@ -165,9 +165,9 @@ const FinancingFormModal = ({ loan, onClose }) => {
     try {
       const res = await fetch(`${state.apiUrl}/loans/${loan._id}/schedule`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${state.token}` 
+          Authorization: `Bearer ${state.token}`
         },
         body: JSON.stringify({ notes: approvalNotes })
       });
@@ -187,9 +187,9 @@ const FinancingFormModal = ({ loan, onClose }) => {
     try {
       const res = await fetch(`${state.apiUrl}/loans/${loan._id}/invoice`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${state.token}` 
+          Authorization: `Bearer ${state.token}`
         },
         body: JSON.stringify({ notes: approvalNotes })
       });
@@ -220,9 +220,8 @@ const FinancingFormModal = ({ loan, onClose }) => {
   }, [currentStage]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="w-full max-w-6xl bg-bg-card border border-border-main rounded-3xl shadow-2xl my-8 overflow-hidden flex flex-col max-h-[90vh]">
-        
+    <div className="h-full flex flex-col animate-in fade-in duration-300">
+      <div className="flex-1 bg-bg-card border border-border-main rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-0">
         <div className="px-8 py-5 border-b border-border-main flex items-center justify-between shrink-0 bg-bg-deep">
           <div>
             <h2 className="text-lg font-black text-text-main uppercase">
@@ -232,31 +231,31 @@ const FinancingFormModal = ({ loan, onClose }) => {
           </div>
           <button onClick={onClose} className="p-2 hover:bg-bg-active rounded-xl text-text-dim hover:text-text-main transition-colors"><X size={18} /></button>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
-          
+
           <div className="flex items-center justify-between mb-10 relative px-10">
             <div className="absolute left-10 right-10 top-1/2 -translate-y-1/2 h-1 bg-bg-active -z-10 rounded-full"></div>
-            <div className="absolute left-10 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 transition-all duration-500 rounded-full" style={{ width: `calc(${(Math.max((currentStage-1)/2, 0)*100)}% - 40px)` }}></div>
-            
+            <div className="absolute left-10 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 transition-all duration-500 rounded-full" style={{ width: `calc(${(Math.max((currentStage - 1) / 2, 0) * 100)}% - 40px)` }}></div>
+
             <div onClick={() => currentStage >= 1 && setViewStage(1)} className={`flex flex-col items-center gap-2 ${currentStage >= 1 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 1 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 1 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 1 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>1</div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Approval Stage</span>
             </div>
-            
+
             <div onClick={() => currentStage >= 2 && setViewStage(2)} className={`flex flex-col items-center gap-2 ${currentStage >= 2 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 2 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 2 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 2 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>2</div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Scheduling Stage</span>
             </div>
-            
+
             <div onClick={() => currentStage >= 3 && setViewStage(3)} className={`flex flex-col items-center gap-2 ${currentStage >= 3 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 3 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 3 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 3 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>3</div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Invoice Stage</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-5 space-y-6">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0 overflow-hidden">
+            <div className="lg:col-span-3 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 min-h-0 order-1">
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-bg-deep p-3 rounded-xl border border-border-main">
                   <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">Principal Amount</p>
@@ -276,6 +275,96 @@ const FinancingFormModal = ({ loan, onClose }) => {
                 </div>
               </div>
 
+              <div className="border border-border-main rounded-2xl overflow-hidden shadow-xl bg-bg-deep">
+                <div className="bg-bg-card p-4 border-b border-border-main flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-text-dim uppercase tracking-wider flex items-center gap-2">
+                    Asset Valuation Breakdown
+                  </h4>
+                </div>
+                <div className="p-4 space-y-2">
+                  <div className="flex justify-between items-center pb-2 border-b border-border-main/30">
+                    <div>
+                      <span className="text-[10px] font-bold text-text-dim uppercase block">Base Asset Value</span>
+                      <span className="text-[9px] font-black text-primary uppercase tracking-wider">{loan.machineName} {machine?.model ? `(${machine.model})` : ''}</span>
+                    </div>
+                    <span className="text-xs font-black text-text-main">{formatINR(loan.machinePrice || (machine?.pricing?.totalPrice || 0))}</span>
+                  </div>
+
+                  {loan.discountAmount > 0 && (
+                    <div className="flex justify-between items-center pb-2 border-b border-border-main/30">
+                      <span className="text-[10px] font-bold text-text-dim uppercase">Approved Discount {loan.discountPercentage ? `(${loan.discountPercentage.toFixed(1)}%)` : ''}</span>
+                      <span className="text-xs font-black text-red-400">- {formatINR(loan.discountAmount)}</span>
+                    </div>
+                  )}
+
+                  {(() => {
+                    const allStandardAtts = machine?.attachments?.filter(a => a.isStandard) || [];
+                    const removedStandardAtts = allStandardAtts.filter(sa =>
+                      !loan.selectedAttachments?.find(la => la.name === `${sa.type} - ${sa.config}`)
+                    );
+
+                    if (removedStandardAtts.length > 0) {
+                      return (
+                        <div className="pb-2 border-b border-border-main/30 space-y-1.5">
+                          <span className="text-[10px] font-bold text-text-dim uppercase">Removed Standard Mods</span>
+                          {removedStandardAtts.map((att, i) => (
+                            <div key={i} className="flex justify-between items-center pl-2">
+                              <span className="text-[9px] font-bold text-text-dim uppercase tracking-wide flex items-center gap-1.5">
+                                <div className="w-1 h-1 bg-red-500 rounded-full"></div>
+                                {att.type} - {att.config}
+                              </span>
+                              <span className="text-[10px] font-black text-red-400">
+                                - {formatINR(att.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
+                  {loan.selectedAttachments?.filter(att => !att.isStandard).length > 0 && (
+                    <div className="pb-2 border-b border-border-main/30 space-y-1.5">
+                      <span className="text-[10px] font-bold text-text-dim uppercase">Attachments & Mods</span>
+                      {loan.selectedAttachments.filter(att => !att.isStandard).map((att, i) => (
+                        <div key={i} className="flex justify-between items-center pl-2">
+                          <span className="text-[9px] font-bold text-text-dim uppercase tracking-wide flex items-center gap-1.5">
+                            <div className="w-1 h-1 bg-[#3fb950] rounded-full"></div>
+                            {att.name}
+                          </span>
+                          <span className="text-[10px] font-black text-text-main">
+                            + {formatINR(att.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {loan.manualCharges?.length > 0 && (
+                    <div className="pb-2 border-b border-border-main/30 space-y-1.5">
+                      <span className="text-[10px] font-bold text-text-dim uppercase">Additional Charges</span>
+                      {loan.manualCharges.map((charge, i) => (
+                        <div key={i} className="flex justify-between items-center pl-2">
+                          <span className="text-[9px] font-bold text-text-dim uppercase tracking-wide flex items-center gap-1.5">
+                            <div className="w-1 h-1 bg-[#58a6ff] rounded-full"></div>
+                            {charge.name}
+                          </span>
+                          <span className="text-[10px] font-black text-text-main">+ {formatINR(charge.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-[10px] font-black text-[#f0883e] uppercase">Total Financed Principal</span>
+                    <span className="text-sm font-black text-[#f0883e]">{formatINR(loan.principal)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-3 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 min-h-0 order-3">
               {viewStage === 1 && activeFlow && (
                 <div className="border border-border-main rounded-2xl overflow-hidden animate-fade-in shadow-xl bg-bg-deep">
                   <div className="bg-bg-card p-4 border-b border-border-main">
@@ -361,9 +450,15 @@ const FinancingFormModal = ({ loan, onClose }) => {
                       );
                     })() : (
                       <>
-                        <div className="flex gap-4">
-                          <button onClick={handleDownload} className="flex-1 py-3 bg-bg-card hover:bg-bg-active border border-border-main rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-text-main transition-colors shadow-sm"><Download size={16} className="text-primary" /> Download Agreement</button>
-                          <button onClick={handleSendEmail} className="flex-1 py-3 bg-bg-card hover:bg-bg-active border border-border-main rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-text-main transition-colors shadow-sm"><Mail size={16} className="text-primary" /> Send to Customer</button>
+                        <div className="flex flex-col gap-3">
+                          <button onClick={handleDownload} className="w-full py-3 px-4 bg-bg-card hover:bg-bg-active border border-border-main rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-wider text-text-main transition-colors shadow-sm">
+                            <Download size={16} className="text-primary shrink-0" />
+                            <span>Download Agreement</span>
+                          </button>
+                          <button onClick={handleSendEmail} className="w-full py-3 px-4 bg-bg-card hover:bg-bg-active border border-border-main rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-wider text-text-main transition-colors shadow-sm">
+                            <Mail size={16} className="text-primary shrink-0" />
+                            <span>Send to Customer</span>
+                          </button>
                         </div>
 
                         {hasPermission(user, 'financing_scheduling', 'approve') ? (
@@ -379,8 +474,8 @@ const FinancingFormModal = ({ loan, onClose }) => {
                                 </div>
                                 <input type="file" className="hidden" accept=".pdf" onChange={e => setSelectedFile(e.target.files[0])} />
                               </label>
-                              <button 
-                                onClick={handleUploadAgreement} 
+                              <button
+                                onClick={handleUploadAgreement}
                                 disabled={!selectedFile}
                                 className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${selectedFile ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20' : 'bg-bg-active text-text-dim cursor-not-allowed border border-border-main'}`}
                               >
@@ -413,7 +508,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
               )}
             </div>
 
-            <div className="lg:col-span-7 h-full flex flex-col bg-bg-card border border-border-main rounded-2xl shadow-xl overflow-hidden">
+            <div className="lg:col-span-6 min-h-0 flex flex-col bg-bg-card border border-border-main rounded-2xl shadow-xl overflow-hidden order-2 self-start max-h-full">
               <div className="bg-bg-active border-b border-border-main p-4">
                 <h3 className="text-[10px] font-bold text-text-dim uppercase tracking-widest flex items-center justify-between">
                   <span>Amortization Schedule</span>
@@ -462,6 +557,7 @@ const FinancingPipeline = () => {
   );
 
   const [selectedLoan, setSelectedLoan] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('All');
 
   const getTicketActiveApproverId = (l) => {
     if (!l || ['Approved', 'Rejected'].includes(l.approvalStatus)) return null;
@@ -500,9 +596,26 @@ const FinancingPipeline = () => {
     }
   };
 
+  const filteredLoans = pendingLoans.filter(l => {
+    if (filterStatus === 'All') return true;
+    if (filterStatus === 'Pending Approval') return l.approvalStatus === 'Pending Approval';
+    if (filterStatus === 'Pending Scheduling') return l.approvalStatus === 'Pending Scheduling' || l.approvalStatus === 'Pending Signature' || l.approvalStatus === 'Agreement Confirmed';
+    if (filterStatus === 'Pending Invoice') return l.approvalStatus === 'Pending Invoice' || l.approvalStatus === 'Invoice Uploaded';
+    return true;
+  });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const totalPages = Math.ceil(filteredLoans.length / itemsPerPage);
+  const paginatedData = filteredLoans.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  if (selectedLoan) {
+    return <FinancingFormModal loan={selectedLoan} onClose={() => setSelectedLoan(null)} />;
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 animate-fade-in h-full overflow-hidden flex flex-col min-h-0">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-text-main tracking-tight uppercase italic">
             Financing Pipeline
@@ -511,58 +624,122 @@ const FinancingPipeline = () => {
             Manage Pending Asset Approvals & Agreements
           </p>
         </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 xl:pb-0 custom-scrollbar">
+          {['All', 'Pending Approval', 'Pending Scheduling', 'Pending Invoice'].map(status => (
+            <button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${filterStatus === status ? 'bg-primary text-black border-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-card border-border-main text-text-dim hover:text-text-main hover:border-primary/50'}`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-2xl">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-bg-active border-b border-border-main">
-              {['Machine', 'Client', 'Principal', 'EMI', 'Current Status', 'Next Approver'].map(h => (
-                <th key={h} className="px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-main/50">
-            {pendingLoans.length === 0 ? (
-              <tr><td colSpan={6} className="px-5 py-16 text-center text-[10px] font-bold text-text-dim/60 uppercase tracking-widest">No pending financing requests</td></tr>
-            ) : pendingLoans.map((l, i) => {
-              const machine = machines.find(m => m.name === l.machineName);
-              const customer = customers.find(c => c._id === l.customerId || c._id === l.customerId?._id);
+      <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-2xl flex-1 flex flex-col min-h-0">
+        <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
+          <table className="w-full text-left relative">
+            <thead className="sticky top-0 z-[40] bg-bg-active shadow-sm">
+              <tr className="border-b border-border-main">
+                {['Machine', 'Client', 'Principal', 'EMI', 'Current Status', 'Next Approver'].map(h => (
+                  <th key={h} className="px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim bg-bg-active">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-main/50">
+              {paginatedData.length === 0 ? (
+                <tr><td colSpan={6} className="px-5 py-16 text-center text-[10px] font-bold text-text-dim/60 uppercase tracking-widest">No pending financing requests</td></tr>
+              ) : paginatedData.map((l, i) => {
+                const machine = machines.find(m => m.name === l.machineName);
+                const customer = customers.find(c => c._id === l.customerId || c._id === l.customerId?._id);
 
-              return (
-                <tr key={l._id || i} onClick={() => setSelectedLoan(l)} className="hover:bg-bg-active transition-colors group cursor-pointer">
-                  <td className="px-5 py-4">
-                    <p className="font-black text-text-main text-xs uppercase">{l.machineName}</p>
-                    <p className="text-[8px] font-mono text-text-dim/60">{l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-GB') : '—'}</p>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-xs text-text-main font-bold">{customer?.name || 'Unknown Client'}</span>
-                  </td>
-                  <td className="px-5 py-4 font-mono font-bold text-text-main text-xs">
-                    {formatINR(l.principal)}
-                  </td>
-                  <td className="px-5 py-4 font-mono font-bold text-text-main text-xs">
-                    {formatINR(l.emi)}
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border"
-                      style={{ background: `${getStatusColor(l.approvalStatus)}15`, color: getStatusColor(l.approvalStatus), borderColor: `${getStatusColor(l.approvalStatus)}30` }}>
-                      {l.approvalStatus}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 font-bold text-text-dim text-xs">
-                    {getNextApproverName(l)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                return (
+                  <tr key={l._id || i} onClick={() => setSelectedLoan(l)} className="hover:bg-bg-active transition-colors group cursor-pointer">
+                    <td className="px-5 py-4">
+                      <p className="font-black text-text-main text-xs uppercase">{l.machineName}</p>
+                      <p className="text-[8px] font-mono text-text-dim/60">{l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-GB') : '—'}</p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-xs text-text-main font-bold">{customer?.name || 'Unknown Client'}</span>
+                    </td>
+                    <td className="px-5 py-4 font-mono font-bold text-text-main text-xs">
+                      {formatINR(l.principal)}
+                    </td>
+                    <td className="px-5 py-4 font-mono font-bold text-text-main text-xs">
+                      {formatINR(l.emi)}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border"
+                        style={{ background: `${getStatusColor(l.approvalStatus)}15`, color: getStatusColor(l.approvalStatus), borderColor: `${getStatusColor(l.approvalStatus)}30` }}>
+                        {l.approvalStatus}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 font-bold text-text-dim text-xs">
+                      {getNextApproverName(l)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="bg-bg-card border-t border-border-main p-4 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
+              Showing <span className="text-text-main">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredLoans.length)}</span> of <span className="text-[#f0883e]">{filteredLoans.length}</span> Requests
+            </p>
+            <div className="flex items-center gap-2 border-l border-border-main pl-4">
+              <select
+                value={itemsPerPage}
+                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
+              >
+                {[5, 10, 25, 50].map(v => <option key={v} value={v}>{v} / Page</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => prev - 1)}
+              className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className="flex items-center gap-1">
+              {[...Array(totalPages)].map((_, i) => {
+                const page = i + 1;
+                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === page ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'}`}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="text-text-dim/50">...</span>;
+                }
+                return null;
+              })}
+            </div>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => prev + 1)}
+              className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
       </div>
-
-      {selectedLoan && (
-        <FinancingFormModal loan={selectedLoan} onClose={() => setSelectedLoan(null)} />
-      )}
     </div>
   );
 };

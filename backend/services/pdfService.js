@@ -218,6 +218,43 @@ export const generateAgreementPDF = async (loan) => {
             <div class="value">AGR-${loan._id.toString().toUpperCase()}</div>
           </div>
         </div>
+        
+        <table style="margin-top: 25px;">
+          <thead>
+            <tr>
+              <th>Valuation Component</th>
+              <th style="text-align: right;">Amount (INR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Base Asset Value</td>
+              <td style="text-align: right; font-weight: 600;">${formatINR(loan.machinePrice || 0)}</td>
+            </tr>
+            ${loan.discountAmount > 0 ? `
+            <tr>
+              <td>Approved Discount ${loan.discountPercentage ? `(${loan.discountPercentage.toFixed(1)}%)` : ''}</td>
+              <td style="text-align: right; color: #ef4444; font-weight: 600;">- ${formatINR(loan.discountAmount)}</td>
+            </tr>
+            ` : ''}
+            ${loan.selectedAttachments?.length > 0 ? loan.selectedAttachments.map(att => `
+            <tr>
+              <td>Attachment: ${att.name} ${att.isStandard ? '<span style="font-size: 10px; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">STD</span>' : ''}</td>
+              <td style="text-align: right; font-weight: 600;">${att.amount === 0 && att.isStandard ? 'INCLUDED' : `+ ${formatINR(att.amount)}`}</td>
+            </tr>
+            `).join('') : ''}
+            ${loan.manualCharges?.length > 0 ? loan.manualCharges.map(charge => `
+            <tr>
+              <td>Additional Charge: ${charge.name}</td>
+              <td style="text-align: right; font-weight: 600;">+ ${formatINR(charge.amount)}</td>
+            </tr>
+            `).join('') : ''}
+            <tr style="background: #f1f5f9;">
+              <td style="color: #f0883e; font-weight: 900; font-size: 14px;">TOTAL FINANCED PRINCIPAL</td>
+              <td style="text-align: right; color: #f0883e; font-weight: 900; font-size: 16px;">${formatINR(loan.principal)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="section">
