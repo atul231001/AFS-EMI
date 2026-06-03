@@ -140,8 +140,13 @@ const FinancingFormModal = ({ loan, onClose }) => {
         }
         state.fetchData();
         setSelectedFile(null);
+      } else {
+        const err = await res.json();
+        console.error("Upload error:", err);
+        showNotification(`Upload failed: ${err.message || 'Unknown error'}`, 'error');
       }
     } catch (e) {
+      console.error("Upload exception:", e);
       showNotification('Upload failed', 'error');
     }
   };
@@ -183,27 +188,6 @@ const FinancingFormModal = ({ loan, onClose }) => {
     }
   };
 
-  const handleApproveInvoicing = async () => {
-    try {
-      const res = await fetch(`${state.apiUrl}/loans/${loan._id}/invoice`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${state.token}`
-        },
-        body: JSON.stringify({ notes: approvalNotes })
-      });
-      if (res.ok) {
-        showNotification('Invoice Approved and Generated Successfully', 'success');
-        state.fetchData();
-        setApprovalNotes('');
-      } else {
-        showNotification('Invoice approval failed', 'error');
-      }
-    } catch (e) {
-      showNotification('Invoice approval failed', 'error');
-    }
-  };
 
   const getStageStatus = () => {
     if (['Rejected'].includes(loan.approvalStatus)) return -1;
@@ -426,22 +410,22 @@ const FinancingFormModal = ({ loan, onClose }) => {
                       const agreementUploadHistory = loan.approvalHistory?.find(h => h.action === 'Agreement Uploaded');
                       return (
                         <div className="space-y-4">
-                          <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between">
+                          <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex flex-col gap-3">
                             <div>
                               <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Signed Agreement Uploaded</p>
                               {agreementUploadHistory && (
-                                <div className="text-[10px] text-text-dim flex items-center gap-2">
+                                <div className="text-[10px] text-text-dim flex flex-wrap items-center gap-x-2 gap-y-1">
                                   <span className="font-bold text-text-main">{agreementUploadHistory.approverName}</span>
                                   <span className="opacity-50">•</span>
-                                  <span>{agreementUploadHistory.notes}</span>
+                                  <span className="truncate">{agreementUploadHistory.notes}</span>
                                 </div>
                               )}
                             </div>
-                            <div className="flex gap-2">
-                              <button onClick={() => window.open(`${state.apiUrl.replace('/api', '')}${loan.agreementUrl}`, '_blank')} className="px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md flex items-center gap-2 transition-colors">
+                            <div className="flex flex-col xl:flex-row gap-2 w-full mt-1">
+                              <button onClick={() => window.open(`${state.apiUrl.replace('/api', '')}${loan.agreementUrl}`, '_blank')} className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md flex items-center justify-center gap-2 transition-colors">
                                 <Eye size={14} /> View
                               </button>
-                              <button onClick={handleDownloadSigned} className="px-3 py-2 bg-bg-card hover:bg-bg-active border border-emerald-500/30 text-emerald-500 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center gap-2 transition-colors">
+                              <button onClick={handleDownloadSigned} className="flex-1 py-2 bg-bg-card hover:bg-bg-active border border-emerald-500/30 text-emerald-500 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center justify-center gap-2 transition-colors">
                                 <Download size={14} /> Download
                               </button>
                             </div>
@@ -495,11 +479,25 @@ const FinancingFormModal = ({ loan, onClose }) => {
                   <div className="border border-border-main rounded-2xl overflow-hidden shadow-xl bg-bg-deep">
                     <div className="bg-bg-card p-4 border-b border-border-main"><h4 className="text-[10px] font-black text-text-dim uppercase tracking-wider flex items-center gap-2"><FileCheck size={12} className="text-primary" /> Invoice Stage</h4></div>
                     <div className="p-5 space-y-4">
-                      <p className="text-xs text-text-dim">Signed Agreement Confirmed. Please generate and approve the final invoice.</p>
+                      <p className="text-xs text-text-dim">Signed Agreement Confirmed. Please upload the final generated invoice.</p>
                       {hasPermission(user, 'financing_invoicing', 'approve') ? (
-                        <div className="space-y-4 mt-2">
-                          <textarea value={approvalNotes} onChange={e => setApprovalNotes(e.target.value)} placeholder="Invoice notes..." rows={2} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-2.5 text-xs font-bold text-text-main focus:border-primary outline-none resize-none" />
-                          <button onClick={handleApproveInvoicing} className="w-full py-3 bg-[#f0883e] hover:bg-[#ffab70] text-black rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-[#f0883e]/20 flex items-center justify-center gap-2"><FileText size={16} /> Generate & Approve Invoice</button>
+                        <div className="flex flex-col gap-4 mt-2">
+                          <label className="flex items-center justify-center w-full h-24 border-2 border-dashed border-border-main rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all">
+                            <div className="flex flex-col items-center">
+                              <Upload size={20} className={selectedFile ? 'text-primary' : 'text-text-dim'} />
+                              <span className="mt-2 text-[10px] font-black uppercase tracking-widest text-text-main">
+                                {selectedFile ? selectedFile.name : 'Select Invoice PDF'}
+                              </span>
+                            </div>
+                            <input type="file" className="hidden" accept=".pdf" onChange={e => setSelectedFile(e.target.files[0])} />
+                          </label>
+                          <button
+                            onClick={handleUploadInvoice}
+                            disabled={!selectedFile}
+                            className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${selectedFile ? 'bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20' : 'bg-bg-active text-text-dim cursor-not-allowed border border-border-main'}`}
+                          >
+                            <FileText size={16} /> Upload & Approve Invoice
+                          </button>
                         </div>
                       ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Invoice</p></div></div>}
                     </div>
@@ -552,7 +550,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
 const FinancingPipeline = () => {
   const { loans, machines, customers, employees, approvalFlows } = state.data;
   const pendingLoans = loans.filter(l =>
-    !['Approved', 'Rejected'].includes(l.approvalStatus) ||
+    !['Approved', 'Rejected', 'Active'].includes(l.approvalStatus) ||
     (l.approvalStatus === 'Approved' && !l.agreementGenerated)
   );
 

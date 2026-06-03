@@ -53,14 +53,19 @@ router.post('/invoice/:loanId', upload.single('file'), async (req, res) => {
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
     
     loan.invoiceUrl = `/uploads/${req.file.filename}`;
-    loan.approvalStatus = 'Invoice Uploaded';
+    loan.approvalStatus = 'Active';
+    loan.status = 'Active';
     
     if (req.file.mimetype === 'application/pdf') {
-      const dataBuffer = fs.readFileSync(req.file.path);
-      const data = await pdfParse(dataBuffer);
-      const match = data.text.match(/INV-\d+/i);
-      if (match) {
-        loan.invoiceNumber = match[0];
+      try {
+        const dataBuffer = fs.readFileSync(req.file.path);
+        const data = await pdfParse(dataBuffer);
+        const match = data.text.match(/INV-\d+/i);
+        if (match) {
+          loan.invoiceNumber = match[0];
+        }
+      } catch (err) {
+        console.log('Failed to parse PDF for invoice number:', err.message);
       }
     }
     
