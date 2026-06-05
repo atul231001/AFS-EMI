@@ -103,6 +103,9 @@ const Header = () => {
                           className="px-4 py-3 border-b border-border-main last:border-0 hover:bg-bg-active transition-colors cursor-pointer group"
                           onClick={() => {
                             if (n.targetView) state.setState({ view: n.targetView });
+                            state.setState({
+                              notifications: notifications.filter(notif => notif.id !== n.id)
+                            });
                             setShowNotifications(false);
                           }}
                         >

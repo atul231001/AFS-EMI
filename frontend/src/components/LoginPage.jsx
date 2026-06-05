@@ -96,7 +96,6 @@ const LoginPage = () => {
         {/* Industrial Role Toggle */}
         <div className="flex flex-col items-center gap-2">
           <p className="text-[0.5rem] font-black text-slate-500 uppercase tracking-[0.4em]">Secure Access</p>
-          <p className="text-[0.5rem] font-black text-slate-500 uppercase tracking-[0.4em]">Secure Access</p>
           <div className="flex items-center gap-4 p-1.5 bg-white/5 border border-white/10 rounded-[1.5rem] w-full">
             <button
               onClick={() => setRole('OEM')}
@@ -165,7 +164,7 @@ const LoginPage = () => {
                 {error}
               </div>
             )}
-            
+
             {successMessage && (
               <div className="text-green-500 text-[0.5rem] font-black uppercase tracking-widest text-center p-3 bg-green-500/10 rounded-2xl border border-green-500/20">
                 {successMessage}
@@ -186,7 +185,7 @@ const LoginPage = () => {
               <h3 className="text-[0.625rem] font-black text-slate-500 uppercase tracking-[0.2em]">Password Recovery</h3>
               <p className="text-[0.5rem] text-slate-400 mt-1 font-mono uppercase tracking-wider">Request OTP Code</p>
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-[0.5625rem] font-black text-slate-500 uppercase tracking-[0.2em] ml-4">Recovery Email</label>
               <div className="relative group">
@@ -273,7 +272,7 @@ const LoginPage = () => {
                 {error}
               </div>
             )}
-            
+
             {successMessage && (
               <div className="text-green-500 text-[0.5rem] font-black uppercase tracking-widest text-center p-3 bg-green-500/10 rounded-2xl border border-green-500/20">
                 {successMessage}

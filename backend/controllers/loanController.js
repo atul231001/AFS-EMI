@@ -155,7 +155,22 @@ export const confirmDispatch = async (req, res) => {
     const loan = await Loan.findById(req.params.id).populate('customerId');
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
 
-    loan.approvalStatus = 'Approved';
+    loan.approvalStatus = 'Pending Commissioning';
+    loan.dispatchDate = req.body.dispatchDate || new Date().toISOString().split('T')[0];
+    await loan.save();
+    res.json(loan);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const confirmCommission = async (req, res) => {
+  try {
+    const loan = await Loan.findById(req.params.id).populate('customerId');
+    if (!loan) return res.status(404).json({ message: 'Loan not found' });
+
+    loan.approvalStatus = 'Active';
+    loan.commissionDate = req.body.commissionDate || new Date().toISOString().split('T')[0];
     await loan.save();
     res.json(loan);
   } catch (error) {
@@ -190,7 +205,7 @@ export const approveInvoice = async (req, res) => {
   try {
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
-    loan.approvalStatus = 'Active';
+    loan.approvalStatus = 'Pending Dispatch';
     
     if (req.body.notes) {
       loan.approvalHistory = loan.approvalHistory || [];

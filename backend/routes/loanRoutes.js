@@ -1,6 +1,6 @@
 import express from 'express';
 const router = express.Router();
-import { getLoans, createLoan, updateLoan, approveLoan, approveSchedule, approveInvoice, downloadReceipt, downloadReport, downloadAgreement, sendAgreementEmail, confirmDispatch } from '../controllers/loanController.js';
+import { getLoans, createLoan, updateLoan, approveLoan, approveSchedule, approveInvoice, downloadReceipt, downloadReport, downloadAgreement, sendAgreementEmail, confirmDispatch, confirmCommission } from '../controllers/loanController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 router.get('/', protect, getLoans);
@@ -12,6 +12,7 @@ router.post('/:id/invoice', protect, approveInvoice);
 router.get('/:id/agreement/download', protect, downloadAgreement);
 router.post('/:id/agreement/send', protect, sendAgreementEmail);
 router.post('/:id/dispatch', protect, confirmDispatch);
+router.post('/:id/commission', protect, confirmCommission);
 router.get('/:id/receipt/:installment', protect, downloadReceipt);
 router.get('/:id/report/:format', protect, downloadReport);
 

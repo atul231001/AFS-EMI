@@ -336,6 +336,7 @@ const PortfolioListView = ({ loans, machines, user }) => {
 
 const NewAssignment = ({ machines, customers, user }) => {
   const [formData, setFormData] = useState({
+    financingType: 'EMI',
     customerId: '',
     machineName: '',
     emiStartDate: new Date().toISOString().split('T')[0],
@@ -458,9 +459,27 @@ const NewAssignment = ({ machines, customers, user }) => {
         <div className="absolute left-6 top-8 bottom-8 w-px bg-border-main" />
 
         <div className="p-8 space-y-8 relative z-10 flex flex-col h-full">
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 bg-[#f0883e] text-black rounded-full flex items-center justify-center font-black text-xs shadow-[0_0_15px_rgba(240,136,62,0.3)]">1</div>
-            <h2 className="text-sm font-bold text-text-main uppercase tracking-[0.2em]">Financing Details</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-8 h-8 bg-[#f0883e] text-black rounded-full flex items-center justify-center font-black text-xs shadow-[0_0_15px_rgba(240,136,62,0.3)]">1</div>
+              <h2 className="text-sm font-bold text-text-main uppercase tracking-[0.2em]">Financing Details</h2>
+            </div>
+            <div className="flex bg-bg-deep rounded-lg p-1 border border-border-main">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, financingType: 'EMI', customerId: '' })}
+                className={`px-4 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${formData.financingType === 'EMI' ? 'bg-[#f0883e] text-black shadow-md' : 'text-text-dim hover:text-text-main'}`}
+              >
+                EMI
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, financingType: 'Rental', customerId: '' })}
+                className={`px-4 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${formData.financingType === 'Rental' ? 'bg-[#f0883e] text-black shadow-md' : 'text-text-dim hover:text-text-main'}`}
+              >
+                Rental
+              </button>
+            </div>
           </div>
 
           <div className="pl-12 space-y-6 flex-1 overflow-y-auto no-scrollbar">
@@ -469,7 +488,7 @@ const NewAssignment = ({ machines, customers, user }) => {
                 label="Client"
                 selected={customers.find(c => c._id === formData.customerId)?.name || "Select Client..."}
                 onSelect={(val) => setFormData({ ...formData, customerId: customers.find(c => c.name === val)?._id })}
-                options={customers.filter(c => c.type === 'EMI').map(c => c.name)}
+                options={customers.filter(c => c.type === (formData.financingType || 'EMI')).map(c => c.name)}
               />
               <SearchableDropdown
                 label="Equipment Model"
@@ -576,7 +595,7 @@ const NewAssignment = ({ machines, customers, user }) => {
 
             <div className="grid grid-cols-3 gap-6">
               <div>
-                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">EMI Start Date</p>
+                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">{formData.financingType === 'Rental' ? 'Rental Start Date' : 'EMI Start Date'}</p>
                 <input
                   type="date"
                   disabled={!isMachineSelected}
@@ -714,7 +733,7 @@ const NewAssignment = ({ machines, customers, user }) => {
 
             <div className="mt-auto pt-6 border-t border-border-main flex items-end justify-between">
               <div>
-                <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-widest">Monthly EMI</p>
+                <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-widest">{formData.financingType === 'Rental' ? 'Monthly Rent' : 'Monthly EMI'}</p>
                 <p className="text-4xl font-mono font-black text-[#f0883e] tracking-tighter leading-none italic">{formatINR(norms.emi)}</p>
               </div>
               <div className="text-right">

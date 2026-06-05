@@ -53,8 +53,8 @@ router.post('/invoice/:loanId', upload.single('file'), async (req, res) => {
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
     
     loan.invoiceUrl = `/uploads/${req.file.filename}`;
-    loan.approvalStatus = 'Active';
-    loan.status = 'Active';
+    loan.approvalStatus = 'Pending Dispatch';
+    // loan.status remains 'Active' or whatever default, but approvalStatus drives pipeline.
     
     if (req.file.mimetype === 'application/pdf') {
       try {

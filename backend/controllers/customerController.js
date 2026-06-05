@@ -52,9 +52,9 @@ export const createCustomer = async (req, res) => {
     for (let i = 0; i < 10; i++) {
       randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    const password = randomPassword;
+    const password = req.body.password || randomPassword;
     payload.password = password;
-    console.log(`[Customer Onboarding] Generated Random Password for ${payload.email}: ${password}`);
+    console.log(`[Customer Onboarding] Password for ${payload.email}: ${password}`);
 
     const newCustomer = await Customer.create(payload);
 
@@ -103,7 +103,9 @@ export const updateCustomer = async (req, res) => {
 
     const userUpdate = { name: updatedCustomer.name, email: updatedCustomer.email, type: updatedCustomer.type };
     if (req.body.password) {
-      userUpdate.password = req.body.password;
+      const bcrypt = await import('bcryptjs');
+      const salt = await bcrypt.default.genSalt(10);
+      userUpdate.password = await bcrypt.default.hash(req.body.password, salt);
       updatedCustomer.password = req.body.password;
       await updatedCustomer.save();
     }

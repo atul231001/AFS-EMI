@@ -86,26 +86,25 @@ const MachineManagement = () => {
 
   if (isCustomer) {
     const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
-    const isFMC = user?.type?.toUpperCase() === 'FMC' || (state.data.fmcContracts || []).some(c =>
+    
+    const myContracts = (state.data.fmcContracts || []).filter(c =>
       (c.customerId && userCustId && (c.customerId?._id || c.customerId).toString() === userCustId) ||
       (c.customerName === user?.name)
     );
-
-    if (isFMC) {
-      const myContracts = (state.data.fmcContracts || []).filter(c =>
-        (c.customerId && userCustId && c.customerId.toString() === userCustId) ||
-        (c.customerName === user?.name)
-      );
-      const myMachineIds = myContracts.flatMap(c => c.machines || []);
-      baseMachines = machines.filter(m => myMachineIds.includes(m._id));
-    } else {
-      const clientLoans = (state.data.loans || []).filter(l => {
-        const loanCustId = (l.customerId?._id || l.customerId)?.toString();
-        return loanCustId && userCustId && loanCustId === userCustId;
-      });
-      const myMachineNames = clientLoans.map(l => l.machineName);
-      baseMachines = machines.filter(m => myMachineNames.includes(m.name));
-    }
+    const myMachineIdsStr = myContracts.flatMap(c => c.machines || []).map(id => id.toString());
+    
+    const clientLoans = (state.data.loans || []).filter(l => {
+      const loanCustId = (l.customerId?._id || l.customerId)?.toString();
+      return loanCustId && userCustId && loanCustId === userCustId;
+    });
+    const myMachineNames = clientLoans.map(l => (l.machineName || '').toLowerCase().trim());
+    
+    baseMachines = machines.filter(m => {
+      const mName = (m.name || '').toLowerCase().trim();
+      const idMatch = myMachineIdsStr.includes(m._id?.toString());
+      const nameMatch = myMachineNames.some(loanName => loanName && mName && (loanName.includes(mName) || mName.includes(loanName)));
+      return idMatch || nameMatch;
+    });
   }
 
   const filteredMachines = baseMachines.filter(m =>

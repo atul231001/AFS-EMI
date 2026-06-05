@@ -40,6 +40,8 @@ const loanSchema = new mongoose.Schema({
   agreementGenerated: { type: Boolean, default: false },
   agreementUrl: { type: String },
   invoiceUrl: { type: String },
+  dispatchDate: { type: String },
+  commissionDate: { type: String },
   schedule: [{
     installment: Number,
     dueDate: String,

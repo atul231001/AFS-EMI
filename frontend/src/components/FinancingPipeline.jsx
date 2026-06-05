@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { state } from '../state';
 import { showNotification, formatINR, hasPermission } from '../utils';
-import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 
 const getMachineImage = (m) => {
   if (!m) return 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=300';
@@ -13,9 +13,12 @@ const FinancingFormModal = ({ loan, onClose }) => {
   const [approvalNotes, setApprovalNotes] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [viewTab, setViewTab] = useState('data'); // 'data' or 'schedule'
+  const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().split('T')[0]);
+  const [commissionDate, setCommissionDate] = useState(new Date().toISOString().split('T')[0]);
 
   const machine = machines.find(m => m.name === loan.machineName);
   const customer = customers.find(c => c._id === loan.customerId || c._id === loan.customerId?._id);
+  const isRental = customer?.type === 'Rental';
 
   const getTicketActiveApproverId = (l) => {
     if (!l || ['Approved', 'Rejected'].includes(l.approvalStatus)) return null;
@@ -42,6 +45,12 @@ const FinancingFormModal = ({ loan, onClose }) => {
 
   const activeFlow = approvalFlows.find(f => f._id?.toString() === (loan.approvalFlowId?._id || loan.approvalFlowId)?.toString());
   const currentStepIndex = loan.approvalStep || 0;
+
+  const isFinalApprover = () => {
+    if (!activeFlow || !activeFlow.steps || activeFlow.steps.length === 0) return true;
+    const lastStep = activeFlow.steps[activeFlow.steps.length - 1];
+    return (lastStep.approverId?._id || lastStep.approverId)?.toString() === user?._id?.toString();
+  };
 
   const handleApproveAction = async (action) => {
     const result = await state.approveLoan(loan._id, action, approvalNotes);
@@ -161,14 +170,41 @@ const FinancingFormModal = ({ loan, onClose }) => {
     try {
       const res = await fetch(`${state.apiUrl}/loans/${loan._id}/dispatch`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${state.token}` }
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${state.token}` 
+        },
+        body: JSON.stringify({ dispatchDate })
       });
       if (res.ok) {
-        showNotification('Machine dispatched. Loan is now active.');
+        showNotification('Machine dispatched successfully.');
         state.fetchData();
+      } else {
+        showNotification('Dispatch confirmation failed', 'error');
       }
     } catch (e) {
       showNotification('Dispatch confirmation failed', 'error');
+    }
+  };
+
+  const handleCommissionSubmit = async () => {
+    try {
+      const res = await fetch(`${state.apiUrl}/loans/${loan._id}/commission`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${state.token}` 
+        },
+        body: JSON.stringify({ commissionDate })
+      });
+      if (res.ok) {
+        showNotification('Asset commissioned successfully. Financing is now Active.');
+        state.fetchData();
+      } else {
+        showNotification('Commission confirmation failed', 'error');
+      }
+    } catch (e) {
+      showNotification('Commission confirmation failed', 'error');
     }
   };
 
@@ -199,7 +235,9 @@ const FinancingFormModal = ({ loan, onClose }) => {
     if (['Rejected'].includes(loan.approvalStatus)) return -1;
     if (['Pending Scheduling'].includes(loan.approvalStatus)) return 2;
     if (['Pending Invoice', 'Invoice Uploaded'].includes(loan.approvalStatus)) return 3;
-    if (['Active'].includes(loan.approvalStatus)) return 4;
+    if (['Pending Dispatch'].includes(loan.approvalStatus)) return 4;
+    if (['Pending Commissioning'].includes(loan.approvalStatus)) return 5;
+    if (['Active'].includes(loan.approvalStatus)) return 6;
     return 1; // Default to Stage 1: Approval Stage
   };
   const currentStage = getStageStatus();
@@ -226,21 +264,31 @@ const FinancingFormModal = ({ loan, onClose }) => {
 
           <div className="flex items-center justify-between mb-10 relative px-10">
             <div className="absolute left-10 right-10 top-1/2 -translate-y-1/2 h-1 bg-bg-active -z-10 rounded-full"></div>
-            <div className="absolute left-10 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 transition-all duration-500 rounded-full" style={{ width: `calc(${(Math.max((currentStage - 1) / 2, 0) * 100)}% - 40px)` }}></div>
+            <div className="absolute left-10 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 transition-all duration-500 rounded-full" style={{ width: `calc(${(Math.max((currentStage - 1) / 4, 0) * 100)}% - 40px)` }}></div>
 
             <div onClick={() => currentStage >= 1 && setViewStage(1)} className={`flex flex-col items-center gap-2 ${currentStage >= 1 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 1 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 1 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 1 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>1</div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Approval Stage</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Approval</span>
             </div>
 
             <div onClick={() => currentStage >= 2 && setViewStage(2)} className={`flex flex-col items-center gap-2 ${currentStage >= 2 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 2 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 2 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 2 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>2</div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Scheduling Stage</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Scheduling</span>
             </div>
 
             <div onClick={() => currentStage >= 3 && setViewStage(3)} className={`flex flex-col items-center gap-2 ${currentStage >= 3 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 3 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 3 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 3 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>3</div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Invoice Stage</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Invoice</span>
+            </div>
+
+            <div onClick={() => currentStage >= 4 && setViewStage(4)} className={`flex flex-col items-center gap-2 ${currentStage >= 4 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 4 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 4 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 4 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>4</div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Dispatch</span>
+            </div>
+
+            <div onClick={() => currentStage >= 5 && setViewStage(5)} className={`flex flex-col items-center gap-2 ${currentStage >= 5 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 5 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 5 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 5 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>5</div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Commission</span>
             </div>
           </div>
 
@@ -278,7 +326,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                         <p className="text-sm font-black text-text-main">{formatINR(loan.principal)}</p>
                       </div>
                       <div className="bg-[#f0883e]/5 p-3 rounded-xl border border-[#f0883e]/20">
-                        <p className="text-[9px] font-bold text-[#f0883e] uppercase tracking-wider mb-1">Monthly EMI</p>
+                        <p className="text-[9px] font-bold text-[#f0883e] uppercase tracking-wider mb-1">{isRental ? 'Monthly Rent' : 'Monthly EMI'}</p>
                         <p className="text-sm font-black text-text-main">{formatINR(loan.emi)}</p>
                       </div>
                       <div className="bg-bg-deep p-3 rounded-xl border border-border-main">
@@ -298,7 +346,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                         <p className="text-sm font-black text-text-main">{loan.interestRate || 0}% p.a.</p>
                       </div>
                       <div className="bg-bg-deep p-3 rounded-xl border border-border-main">
-                        <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">EMI Start Date</p>
+                        <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">{isRental ? 'Rental Start Date' : 'EMI Start Date'}</p>
                         <p className="text-sm font-black text-text-main">
                           {loan.emiStartDate ? new Date(loan.emiStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
                         </p>
@@ -415,7 +463,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                         <th className="bg-bg-card px-4 py-4 text-[9px] font-bold text-text-dim uppercase tracking-widest">Due Date</th>
                         <th className="bg-bg-card px-4 py-4 text-[9px] font-bold text-text-dim uppercase tracking-widest">Principal</th>
                         <th className="bg-bg-card px-4 py-4 text-[9px] font-bold text-text-dim uppercase tracking-widest">Interest</th>
-                        <th className="bg-bg-card px-4 py-4 text-[9px] font-bold text-text-dim uppercase tracking-widest">EMI</th>
+                        <th className="bg-bg-card px-4 py-4 text-[9px] font-bold text-text-dim uppercase tracking-widest">{isRental ? 'Rent' : 'EMI'}</th>
                         <th className="bg-bg-card px-8 py-4 text-[9px] font-bold text-text-dim uppercase tracking-widest text-right">Balance</th>
                       </tr>
                     </thead>
@@ -568,7 +616,11 @@ const FinancingFormModal = ({ loan, onClose }) => {
                     <div className="bg-bg-card p-4 border-b border-border-main"><h4 className="text-[10px] font-black text-text-dim uppercase tracking-wider flex items-center gap-2"><FileCheck size={12} className="text-primary" /> Invoice Stage</h4></div>
                     <div className="p-5 space-y-4">
                       <p className="text-xs text-text-dim">Signed Agreement Confirmed. Please upload the final generated invoice.</p>
-                      {hasPermission(user, 'financing_invoicing', 'approve') ? (
+                      {currentStage > 3 ? (
+                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                          <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Invoice Uploaded</p>
+                        </div>
+                      ) : hasPermission(user, 'financing_invoicing', 'approve') ? (
                         <div className="flex flex-col gap-4 mt-2">
                           <label className="flex items-center justify-center w-full h-24 border-2 border-dashed border-border-main rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all">
                             <div className="flex flex-col items-center">
@@ -592,6 +644,65 @@ const FinancingFormModal = ({ loan, onClose }) => {
                   </div>
                 </div>
               )}
+
+              {viewStage === 4 && (
+                <div className="flex flex-col gap-4 animate-fade-in">
+                  <div className="border border-border-main rounded-2xl overflow-hidden shadow-xl bg-bg-deep">
+                    <div className="bg-bg-card p-4 border-b border-border-main">
+                      <h4 className="text-[10px] font-black text-text-dim uppercase tracking-wider flex items-center gap-2"><Truck size={12} className="text-primary" /> Dispatch Stage</h4>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      <p className="text-xs text-text-dim">Invoice confirmed. Ready for asset dispatch.</p>
+                      {currentStage > 4 ? (
+                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                          <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Asset Dispatched</p>
+                          <p className="text-[10px] text-text-dim">Dispatch Date: {loan.dispatchDate}</p>
+                        </div>
+                      ) : isFinalApprover() ? (
+                         <div className="flex flex-col gap-4 mt-2">
+                           <div>
+                             <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Select Dispatch Date</p>
+                             <input type="date" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none" />
+                           </div>
+                           <button onClick={handleDispatch} className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
+                             <Truck size={16} /> Confirm Dispatch
+                           </button>
+                         </div>
+                      ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Dispatch (Last Approver Required)</p></div></div>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {viewStage === 5 && (
+                <div className="flex flex-col gap-4 animate-fade-in">
+                  <div className="border border-border-main rounded-2xl overflow-hidden shadow-xl bg-bg-deep">
+                    <div className="bg-bg-card p-4 border-b border-border-main">
+                      <h4 className="text-[10px] font-black text-text-dim uppercase tracking-wider flex items-center gap-2"><CheckCircle size={12} className="text-primary" /> Commissioning Stage</h4>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      <p className="text-xs text-text-dim">Asset dispatched. Ready for site commissioning.</p>
+                      {currentStage > 5 ? (
+                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                          <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Asset Commissioned</p>
+                          <p className="text-[10px] text-text-dim">Commission Date: {loan.commissionDate}</p>
+                        </div>
+                      ) : isFinalApprover() ? (
+                         <div className="flex flex-col gap-4 mt-2">
+                           <div>
+                             <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Select Commission Date</p>
+                             <input type="date" value={commissionDate} onChange={e => setCommissionDate(e.target.value)} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none" />
+                           </div>
+                           <button onClick={handleCommissionSubmit} className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
+                             <CheckCircle size={16} /> Confirm Commissioning
+                           </button>
+                         </div>
+                      ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Commission (Last Approver Required)</p></div></div>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
@@ -609,6 +720,7 @@ const FinancingPipeline = () => {
 
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [filterStatus, setFilterStatus] = useState('All');
+  const [financingTypeFilter, setFinancingTypeFilter] = useState('EMI');
 
   const getTicketActiveApproverId = (l) => {
     if (!l || ['Approved', 'Rejected'].includes(l.approvalStatus)) return null;
@@ -650,8 +762,127 @@ const FinancingPipeline = () => {
   const getLoanStageName = (status) => {
     if (['Pending Scheduling', 'Pending Signature', 'Agreement Confirmed'].includes(status)) return 'Scheduling';
     if (['Pending Invoice', 'Invoice Uploaded'].includes(status)) return 'Invoicing';
+    if (['Pending Dispatch'].includes(status)) return 'Dispatching';
+    if (['Pending Commissioning'].includes(status)) return 'Commissioning';
     if (['Active'].includes(status)) return 'Completed';
     return 'Approval';
+  };
+
+  const getLoanStageIndex = (status) => {
+    if (['Rejected'].includes(status)) return -1;
+    if (['Pending Scheduling', 'Pending Signature', 'Agreement Confirmed'].includes(status)) return 2;
+    if (['Pending Invoice', 'Invoice Uploaded'].includes(status)) return 3;
+    if (['Pending Dispatch'].includes(status)) return 4;
+    if (['Pending Commissioning'].includes(status)) return 5;
+    if (['Active'].includes(status)) return 6;
+    return 1;
+  };
+
+  const getStageTooltipDetails = (l, stageIndex) => {
+    let details = { approvers: [], date: null, status: 'Pending' };
+    const currentIdx = getLoanStageIndex(l.approvalStatus);
+
+    if (currentIdx < stageIndex && currentIdx !== -1) {
+      details.status = 'Future';
+      return details;
+    }
+    if (currentIdx === stageIndex) {
+      details.status = 'Current';
+      return details;
+    }
+    if (currentIdx === -1) {
+      details.status = 'Rejected';
+      return details;
+    }
+    
+    details.status = 'Completed';
+    const fallbackDate = l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('en-GB') : null;
+
+    if (stageIndex === 1) {
+      const apps = (l.approvalHistory || []).filter(h => h.action === 'Approved' || h.status === 'Approved');
+      details.approvers = apps.map(a => a.approverName).filter(Boolean);
+      if (apps.length > 0 && apps[apps.length - 1].date) {
+        details.date = new Date(apps[apps.length - 1].date).toLocaleDateString('en-GB');
+      } else {
+        details.date = fallbackDate;
+      }
+      if (details.approvers.length === 0) details.approvers = ['System / Admin'];
+    } else if (stageIndex === 2) {
+      const sch = (l.approvalHistory || []).find(h => h.step === 'Scheduling Phase' || h.status === 'Scheduled');
+      if (sch) {
+         details.approvers = [sch.approverName || 'System / Admin'];
+         details.date = sch.date ? new Date(sch.date).toLocaleDateString('en-GB') : fallbackDate;
+      } else {
+         details.approvers = ['System / Admin'];
+         details.date = fallbackDate;
+      }
+    } else if (stageIndex === 3) {
+      details.approvers = ['System / Admin'];
+      details.date = fallbackDate;
+    } else if (stageIndex === 4) {
+      details.approvers = ['System / Admin'];
+      details.date = l.dispatchDate ? new Date(l.dispatchDate).toLocaleDateString('en-GB') : fallbackDate;
+    } else if (stageIndex === 5) {
+      details.approvers = ['System / Admin'];
+      details.date = l.commissionDate ? new Date(l.commissionDate).toLocaleDateString('en-GB') : fallbackDate;
+    }
+
+    return details;
+  };
+
+  const renderStageDots = (l) => {
+    const stages = [
+      { i: 1, name: 'Approval' },
+      { i: 2, name: 'Scheduling' },
+      { i: 3, name: 'Invoicing' },
+      { i: 4, name: 'Dispatching' },
+      { i: 5, name: 'Commissioning' },
+    ];
+    const currentIdx = getLoanStageIndex(l.approvalStatus);
+
+    return (
+      <div className="flex items-center w-full max-w-[140px]" onClick={(e) => e.stopPropagation()}>
+        {stages.map((st, idx) => {
+          const details = getStageTooltipDetails(l, st.i);
+          let dotColor = 'bg-bg-active border-border-main';
+          if (details.status === 'Completed') dotColor = 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] border-transparent';
+          if (details.status === 'Current') dotColor = 'bg-[#f0883e] shadow-[0_0_8px_rgba(240,136,62,0.5)] border-transparent animate-pulse';
+          if (details.status === 'Rejected') dotColor = 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] border-transparent';
+
+          return (
+            <div key={st.i} className="flex items-center flex-1 last:flex-none">
+              <div className="relative group/dot flex-shrink-0">
+                <div className={`w-2.5 h-2.5 rounded-full border transition-all duration-300 cursor-help ${dotColor}`}></div>
+                
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-bg-card border border-border-main rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/dot:opacity-100 group-hover/dot:visible transition-all duration-200 z-[60] pointer-events-none">
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-[10px] font-black text-text-main uppercase tracking-widest">{st.name}</p>
+                    <div className="flex items-center justify-between border-b border-border-main/50 pb-1.5">
+                      <span className={`text-[8px] font-bold uppercase tracking-widest ${details.status === 'Completed' ? 'text-emerald-500' : details.status === 'Current' ? 'text-[#f0883e]' : 'text-text-dim'}`}>{details.status}</span>
+                      {details.date && <span className="text-[8px] font-mono text-text-dim">{details.date}</span>}
+                    </div>
+                    {details.approvers && details.approvers.length > 0 && (
+                      <div className="pt-1 space-y-1">
+                        <p className="text-[8px] font-bold text-text-dim/60 uppercase tracking-widest">Approvers:</p>
+                        {details.approvers.map((a, k) => (
+                          <p key={k} className="text-[9px] font-bold text-text-main truncate">{a}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-border-main"></div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-bg-card -mt-[1px]"></div>
+                </div>
+              </div>
+              
+              {idx < stages.length - 1 && (
+                <div className={`flex-1 h-[2px] w-full mx-0.5 rounded-full transition-all duration-300 ${st.i < currentIdx && currentIdx !== -1 ? 'bg-emerald-500/50' : 'bg-border-main'}`}></div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const getApproversTooltip = (l) => {
@@ -667,10 +898,16 @@ const FinancingPipeline = () => {
   };
 
   const filteredLoans = pendingLoans.filter(l => {
+    const customer = customers.find(c => c._id === l.customerId || c._id === l.customerId?._id);
+    const type = customer?.type || 'EMI';
+    if (type !== financingTypeFilter) return false;
+
     if (filterStatus === 'All') return true;
     if (filterStatus === 'Pending Approval') return l.approvalStatus === 'Pending Approval';
     if (filterStatus === 'Pending Scheduling') return l.approvalStatus === 'Pending Scheduling' || l.approvalStatus === 'Pending Signature' || l.approvalStatus === 'Agreement Confirmed';
     if (filterStatus === 'Pending Invoice') return l.approvalStatus === 'Pending Invoice' || l.approvalStatus === 'Invoice Uploaded';
+    if (filterStatus === 'Pending Dispatch') return l.approvalStatus === 'Pending Dispatch';
+    if (filterStatus === 'Pending Commissioning') return l.approvalStatus === 'Pending Commissioning';
     return true;
   });
 
@@ -695,16 +932,37 @@ const FinancingPipeline = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 xl:pb-0 custom-scrollbar">
-          {['All', 'Pending Approval', 'Pending Scheduling', 'Pending Invoice'].map(status => (
+        <div className="flex items-center gap-6">
+          <div className="flex bg-bg-deep rounded-lg p-1 border border-border-main shrink-0">
             <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
-              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${filterStatus === status ? 'bg-primary text-black border-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-card border-border-main text-text-dim hover:text-text-main hover:border-primary/50'}`}
+              type="button"
+              onClick={() => { setFinancingTypeFilter('EMI'); setCurrentPage(1); }}
+              className={`px-4 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${financingTypeFilter === 'EMI' ? 'bg-[#f0883e] text-black shadow-md' : 'text-text-dim hover:text-text-main'}`}
             >
-              {status}
+              EMI
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => { setFinancingTypeFilter('Rental'); setCurrentPage(1); }}
+              className={`px-4 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${financingTypeFilter === 'Rental' ? 'bg-[#f0883e] text-black shadow-md' : 'text-text-dim hover:text-text-main'}`}
+            >
+              Rental
+            </button>
+          </div>
+          <div className="flex items-center gap-2 relative z-10">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="appearance-none bg-bg-card border border-border-main text-primary text-[10px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 pr-8 focus:outline-none focus:border-primary cursor-pointer transition-all hover:border-primary/50 shadow-md"
+            >
+              {['All', 'Pending Approval', 'Pending Scheduling', 'Pending Invoice', 'Pending Dispatch', 'Pending Commissioning'].map(status => (
+                <option key={status} value={status} className="bg-bg-deep text-text-main">{status}</option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary">
+              <ChevronDown size={14} />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -713,7 +971,7 @@ const FinancingPipeline = () => {
           <table className="w-full text-left relative">
             <thead className="sticky top-0 z-[40] bg-bg-active shadow-sm">
               <tr className="border-b border-border-main">
-                {['Machine', 'Client', 'Principal', 'EMI', 'Stage', 'Current Status', 'Next Approver'].map(h => (
+                {['Machine', 'Client', 'Principal', financingTypeFilter === 'Rental' ? 'Rent' : 'EMI', 'Stage', 'Current Status', 'Next Approver'].map(h => (
                   <th key={h} className="px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim bg-bg-active">{h}</th>
                 ))}
               </tr>
@@ -741,9 +999,7 @@ const FinancingPipeline = () => {
                       {formatINR(l.emi)}
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
-                        {getLoanStageName(l.approvalStatus)}
-                      </span>
+                      {renderStageDots(l)}
                     </td>
                     <td className="px-5 py-4">
                       <div className="relative group inline-block">
