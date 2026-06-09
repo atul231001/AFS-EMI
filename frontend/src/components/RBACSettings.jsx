@@ -164,8 +164,8 @@ const RBACSettings = () => {
               key={role._id}
               onClick={() => setSelectedRoleId(role._id)}
               className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all group cursor-pointer ${selectedRoleId === role._id
-                  ? 'bg-[#f0883e]/10 border-[#f0883e]/30 shadow-lg'
-                  : 'bg-transparent border-transparent hover:bg-black/5 dark:hover:bg-white/[0.02] text-slate-400'
+                ? 'bg-[#f0883e]/10 border-[#f0883e]/30 shadow-lg'
+                : 'bg-transparent border-transparent hover:bg-black/5 dark:hover:bg-white/[0.02] text-slate-400'
                 }`}
             >
               <div className="flex items-center gap-3">
@@ -218,15 +218,15 @@ const RBACSettings = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto no-scrollbar">
-          <table key={selectedRoleId} className="w-full text-left border-collapse">
+          <table key={selectedRoleId} className="w-full table-fixed text-left border-collapse">
             <thead className="sticky top-0 bg-[#0d1117] z-20 border-b border-white/5 shadow-sm">
               <tr>
-                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">System Module</th>
-                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Read</th>
-                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Create</th>
-                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Update</th>
-                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Approve</th>
-                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Delete</th>
+                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest w-[40%]">System Module</th>
+                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-[12%]">Read</th>
+                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-[12%]">Create</th>
+                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-[12%]">Update</th>
+                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-[12%]">Approve</th>
+                <th className="p-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center w-[12%]">Delete</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -249,20 +249,20 @@ const RBACSettings = () => {
                         <button
                           onClick={() => handleTogglePermission(mod.key, action)}
                           disabled={selectedRole?.name?.toLowerCase() === 'admin'}
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${(selectedRole?.permissions[mod.key]?.[action] || selectedRole?.name?.toLowerCase() === 'admin')
-                              ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                              : 'bg-bg-deep dark:bg-slate-900/50 text-text-dim dark:text-slate-700 border border-border-main dark:border-white/5 opacity-40 hover:opacity-100 hover:border-slate-700'
+                          className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center transition-all duration-300 ${(selectedRole?.permissions[mod.key]?.[action] || selectedRole?.name?.toLowerCase() === 'admin')
+                            ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                            : 'bg-slate-200/50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-700'
                             } ${selectedRole?.name?.toLowerCase() === 'admin' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-110 active:scale-95'}`}
                         >
                           {(selectedRole?.permissions[mod.key]?.[action] || selectedRole?.name?.toLowerCase() === 'admin') ? (
                             <Check size={18} className="stroke-[3]" />
                           ) : (
-                            <X size={14} className="opacity-50" />
+                            <X size={16} className="stroke-[3]" />
                           )}
                         </button>
                       ) : (
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center opacity-10 mx-auto">
-                          <Lock size={14} className="text-slate-600" />
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-100 mx-auto">
+                          <Lock size={15} className="stroke-[3]" />
                         </div>
                       )}
                     </td>

@@ -24,6 +24,7 @@ import FMCBilling from './components/FMCBilling.jsx';
 import ORMDashboard from './components/ORMDashboard.jsx';
 import FinancingPipeline from './components/FinancingPipeline.jsx';
 import ForceResetPasswordPage from './components/ForceResetPasswordPage.jsx';
+import InvoiceSearch from './components/InvoiceSearch.jsx';
 
 import { hasPermission, getFirstAuthorizedView } from './utils';
 
@@ -112,6 +113,8 @@ const App = () => {
       case 'customer-payments':
         if (!hasPermission(user, 'settlements', 'read')) return <AccessDenied />;
         return <PaymentTracker />;
+      case 'invoice-search':
+        return <InvoiceSearch />;
       case 'customer-analytics':
         if (!hasPermission(user, 'customers', 'read')) return <AccessDenied />;
         return <CustomerAnalytics />;

@@ -13,8 +13,22 @@ const FinancingFormModal = ({ loan, onClose }) => {
   const [approvalNotes, setApprovalNotes] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [viewTab, setViewTab] = useState('data'); // 'data' or 'schedule'
-  const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dispatchSerialNo, setDispatchSerialNo] = useState(loan?.invoiceData?.serialNumber || loan?.serialNumber || '');
+  const [dispatchCheckFailed, setDispatchCheckFailed] = useState(false);
+  const [hasAutoCheckedDispatch, setHasAutoCheckedDispatch] = useState(false);
+  
+  useEffect(() => {
+    const freshSerial = loan?.invoiceData?.serialNumber || loan?.serialNumber;
+    if (freshSerial && !dispatchSerialNo) {
+      setDispatchSerialNo(freshSerial);
+    }
+  }, [loan?.invoiceData?.serialNumber, loan?.serialNumber, dispatchSerialNo]);
+
   const [commissionDate, setCommissionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [invoiceNumberInput, setInvoiceNumberInput] = useState('');
+  const [invoiceData, setInvoiceData] = useState(null);
+  const [invoiceSearchLoading, setInvoiceSearchLoading] = useState(false);
+  const [invoiceSearchError, setInvoiceSearchError] = useState('');
 
   const machine = machines.find(m => m.name === loan.machineName);
   const customer = customers.find(c => c._id === loan.customerId || c._id === loan.customerId?._id);
@@ -56,7 +70,6 @@ const FinancingFormModal = ({ loan, onClose }) => {
     const result = await state.approveLoan(loan._id, action, approvalNotes);
     if (result.success) {
       showNotification(`Financing ${action === 'Approved' ? 'Approved' : 'Rejected'} successfully`, 'success');
-      onClose();
     } else {
       showNotification(result.message || 'Operation failed', 'error');
     }
@@ -136,54 +149,91 @@ const FinancingFormModal = ({ loan, onClose }) => {
     }
   };
 
-  const handleUploadInvoice = async () => {
-    if (!selectedFile) return;
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-
+  const handleSearchInvoice = async () => {
+    if (!invoiceNumberInput.trim()) return;
+    setInvoiceSearchLoading(true);
+    setInvoiceSearchError('');
+    setInvoiceData(null);
     try {
-      const res = await fetch(`${state.apiUrl}/upload/invoice/${loan._id}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${state.token}` },
-        body: formData
+      const res = await fetch(`https://lipl.sods.app/api/dmobile/getInvoiceDetails?invoice_number=${invoiceNumberInput.trim()}`, {
+        method: 'POST'
       });
-      if (res.ok) {
-        const updatedLoan = await res.json();
-        showNotification('Invoice uploaded successfully');
-        if (updatedLoan.invoiceNumber) {
-          showNotification(`Extracted Invoice Number: ${updatedLoan.invoiceNumber}`, 'info');
-        }
-        state.fetchData();
-        setSelectedFile(null);
+      const data = await res.json();
+      if (data.status && data.result && data.result.length > 0) {
+        setInvoiceData(data.result[0]);
       } else {
-        const err = await res.json();
-        console.error("Upload error:", err);
-        showNotification(`Upload failed: ${err.message || 'Unknown error'}`, 'error');
+        setInvoiceSearchError(data.check || "Invoice not found");
       }
     } catch (e) {
-      console.error("Upload exception:", e);
-      showNotification('Upload failed', 'error');
+      setInvoiceSearchError("Failed to fetch invoice details");
+    } finally {
+      setInvoiceSearchLoading(false);
     }
   };
 
-  const handleDispatch = async () => {
+  const handleApproveInvoice = async () => {
+    if (!invoiceData) return;
     try {
-      const res = await fetch(`${state.apiUrl}/loans/${loan._id}/dispatch`, {
+      const res = await fetch(`${state.apiUrl}/loans/${loan._id}/invoice`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${state.token}` 
+          Authorization: `Bearer ${state.token}`
         },
-        body: JSON.stringify({ dispatchDate })
+        body: JSON.stringify({ invoiceNumber: invoiceData.invoiceNumber, invoiceData })
       });
       if (res.ok) {
-        showNotification('Machine dispatched successfully.');
+        showNotification('Invoice approved successfully', 'success');
         state.fetchData();
       } else {
-        showNotification('Dispatch confirmation failed', 'error');
+        showNotification('Invoice approval failed', 'error');
       }
     } catch (e) {
-      showNotification('Dispatch confirmation failed', 'error');
+      showNotification('Invoice approval failed', 'error');
+    }
+  };
+
+  const handleDispatch = async (isAuto = false) => {
+    if (!dispatchSerialNo.trim()) {
+      if (!isAuto) showNotification('Please enter a Serial Number', 'error');
+      setDispatchCheckFailed(true);
+      return;
+    }
+    try {
+      const apiRes = await fetch(`https://lipl.sods.app/api/dmobile/isDispatched?serial_no=${encodeURIComponent(dispatchSerialNo.trim())}`, {
+        method: 'POST'
+      });
+      const apiData = await apiRes.json();
+
+      if (apiData.status && apiData.result) {
+        // Confirm dispatch in backend
+        const res = await fetch(`${state.apiUrl}/loans/${loan._id}/dispatch`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ 
+            dispatchDate: apiData.result.dispatchDate, 
+            serialNumber: dispatchSerialNo.trim(),
+            dispatchData: apiData.result
+          })
+        });
+        
+        if (res.ok) {
+          showNotification('Machine dispatched successfully.', 'success');
+          state.fetchData();
+        } else {
+          if (!isAuto) showNotification('Dispatch confirmation failed', 'error');
+          setDispatchCheckFailed(true);
+        }
+      } else {
+         if (!isAuto) showNotification('Dispatch data not found for this Serial Number', 'error');
+         setDispatchCheckFailed(true);
+      }
+    } catch (e) {
+      if (!isAuto) showNotification('Dispatch confirmation failed', 'error');
+      setDispatchCheckFailed(true);
     }
   };
 
@@ -191,9 +241,9 @@ const FinancingFormModal = ({ loan, onClose }) => {
     try {
       const res = await fetch(`${state.apiUrl}/loans/${loan._id}/commission`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${state.token}` 
+          Authorization: `Bearer ${state.token}`
         },
         body: JSON.stringify({ commissionDate })
       });
@@ -244,8 +294,58 @@ const FinancingFormModal = ({ loan, onClose }) => {
   const [viewStage, setViewStage] = useState(currentStage);
 
   useEffect(() => {
-    setViewStage(currentStage);
-  }, [currentStage]);
+    if (viewStage === 4 && currentStage === 4 && !hasAutoCheckedDispatch && isFinalApprover()) {
+      setHasAutoCheckedDispatch(true);
+      handleDispatch(true);
+    }
+  }, [viewStage, currentStage, hasAutoCheckedDispatch]);
+
+  const renderInvoiceData = () => {
+    if (!loan.invoiceData) return null;
+    return (
+      <div className="mt-3 pt-3 border-t border-border-main">
+        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2 mb-3"><CheckCircle size={12}/> Confirmed Invoice</p>
+        <div className="grid grid-cols-2 gap-x-2 gap-y-3">
+          <div>
+            <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Order ID</p>
+            <p className="text-xs font-black text-text-main">{loan.invoiceData.order_id}</p>
+          </div>
+          <div>
+            <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Delivery Note</p>
+            <p className="text-xs font-black text-text-main">{loan.invoiceData.deliveryNote}</p>
+          </div>
+          <div>
+            <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Vehicle No</p>
+            <p className="text-xs font-black text-text-main">{loan.invoiceData.vehicleNumber}</p>
+          </div>
+          <div>
+            <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Chassis No</p>
+            <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.chassisNumber}>{loan.invoiceData.chassisNumber}</p>
+          </div>
+          <div>
+            <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Serial No</p>
+            <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.serialNumber}>{loan.invoiceData.serialNumber}</p>
+          </div>
+          <div>
+            <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Engine No</p>
+            <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.engineNumber}>{loan.invoiceData.engineNumber}</p>
+          </div>
+          <div className="col-span-2">
+            <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Invoice Date</p>
+            <p className="text-xs font-black text-text-main">{new Date(loan.invoiceData.invoiceDate).toLocaleDateString()}</p>
+          </div>
+        </div>
+        {loan.invoiceData.invoiceFile && (
+          <button
+            onClick={() => window.open(`https://lipl.sods.app/${loan.invoiceData.invoiceFile}`, '_blank')}
+            className="w-full py-2 mt-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-[9px] font-black uppercase tracking-widest text-emerald-500 transition-all flex items-center justify-center gap-2"
+          >
+            <Download size={14} /> Download PDF
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="h-[calc(100vh-12rem)] flex flex-col animate-in fade-in duration-300">
@@ -294,17 +394,26 @@ const FinancingFormModal = ({ loan, onClose }) => {
 
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0 overflow-hidden">
             <div className="lg:col-span-3 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 min-h-0 order-1">
-              <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-xl flex flex-col">
-                <img src={getMachineImage(machine)} alt={loan.machineName} className="w-full h-48 object-cover border-b border-border-main" />
-                <div className="p-4 space-y-4 bg-bg-deep">
+              <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-xl flex flex-col shrink-0">
+                <img src={getMachineImage(machine)} alt={loan.machineName} className="w-full h-32 object-cover border-b border-border-main" />
+                <div className="p-3 space-y-3 bg-bg-deep">
                   <div>
-                    <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">Client Name</p>
-                    <p className="text-sm font-black text-text-main">{customer?.name || 'Unknown Client'}</p>
+                    <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Client Name</p>
+                    <p className="text-xs font-black text-text-main">{customer?.name || 'Unknown Client'}</p>
                   </div>
-                  <div>
-                    <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">Equipment Model</p>
-                    <p className="text-sm font-black text-text-main">{loan.machineName}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Model</p>
+                      <p className="text-xs font-black text-text-main">{loan.machineName}</p>
+                    </div>
+                    {machine?.category && (
+                      <div>
+                        <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Category</p>
+                        <p className="text-xs font-black text-[#f0883e]">{machine.category}</p>
+                      </div>
+                    )}
                   </div>
+                  {renderInvoiceData()}
                 </div>
               </div>
             </div>
@@ -614,29 +723,101 @@ const FinancingFormModal = ({ loan, onClose }) => {
                 <div className="flex flex-col gap-4 animate-fade-in">
                   <div className="border border-border-main rounded-2xl overflow-hidden shadow-xl bg-bg-deep">
                     <div className="bg-bg-card p-4 border-b border-border-main"><h4 className="text-[10px] font-black text-text-dim uppercase tracking-wider flex items-center gap-2"><FileCheck size={12} className="text-primary" /> Invoice Stage</h4></div>
-                    <div className="p-5 space-y-4">
-                      <p className="text-xs text-text-dim">Signed Agreement Confirmed. Please upload the final generated invoice.</p>
+                    <div className="px-5  py-3 space-y-4">
                       {currentStage > 3 ? (
                         <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                          <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Invoice Uploaded</p>
+                          <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Invoice Confirmed</p>
+                          <p className="text-[10px] text-text-dim">Invoice No: {loan.invoiceNumber}</p>
                         </div>
                       ) : hasPermission(user, 'financing_invoicing', 'approve') ? (
-                        <div className="flex flex-col gap-4 mt-2">
-                          <label className="flex items-center justify-center w-full h-24 border-2 border-dashed border-border-main rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all">
-                            <div className="flex flex-col items-center">
-                              <Upload size={20} className={selectedFile ? 'text-primary' : 'text-text-dim'} />
-                              <span className="mt-2 text-[10px] font-black uppercase tracking-widest text-text-main">
-                                {selectedFile ? selectedFile.name : 'Select Invoice PDF'}
-                              </span>
+                        <div className="flex flex-col gap-4 ">
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Invoice / Serial Number</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={invoiceNumberInput}
+                                onChange={(e) => setInvoiceNumberInput(e.target.value)}
+                                placeholder="Enter Invoice Number"
+                                className="flex-1 bg-bg-card border border-border-main rounded-xl px-4 py-2.5 text-xs text-text-main font-bold focus:border-[#f0883e] outline-none"
+                              />
+                              <button
+                                onClick={handleSearchInvoice}
+                                disabled={!invoiceNumberInput.trim() || invoiceSearchLoading}
+                                className="px-4 py-2.5 bg-bg-active hover:bg-bg-card border border-border-main rounded-xl text-[10px] font-black uppercase tracking-widest text-text-main transition-all disabled:opacity-50"
+                              >
+                                {invoiceSearchLoading ? 'Searching...' : 'Search'}
+                              </button>
                             </div>
-                            <input type="file" className="hidden" accept=".pdf" onChange={e => setSelectedFile(e.target.files[0])} />
-                          </label>
+                          </div>
+
+                          {invoiceSearchError && (
+                            <div className="p-3 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-2">
+                              <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5" />
+                              <p className="text-xs font-bold text-red-500">{invoiceSearchError}</p>
+                            </div>
+                          )}
+
+                          {invoiceData && (
+                            <div className="p-4 bg-bg-card border border-[#f0883e]/30 rounded-xl space-y-3">
+                              {/* <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Invoice Number</span>
+                                <span className="text-xs font-black text-text-main">{invoiceData.invoiceNumber}</span>
+                              </div> */}
+                              <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Order ID</span>
+                                <span className="text-xs font-black text-text-main">{invoiceData.order_id}</span>
+                              </div>
+                              <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Delivery Note</span>
+                                <span className="text-xs font-black text-text-main">{invoiceData.deliveryNote}</span>
+                              </div>
+                              <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Vehicle Number</span>
+                                <span className="text-xs font-black text-text-main">{invoiceData.vehicleNumber}</span>
+                              </div>
+                              <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Chassis Number</span>
+                                <span className="text-xs font-black text-text-main">{invoiceData.chassisNumber}</span>
+                              </div>
+                              <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Serial Number</span>
+                                <span className="text-xs font-black text-text-main">{invoiceData.serialNumber}</span>
+                              </div>
+                              <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Engine Number</span>
+                                <span className="text-xs font-black text-text-main">{invoiceData.engineNumber}</span>
+                              </div>
+                              <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Invoice Date</span>
+                                <span className="text-xs font-black text-text-main">{new Date(invoiceData.invoiceDate).toLocaleDateString()}</span>
+                              </div>
+                              {/* <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Created At</span>
+                                <span className="text-xs font-black text-text-main">{new Date(invoiceData.created_at).toLocaleString()}</span>
+                              </div> */}
+                              {/* <div className="flex justify-between items-center pb-2 border-b border-border-main">
+                                <span className="text-[10px] font-bold text-text-dim uppercase">Updated At</span>
+                                <span className="text-xs font-black text-text-main">{new Date(invoiceData.updated_at).toLocaleString()}</span>
+                              </div> */}
+
+                              {invoiceData.invoiceFile && (
+                                <button
+                                  onClick={() => window.open(`https://lipl.sods.app/${invoiceData.invoiceFile}`, '_blank')}
+                                  className="w-full py-2.5 mt-2 bg-bg-deep hover:bg-bg-active border border-border-main rounded-xl text-xs font-black uppercase tracking-widest text-text-main transition-all flex items-center justify-center gap-2"
+                                >
+                                  <Download size={14} className="text-[#f0883e]" /> Download PDF
+                                </button>
+                              )}
+                            </div>
+                          )}
+
                           <button
-                            onClick={handleUploadInvoice}
-                            disabled={!selectedFile}
-                            className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${selectedFile ? 'bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20' : 'bg-bg-active text-text-dim cursor-not-allowed border border-border-main'}`}
+                            onClick={handleApproveInvoice}
+                            disabled={!invoiceData}
+                            className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${invoiceData ? 'bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20' : 'bg-bg-active text-text-dim cursor-not-allowed border border-border-main'}`}
                           >
-                            <FileText size={16} /> Upload & Approve Invoice
+                            <FileText size={16} /> Confirm & Approve Invoice
                           </button>
                         </div>
                       ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Invoice</p></div></div>}
@@ -655,19 +836,59 @@ const FinancingFormModal = ({ loan, onClose }) => {
                       <p className="text-xs text-text-dim">Invoice confirmed. Ready for asset dispatch.</p>
                       {currentStage > 4 ? (
                         <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                          <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Asset Dispatched</p>
-                          <p className="text-[10px] text-text-dim">Dispatch Date: {loan.dispatchDate}</p>
+                          <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-2">Asset Dispatched</p>
+                          <div className="grid grid-cols-2 gap-3 mb-2">
+                            <div>
+                              <p className="text-[9px] font-bold text-text-dim uppercase">Serial No</p>
+                              <p className="text-xs text-text-main font-black">{loan.serialNumber || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-text-dim uppercase">Dispatch Date</p>
+                              <p className="text-xs text-text-main font-black">{loan.dispatchDate ? new Date(loan.dispatchDate).toLocaleDateString() : 'N/A'}</p>
+                            </div>
+                            {loan.dispatchData && (
+                              <>
+                                <div>
+                                  <p className="text-[9px] font-bold text-text-dim uppercase">LR No</p>
+                                  <p className="text-xs text-text-main font-black">{loan.dispatchData.lrNo || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-bold text-text-dim uppercase">E-Way Bill No</p>
+                                  <p className="text-xs text-text-main font-black">{loan.dispatchData.eWayBillNo || 'N/A'}</p>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          {loan.dispatchData && (
+                            <div className="flex gap-2 mt-3 pt-3 border-t border-emerald-500/20">
+                              {loan.dispatchData.lrFile && (
+                                <button onClick={() => window.open(`https://lipl.sods.app/${loan.dispatchData.lrFile}`, '_blank')} className="flex-1 py-1.5 bg-bg-card hover:bg-bg-active border border-emerald-500/30 text-emerald-500 rounded-lg text-[9px] font-black uppercase tracking-widest text-center transition-colors">Download LR</button>
+                              )}
+                              {loan.dispatchData.ddFile && (
+                                <button onClick={() => window.open(`https://lipl.sods.app/${loan.dispatchData.ddFile}`, '_blank')} className="flex-1 py-1.5 bg-bg-card hover:bg-bg-active border border-emerald-500/30 text-emerald-500 rounded-lg text-[9px] font-black uppercase tracking-widest text-center transition-colors">Download DD</button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : isFinalApprover() ? (
-                         <div className="flex flex-col gap-4 mt-2">
-                           <div>
-                             <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Select Dispatch Date</p>
-                             <input type="date" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none" />
-                           </div>
-                           <button onClick={handleDispatch} className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
-                             <Truck size={16} /> Confirm Dispatch
-                           </button>
-                         </div>
+                        <div className="flex flex-col gap-4 mt-2">
+                          {!dispatchCheckFailed ? (
+                            <div className="flex flex-col items-center justify-center py-8">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f0883e] mb-4"></div>
+                              <p className="text-[10px] font-black text-text-dim uppercase tracking-widest animate-pulse">Checking Dispatch Status...</p>
+                            </div>
+                          ) : (
+                            <>
+                              <div>
+                                <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Enter Serial Number</p>
+                                <input type="text" placeholder="e.g., CLG2000ZKPT881321" value={dispatchSerialNo} onChange={e => setDispatchSerialNo(e.target.value)} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none placeholder-text-dim" />
+                              </div>
+                              <button onClick={() => handleDispatch(false)} className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
+                                <Truck size={16} /> Check Dispatch
+                              </button>
+                            </>
+                          )}
+                        </div>
                       ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Dispatch (Last Approver Required)</p></div></div>}
                     </div>
                   </div>
@@ -688,15 +909,15 @@ const FinancingFormModal = ({ loan, onClose }) => {
                           <p className="text-[10px] text-text-dim">Commission Date: {loan.commissionDate}</p>
                         </div>
                       ) : isFinalApprover() ? (
-                         <div className="flex flex-col gap-4 mt-2">
-                           <div>
-                             <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Select Commission Date</p>
-                             <input type="date" value={commissionDate} onChange={e => setCommissionDate(e.target.value)} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none" />
-                           </div>
-                           <button onClick={handleCommissionSubmit} className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
-                             <CheckCircle size={16} /> Confirm Commissioning
-                           </button>
-                         </div>
+                        <div className="flex flex-col gap-4 mt-2">
+                          <div>
+                            <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Select Commission Date</p>
+                            <input type="date" value={commissionDate} onChange={e => setCommissionDate(e.target.value)} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none" />
+                          </div>
+                          <button onClick={handleCommissionSubmit} className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
+                            <CheckCircle size={16} /> Confirm Commissioning
+                          </button>
+                        </div>
                       ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Commission (Last Approver Required)</p></div></div>}
                     </div>
                   </div>
@@ -794,7 +1015,7 @@ const FinancingPipeline = () => {
       details.status = 'Rejected';
       return details;
     }
-    
+
     details.status = 'Completed';
     const fallbackDate = l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('en-GB') : null;
 
@@ -810,11 +1031,11 @@ const FinancingPipeline = () => {
     } else if (stageIndex === 2) {
       const sch = (l.approvalHistory || []).find(h => h.step === 'Scheduling Phase' || h.status === 'Scheduled');
       if (sch) {
-         details.approvers = [sch.approverName || 'System / Admin'];
-         details.date = sch.date ? new Date(sch.date).toLocaleDateString('en-GB') : fallbackDate;
+        details.approvers = [sch.approverName || 'System / Admin'];
+        details.date = sch.date ? new Date(sch.date).toLocaleDateString('en-GB') : fallbackDate;
       } else {
-         details.approvers = ['System / Admin'];
-         details.date = fallbackDate;
+        details.approvers = ['System / Admin'];
+        details.date = fallbackDate;
       }
     } else if (stageIndex === 3) {
       details.approvers = ['System / Admin'];
@@ -830,7 +1051,7 @@ const FinancingPipeline = () => {
     return details;
   };
 
-  const renderStageDots = (l) => {
+  const renderStageDots = (l, rowIndex = 3) => {
     const stages = [
       { i: 1, name: 'Approval' },
       { i: 2, name: 'Scheduling' },
@@ -851,10 +1072,11 @@ const FinancingPipeline = () => {
 
           return (
             <div key={st.i} className="flex items-center flex-1 last:flex-none">
-              <div className="relative group/dot flex-shrink-0">
+              <div className="relative group/dot flex-shrink-0 flex flex-col items-center">
                 <div className={`w-2.5 h-2.5 rounded-full border transition-all duration-300 cursor-help ${dotColor}`}></div>
-                
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-bg-card border border-border-main rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/dot:opacity-100 group-hover/dot:visible transition-all duration-200 z-[60] pointer-events-none">
+                <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[8px] font-black text-text-dim uppercase tracking-widest text-center w-16 opacity-70">{st.name.substring(0,3)}</span>
+
+                <div className={`absolute ${rowIndex <= 2 ? 'top-full mt-4' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 w-48 bg-bg-card border border-border-main rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/dot:opacity-100 group-hover/dot:visible transition-all duration-200 z-[60] pointer-events-none`}>
                   <div className="flex flex-col gap-1.5">
                     <p className="text-[10px] font-black text-text-main uppercase tracking-widest">{st.name}</p>
                     <div className="flex items-center justify-between border-b border-border-main/50 pb-1.5">
@@ -870,11 +1092,20 @@ const FinancingPipeline = () => {
                       </div>
                     )}
                   </div>
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-border-main"></div>
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-bg-card -mt-[1px]"></div>
+                  {rowIndex <= 2 ? (
+                    <>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-border-main"></div>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-bg-card -mb-[1px]"></div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-border-main"></div>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-bg-card -mt-[1px]"></div>
+                    </>
+                  )}
                 </div>
               </div>
-              
+
               {idx < stages.length - 1 && (
                 <div className={`flex-1 h-[2px] w-full mx-0.5 rounded-full transition-all duration-300 ${st.i < currentIdx && currentIdx !== -1 ? 'bg-emerald-500/50' : 'bg-border-main'}`}></div>
               )}
@@ -888,11 +1119,11 @@ const FinancingPipeline = () => {
   const getApproversTooltip = (l) => {
     if (getLoanStageName(l.approvalStatus) !== 'Approval') return undefined;
     if (!l.approvalHistory || l.approvalHistory.length === 0) return 'Awaiting initial approval';
-    
+
     const approvers = l.approvalHistory
       .filter(h => h.action === 'Approved' || h.status === 'Approved')
       .map(h => h.approverName);
-      
+
     if (approvers.length === 0) return 'Awaiting initial approval';
     return `Approved by:\n${approvers.join('\n')}`;
   };
@@ -916,8 +1147,10 @@ const FinancingPipeline = () => {
   const totalPages = Math.ceil(filteredLoans.length / itemsPerPage);
   const paginatedData = filteredLoans.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  if (selectedLoan) {
-    return <FinancingFormModal loan={selectedLoan} onClose={() => setSelectedLoan(null)} />;
+  const actualSelectedLoan = selectedLoan ? loans.find(l => l._id === selectedLoan._id) || selectedLoan : null;
+
+  if (actualSelectedLoan) {
+    return <FinancingFormModal loan={actualSelectedLoan} onClose={() => setSelectedLoan(null)} />;
   }
 
   return (
@@ -999,7 +1232,7 @@ const FinancingPipeline = () => {
                       {formatINR(l.emi)}
                     </td>
                     <td className="px-5 py-4">
-                      {renderStageDots(l)}
+                      {renderStageDots(l, i)}
                     </td>
                     <td className="px-5 py-4">
                       <div className="relative group inline-block">
@@ -1007,9 +1240,9 @@ const FinancingPipeline = () => {
                           style={{ background: `${getStatusColor(l.approvalStatus)}15`, color: getStatusColor(l.approvalStatus), borderColor: `${getStatusColor(l.approvalStatus)}30`, textDecorationColor: getLoanStageName(l.approvalStatus) === 'Approval' ? `${getStatusColor(l.approvalStatus)}80` : undefined }}>
                           {l.approvalStatus}
                         </span>
-                        
+
                         {getLoanStageName(l.approvalStatus) === 'Approval' && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-bg-card border border-border-main rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[60] pointer-events-none">
+                          <div className={`absolute ${i <= 2 ? 'top-full mt-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 w-48 bg-bg-card border border-border-main rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[60] pointer-events-none`}>
                             {(() => {
                               if (!l.approvalHistory || l.approvalHistory.length === 0) {
                                 return <p className="text-[9px] text-text-dim text-center uppercase tracking-widest font-bold">Awaiting initial approval</p>;
@@ -1033,8 +1266,17 @@ const FinancingPipeline = () => {
                               );
                             })()}
                             {/* Tooltip arrow */}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-border-main"></div>
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-bg-card -mt-[1px]"></div>
+                            {i <= 2 ? (
+                              <>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-border-main"></div>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-bg-card -mb-[1px]"></div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-border-main"></div>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-bg-card -mt-[1px]"></div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

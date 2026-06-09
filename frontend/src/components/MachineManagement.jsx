@@ -35,8 +35,9 @@ const MachineManagement = () => {
   }, []);
 
   const [searchTerm, setSearchTerm] = usePersistentState('machine_search', '');
+  const [categoryFilter, setCategoryFilter] = usePersistentState('machine_category', 'All Categories');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [itemsPerPage, setItemsPerPage] = useState(8);
   const globalConfig = systemConfig?.machineColumns || localColConfig;
 
   const toggleColumn = (key) => {
@@ -86,19 +87,16 @@ const MachineManagement = () => {
 
   if (isCustomer) {
     const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
-    
-    const myContracts = (state.data.fmcContracts || []).filter(c =>
-      (c.customerId && userCustId && (c.customerId?._id || c.customerId).toString() === userCustId) ||
-      (c.customerName === user?.name)
-    );
-    const myMachineIdsStr = myContracts.flatMap(c => c.machines || []).map(id => id.toString());
-    
+
+    // Show ONLY confirmed financed machines (loans with invoice data)
     const clientLoans = (state.data.loans || []).filter(l => {
       const loanCustId = (l.customerId?._id || l.customerId)?.toString();
-      return loanCustId && userCustId && loanCustId === userCustId;
+      return loanCustId && userCustId && loanCustId === userCustId && l.invoiceData;
     });
-    const myMachineNames = clientLoans.map(l => (l.machineName || '').toLowerCase().trim());
     
+    const myMachineIdsStr = clientLoans.map(l => l.machineId?.toString()).filter(Boolean);
+    const myMachineNames = clientLoans.map(l => (l.machineName || '').toLowerCase().trim());
+
     baseMachines = machines.filter(m => {
       const mName = (m.name || '').toLowerCase().trim();
       const idMatch = myMachineIdsStr.includes(m._id?.toString());
@@ -107,15 +105,72 @@ const MachineManagement = () => {
     });
   }
 
-  const filteredMachines = baseMachines.filter(m =>
-    m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const systemCategories = Array.isArray(state.data.categories)
+    ? state.data.categories.map(c => typeof c === 'object' ? c.cat_name : c).filter(Boolean)
+    : [];
+
+  const syncedCategories = ['All Categories', ...new Set([
+    ...systemCategories,
+    ...baseMachines.map(m => m.category || 'Uncategorized')
+  ])];
+
+  const filteredMachines = baseMachines.filter(m => {
+    const matchesSearch = m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          m.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          m.category?.toLowerCase().includes(searchTerm.toLowerCase());
+    const mCat = m.category || 'Uncategorized';
+    const matchesCategory = categoryFilter === 'All Categories' || mCat.toLowerCase() === categoryFilter.toLowerCase();
+    return matchesSearch && matchesCategory;
+  });
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredMachines.length / itemsPerPage);
   const paginatedData = filteredMachines.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex items-center gap-1">
+        {[1, 2].filter(p => p <= totalPages).map(p => (
+          <button
+            key={p}
+            onClick={() => setCurrentPage(p)}
+            className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === p ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'}`}
+          >
+            {p}
+          </button>
+        ))}
+        {totalPages > 4 && (
+          <div className="flex items-center gap-1 px-1">
+            <span className="text-text-dim text-[10px] font-black">...</span>
+            <input
+              type="number"
+              min="1" max={totalPages}
+              className="w-10 h-8 bg-bg-deep border border-border-main rounded text-center text-[10px] font-black text-text-main focus:border-[#f0883e] outline-none hide-spinners"
+              placeholder={currentPage > 2 && currentPage < totalPages - 1 ? currentPage : '-'}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = parseInt(e.target.value);
+                  if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                  e.target.value = '';
+                }
+              }}
+            />
+            <span className="text-text-dim text-[10px] font-black">...</span>
+          </div>
+        )}
+        {[totalPages - 1, totalPages].filter(p => p > 2 && p <= totalPages).map(p => (
+          <button
+            key={p}
+            onClick={() => setCurrentPage(p)}
+            className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === p ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'}`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6 animate-fade-in h-[calc(100vh-140px)] overflow-hidden flex flex-col">
@@ -190,6 +245,27 @@ const MachineManagement = () => {
               </div>
             )}
 
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${state.apiUrl}/machines/sync`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${state.token}` }
+                  });
+                  if (res.ok) {
+                    showNotification('Products synced successfully', 'success');
+                    await state.fetchData();
+                  } else {
+                    showNotification('Failed to sync products', 'error');
+                  }
+                } catch (e) {
+                  showNotification('Sync error', 'error');
+                }
+              }}
+              className="px-6 py-3 bg-[#30363d] text-white text-xs font-black rounded-xl hover:bg-[#444c56] transition-all border border-[#30363d] active:scale-95 uppercase tracking-widest flex items-center gap-2"
+            >
+              <RefreshCw size={16} className="text-[#f0883e]" /> SYNC ASSETS
+            </button>
             {hasPermission(user, 'machines', 'create') && (
               <button onClick={handleAddMachine} className="px-8 py-3 bg-[#f0883e] text-black text-xs font-black rounded-xl hover:bg-[#f0883e]/90 transition-all shadow-[0_0_20px_rgba(240,136,62,0.15)] active:scale-95 uppercase tracking-widest flex items-center gap-2">
                 <Plus size={16} /> AUTHORIZE ASSET
@@ -198,8 +274,22 @@ const MachineManagement = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 p-4 bg-bg-card/50 border border-border-main rounded-2xl">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-bg-card/50 border border-border-main rounded-2xl">
+          <div className="w-full sm:w-64 relative">
+            <select
+              value={categoryFilter}
+              onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
+              className="w-full pl-4 pr-10 py-3 bg-bg-deep border border-border-main rounded-xl text-xs text-text-main font-bold focus:border-[#f0883e] outline-none transition-all appearance-none cursor-pointer"
+            >
+              {syncedCategories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-dim">
+              <ChevronDown size={14} />
+            </div>
+          </div>
+          <div className="relative flex-1 w-full">
             <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim" />
             <input
               type="text"
@@ -213,18 +303,65 @@ const MachineManagement = () => {
       </div>
 
       {machineListView === 'card' ? (
-        <div className="flex-1 overflow-y-auto no-scrollbar pb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
-            {filteredMachines.map(m => (
-              <MachineCard
-                key={m._id}
-                machine={m}
-                user={user}
-                onEdit={() => handleEditMachine(m)}
-                onDelete={() => handleDeleteMachine(m._id)}
-                onView={() => setDetailMachine(m)}
-              />
-            ))}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div
+            className="flex-1 overflow-y-auto no-scrollbar pb-8"
+            onScroll={(e) => {
+              const { scrollTop, scrollHeight, clientHeight } = e.target;
+              if (scrollHeight - scrollTop <= clientHeight + 10) {
+                if (currentPage < totalPages) {
+                  setCurrentPage(prev => prev + 1);
+                  e.target.scrollTop = 0;
+                }
+              }
+            }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
+              {paginatedData.map(m => (
+                <MachineCard
+                  key={m._id}
+                  machine={m}
+                  user={user}
+                  onEdit={() => handleEditMachine(m)}
+                  onDelete={() => handleDeleteMachine(m._id)}
+                  onView={() => setDetailMachine(m)}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="bg-bg-card border-t border-border-main p-4 flex items-center justify-between flex-shrink-0 mt-4 rounded-xl shadow-lg">
+            <div className="flex items-center gap-4">
+              <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
+                Showing <span className="text-text-main">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredMachines.length)}</span> of <span className="text-[#f0883e]">{filteredMachines.length}</span> Assets
+              </p>
+              <div className="flex items-center gap-2 border-l border-border-main pl-4">
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
+                >
+                  {[8, 16, 24, 48].map(v => <option key={v} value={v}>{v} / Page</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => prev - 1)}
+                className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {renderPagination()}
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                className="p-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-[#768390] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -235,7 +372,7 @@ const MachineManagement = () => {
                 <tr className="bg-bg-card border-b border-border-main shadow-sm">
                   {localColConfig.identity && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim bg-bg-card">Asset Identity</th>}
                   {localColConfig.specs && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim bg-bg-card">Specifications</th>}
-                  {localColConfig.valuation && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim bg-bg-card">Valuation</th>}
+                  {localColConfig.valuation && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim bg-bg-card">{isCustomer ? 'Invoice Details' : 'Valuation'}</th>}
                   {localColConfig.dataSync && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim bg-bg-card">Data Sync</th>}
                   {localColConfig.control && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-text-dim text-right sticky right-0 bg-bg-card z-[41]">Ops</th>}
                 </tr>
@@ -267,6 +404,17 @@ const MachineManagement = () => {
                                 S/N: <span className="text-text-main/60 group-hover:text-text-main transition-colors">{m.serialNumber}</span>
                               </div>
                             )}
+                            {/* <div className="mt-1">
+                              {m.isFromAPI ? (
+                                <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[7px] font-bold uppercase tracking-widest inline-flex items-center gap-1">
+                                  <UploadCloud size={8} /> API SYNCED
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/20 text-[7px] font-bold uppercase tracking-widest inline-flex items-center gap-1">
+                                  <CheckCircle2 size={8} /> FRONTEND
+                                </span>
+                              )}
+                            </div> */}
                           </div>
                         </div>
                       </td>
@@ -274,19 +422,60 @@ const MachineManagement = () => {
 
                     {localColConfig.specs && (
                       <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-text-dim uppercase">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-text-main uppercase">
                             <Zap size={10} className="text-[#f0883e]" />
                             {m.machineType}
                           </div>
-                          <div className="text-[9px] font-bold text-text-dim uppercase tracking-wider">{m.specs?.fuelType || 'Diesel'} UNIT</div>
+                          <div className="flex items-center gap-2 text-[9px] font-bold text-text-dim uppercase tracking-wider">
+                            <span>{m.specs?.fuelType || 'DIESEL'} UNIT</span>
+                            {m.specs?.horsePower && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-border-main" />
+                                <span className="text-text-main/80">{m.specs.horsePower}</span>
+                              </>
+                            )}
+                          </div>
+                          {m.specs?.engineModel && (
+                            <div className="text-[8px] font-mono text-text-dim uppercase italic bg-bg-deep border border-border-main px-1.5 py-0.5 rounded inline-block w-fit mt-0.5">ENG: {m.specs.engineModel}</div>
+                          )}
                         </div>
                       </td>
                     )}
                     {localColConfig.valuation && (
                       <td className="px-6 py-4">
-                        <div className="font-mono font-black text-text-main text-[10px]">₹{((m.pricing?.totalPrice || 0) / 100000).toFixed(2)}L</div>
-                        <div className="text-[8px] font-bold text-text-dim uppercase tracking-tighter italic">NSV: ₹{((m.pricing?.oemNetSaleValue || 0) / 100000).toFixed(1)}L</div>
+                        {isCustomer ? (() => {
+                          const machineLoan = state.data.loans?.find(l => l.machineName === m.name || l.machineId === m._id);
+                          const inv = machineLoan?.invoiceData;
+                          if (!inv) return <span className="text-[10px] text-text-dim uppercase font-bold italic">Processing Invoice...</span>;
+                          return (
+                            <div className="flex flex-col gap-1 text-[8px] font-mono font-bold text-text-dim uppercase tracking-wider">
+                              <div className="flex justify-between"><span>ORD: <span className="text-text-main">{inv.order_id}</span></span> <span>DEL: <span className="text-text-main">{inv.deliveryNote}</span></span></div>
+                              <div className="text-[#f0883e]">CH: {inv.chassisNumber}</div>
+                              <div className="text-[#f0883e]">SN: {inv.serialNumber}</div>
+                              <div>VEH: <span className="text-text-main">{inv.vehicleNumber}</span> <span className="text-border-main mx-1">|</span> ENG: <span className="text-text-main">{inv.engineNumber}</span></div>
+                              <div className="text-emerald-500 mt-1">INV DATE: {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : 'N/A'}</div>
+                            </div>
+                          );
+                        })() : (
+                          <>
+                            <div className="font-mono font-black text-text-main text-[11px] bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded inline-block mb-1">₹{((m.pricing?.totalPrice || 0) / 100000).toFixed(2)}L</div>
+                            <div className="flex flex-wrap items-center gap-2 text-[8px] font-bold text-text-dim uppercase tracking-widest mt-1">
+                              <span>NSV: <span className="text-white">₹{((m.pricing?.oemNetSaleValue || 0) / 100000).toFixed(2)}L</span></span>
+                              {m.pricing?.serviceCommission > 0 && (
+                                <>
+                                  <span className="w-1 h-1 rounded-full bg-border-main" />
+                                  <span>SRV: <span className="text-white">₹{(m.pricing.serviceCommission / 100000).toFixed(2)}L</span></span>
+                                </>
+                              )}
+                            </div>
+                            {m.pricing?.commissionA > 0 && (
+                              <div className="text-[8px] font-bold text-[#f0883e]/80 uppercase tracking-widest mt-1">
+                                COMM A: <span className="text-[#f0883e]">₹{(m.pricing.commissionA / 100000).toFixed(2)}L</span>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </td>
                     )}
                     {localColConfig.dataSync && (
@@ -336,7 +525,7 @@ const MachineManagement = () => {
                   onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                   className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
                 >
-                  {[6, 12, 24, 48].map(v => <option key={v} value={v}>{v} / Page</option>)}
+                  {[8, 16, 24, 48].map(v => <option key={v} value={v}>{v} / Page</option>)}
                 </select>
               </div>
             </div>
@@ -349,18 +538,7 @@ const MachineManagement = () => {
               >
                 <ChevronLeft size={16} />
               </button>
-              <div className="flex items-center gap-1">
-                {[...Array(totalPages)].map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'
-                      }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
+              {renderPagination()}
               <button
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(prev => prev + 1)}
@@ -381,9 +559,10 @@ const MachineManagement = () => {
     </div>
   );
 }; const MachineCard = ({ machine, onEdit, onDelete, onView, user }) => {
+  const isCustomer = user?.role === 'CUSTOMER' || (user?.role !== 'OEM' && user?.role !== 'Admin' && user?.role !== 'SUPERVISOR');
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
-  const images = [...(machine.images || []), machine.img].filter(Boolean);
-  if (images.length === 0) images.push('https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=1200');
+  const images = Array.from(new Set([...(machine.images || []), machine.img].filter(Boolean)));
+  if (images.length === 0) images.push('/logo.png');
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -423,15 +602,34 @@ const MachineManagement = () => {
         <div>
           <div className="flex justify-between items-start mb-1">
             <h3 className="text-sm font-black text-text-main truncate group-hover:text-[#f0883e] transition-colors relative z-10">{machine.name || 'Undefined Asset'}</h3>
-            <span className="text-[10px] font-mono font-bold text-[#f0883e] italic relative z-10">₹{((machine.pricing?.totalPrice || 0) / 100000).toFixed(1)}L</span>
+            {!isCustomer && <span className="text-[10px] font-mono font-bold text-[#f0883e] italic relative z-10">₹{((machine.pricing?.totalPrice || 0) / 100000).toFixed(1)}L</span>}
           </div>
           <p className="text-[10px] text-text-dim font-bold uppercase tracking-[0.1em] relative z-10">{machine.model || 'N/A MODEL'}</p>
-          {machine.serialNumber && (
-            <div className="mt-2 py-1 px-2 bg-bg-deep border border-border-main rounded-md inline-block relative z-10">
-              <p className="text-[8px] font-mono font-bold text-text-dim uppercase tracking-tighter">
-                S/N: <span className="text-text-main/60 group-hover:text-[#f0883e] transition-colors">{machine.serialNumber}</span>
-              </p>
+          
+          {isCustomer ? (
+            <div className="mt-3 p-2 bg-bg-deep border border-border-main rounded-lg relative z-10">
+              {(() => {
+                const machineLoan = state.data.loans?.find(l => l.machineName === machine.name || l.machineId === machine._id);
+                const inv = machineLoan?.invoiceData;
+                if (!inv) return <span className="text-[8px] text-text-dim uppercase font-bold italic">Processing Invoice...</span>;
+                return (
+                  <div className="flex flex-col gap-1 text-[8px] font-mono font-bold text-text-dim uppercase tracking-wider">
+                    <div className="flex justify-between"><span>ORD: <span className="text-text-main">{inv.order_id}</span></span> <span>DEL: <span className="text-text-main">{inv.deliveryNote}</span></span></div>
+                    <div className="text-[#f0883e]">CH: {inv.chassisNumber}</div>
+                    <div className="text-[#f0883e]">SN: {inv.serialNumber}</div>
+                    <div className="text-emerald-500 mt-1">INV DATE: {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : 'N/A'}</div>
+                  </div>
+                );
+              })()}
             </div>
+          ) : (
+            machine.serialNumber && (
+              <div className="mt-2 py-1 px-2 bg-bg-deep border border-border-main rounded-md inline-block relative z-10">
+                <p className="text-[8px] font-mono font-bold text-text-dim uppercase tracking-tighter">
+                  S/N: <span className="text-text-main/60 group-hover:text-[#f0883e] transition-colors">{machine.serialNumber}</span>
+                </p>
+              </div>
+            )
           )}
         </div>
 
@@ -486,7 +684,7 @@ const MachineListView = ({ machines, onEdit, onDelete, onView }) => (
               <td className="px-4 py-2">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg overflow-hidden bg-black border border-white/10">
-                    <img src={m.img || (m.images && m.images[0]) || 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=300'} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" alt="" />
+                    <img src={m.img || (m.images && m.images[0]) || '/logo.png'} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" alt="" />
                   </div>
                   <div>
                     <div className="font-black text-slate-900 dark:text-white text-[0.6875rem] truncate max-w-[150px]">{m.name}</div>
@@ -553,13 +751,15 @@ const SearchableDropdown = ({ label, options, selected, onSelect, onAddNew, onDe
       </div>
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-[#0d1117] border border-[#30363d] rounded-lg shadow-xl max-h-48 overflow-y-auto">
-          <input
-            className="w-full bg-transparent px-4 py-2 border-b border-[#30363d] text-sm text-white focus:outline-none"
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {filteredOptions.map((opt) => (
+          <div className="sticky top-0 z-10 bg-[#0d1117] border-b border-[#30363d]">
+            <input
+              className="w-full bg-transparent px-4 py-2 text-sm text-white focus:outline-none"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          {filteredOptions.slice(0, 50).map((opt) => (
             <div key={opt} className="px-4 py-2 text-xs hover:bg-[#30363d] cursor-pointer flex justify-between items-center" onClick={() => { onSelect(opt); setIsOpen(false); }}>
               {opt}
               {isOptionDeletable?.(opt) && (
@@ -594,7 +794,7 @@ const MachineFormModal = ({ isOpen, onClose, machine }) => {
       setFormData({ ...machine });
     } else {
       setFormData({
-        category: state.data.categories[0] || '',
+        category: (typeof state.data.categories[0] === 'string' ? state.data.categories[0] : state.data.categories[0]?.cat_name) || '',
         name: '', model: '',
         machineType: state.data.dieselTypes[0] || '',
         images: [''],
@@ -640,72 +840,74 @@ const MachineFormModal = ({ isOpen, onClose, machine }) => {
       subtitle="Fleet Asset Terminal"
       maxWidth="max-w-5xl"
     >
-      <nav className="flex gap-2 overflow-x-auto pb-2 no-scrollbar border-b border-[#30363d] mb-4">
-        {tabs.map((step) => {
-          const Icon = step.icon;
-          const isActive = activeTab === step.id;
-          return (
-            <button
-              key={step.id}
-              onClick={() => setActiveTab(step.id)}
-              className={`flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-[10px] font-bold transition-all shrink-0 border ${isActive
-                ? 'bg-[#f0883e]/10 border-[#f0883e]/50 text-[#f0883e]'
-                : 'bg-transparent border-transparent text-[#768390] hover:bg-[#30363d]/50'
-                }`}
-            >
-              <Icon size={14} className={isActive ? 'text-[#f0883e]' : 'text-[#444c56]'} />
-              {step.id}
-            </button>
-          );
-        })}
-      </nav>
+      <div className="flex flex-col min-h-[500px] h-[60vh]">
+        <nav className="flex gap-2 overflow-x-auto pb-2 no-scrollbar border-b border-[#30363d] mb-4 shrink-0">
+          {tabs.map((step) => {
+            const Icon = step.icon;
+            const isActive = activeTab === step.id;
+            return (
+              <button
+                key={step.id}
+                onClick={() => setActiveTab(step.id)}
+                className={`flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-[10px] font-bold transition-all shrink-0 border ${isActive
+                  ? 'bg-[#f0883e]/10 border-[#f0883e]/50 text-[#f0883e]'
+                  : 'bg-transparent border-transparent text-[#768390] hover:bg-[#30363d]/50'
+                  }`}
+              >
+                <Icon size={14} className={isActive ? 'text-[#f0883e]' : 'text-[#444c56]'} />
+                {step.id}
+              </button>
+            );
+          })}
+        </nav>
 
-      <div className="overflow-visible">
-        {activeTab === 'BASIC INFO' && <BasicTab formData={formData} setFormData={setFormData} fileInputRef={fileInputRef} />}
-        {activeTab === 'PRICING' && <PricingTab formData={formData} setFormData={setFormData} />}
-        {activeTab === 'SPECIFICATIONS' && <SpecsTab formData={formData} setFormData={setFormData} />}
-        {activeTab === 'ATTACHMENTS' && <AttachmentsTab formData={formData} setFormData={setFormData} />}
-        {activeTab === 'WARRANTY' && <WarrantyTab formData={formData} setFormData={setFormData} />}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pr-2 pb-4">
+          {activeTab === 'BASIC INFO' && <BasicTab formData={formData} setFormData={setFormData} fileInputRef={fileInputRef} />}
+          {activeTab === 'PRICING' && <PricingTab formData={formData} setFormData={setFormData} />}
+          {activeTab === 'SPECIFICATIONS' && <SpecsTab formData={formData} setFormData={setFormData} />}
+          {activeTab === 'ATTACHMENTS' && <AttachmentsTab formData={formData} setFormData={setFormData} />}
+          {activeTab === 'WARRANTY' && <WarrantyTab formData={formData} setFormData={setFormData} />}
+        </div>
+
+        <footer className="mt-4 pt-6 border-t border-[#30363d] flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 text-[9px] font-mono text-[#444c56] uppercase tracking-widest">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
+            Sync Active
+          </div>
+          <div className="flex gap-4">
+            {activeTab !== 'BASIC INFO' && (
+              <button
+                onClick={() => {
+                  const currentIndex = tabs.findIndex(t => t.id === activeTab);
+                  setActiveTab(tabs[currentIndex - 1].id);
+                }}
+                className="px-6 py-2.5 text-[10px] font-bold text-[#768390] hover:text-white transition-colors uppercase tracking-widest border border-[#30363d] rounded-lg"
+              >
+                Previous Step
+              </button>
+            )}
+
+            {activeTab !== 'WARRANTY' ? (
+              <button
+                onClick={() => {
+                  const currentIndex = tabs.findIndex(t => t.id === activeTab);
+                  setActiveTab(tabs[currentIndex + 1].id);
+                }}
+                className="px-8 py-2.5 bg-[#30363d] text-white font-bold rounded-lg text-[10px] uppercase tracking-widest hover:bg-[#444c56] transition-all"
+              >
+                Next Step
+              </button>
+            ) : (
+              <button
+                onClick={handleSave}
+                className="px-10 py-2.5 bg-[#f0883e] text-black font-black rounded-lg text-[10px] uppercase tracking-widest hover:bg-[#ffab70] transition-all shadow-xl shadow-orange-500/20 active:scale-95"
+              >
+                {machine ? 'SAVE ASSET' : 'CONFIRM ASSET'}
+              </button>
+            )}
+          </div>
+        </footer>
       </div>
-
-      <footer className="mt-4 pt-6 border-t border-[#30363d] flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[9px] font-mono text-[#444c56] uppercase tracking-widest">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse" />
-          Sync Active
-        </div>
-        <div className="flex gap-4">
-          {activeTab !== 'BASIC INFO' && (
-            <button
-              onClick={() => {
-                const currentIndex = tabs.findIndex(t => t.id === activeTab);
-                setActiveTab(tabs[currentIndex - 1].id);
-              }}
-              className="px-6 py-2.5 text-[10px] font-bold text-[#768390] hover:text-white transition-colors uppercase tracking-widest border border-[#30363d] rounded-lg"
-            >
-              Previous Step
-            </button>
-          )}
-
-          {activeTab !== 'WARRANTY' ? (
-            <button
-              onClick={() => {
-                const currentIndex = tabs.findIndex(t => t.id === activeTab);
-                setActiveTab(tabs[currentIndex + 1].id);
-              }}
-              className="px-8 py-2.5 bg-[#30363d] text-white font-bold rounded-lg text-[10px] uppercase tracking-widest hover:bg-[#444c56] transition-all"
-            >
-              Next Step
-            </button>
-          ) : (
-            <button
-              onClick={handleSave}
-              className="px-10 py-2.5 bg-[#f0883e] text-black font-black rounded-lg text-[10px] uppercase tracking-widest hover:bg-[#ffab70] transition-all shadow-xl shadow-orange-500/20 active:scale-95"
-            >
-              {machine ? 'SAVE ASSET' : 'CONFIRM ASSET'}
-            </button>
-          )}
-        </div>
-      </footer>
     </Modal>
   );
 };
@@ -745,6 +947,48 @@ const BasicTab = ({ formData, setFormData, fileInputRef }) => {
               onChange={e => setFormData({ ...formData, model: e.target.value })}
               placeholder="e.g. LOW-831"
               className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-3 text-sm text-white font-mono focus:border-[#f0883e] outline-none"
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] font-bold text-[#768390] uppercase tracking-wider">Category</p>
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    const res = await fetch(`${state.apiUrl}/machines/categories/sync`, {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${state.token}` }
+                    });
+                    if (res.ok) {
+                      showNotification('Categories synced successfully', 'success');
+                      // Fetch just categories to avoid full reload
+                      const catRes = await fetch(`${state.apiUrl}/machines/categories`, {
+                        headers: { Authorization: `Bearer ${state.token}` }
+                      });
+                      if (catRes.ok) {
+                        const newCats = await catRes.json();
+                        state.setState({ categories: newCats });
+                      }
+                    } else {
+                      showNotification('Failed to sync categories', 'error');
+                    }
+                  } catch (e) {
+                    showNotification('Sync error', 'error');
+                  }
+                }}
+                className="text-[9px] font-bold text-[#f0883e] flex items-center gap-1 hover:text-[#ffab70] transition-colors uppercase"
+              >
+                <RefreshCw size={10} /> Sync
+              </button>
+            </div>
+            <SearchableDropdown
+              label=""
+              options={(categories || []).map(c => typeof c === 'string' ? c : c.cat_name)}
+              selected={formData.category}
+              onSelect={(val) => setFormData({ ...formData, category: val })}
             />
           </div>
         </div>
@@ -1217,9 +1461,20 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
   const [heroImage, setHeroImage] = useState('');
   const [activeDetailTab, setActiveDetailTab] = useState('TECHNICAL PROFILE');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState(null);
+  const [leftPanelTab, setLeftPanelTab] = useState('SPECS');
 
   const { loans = [], user } = state.data;
-  const machineLoan = loans.find(l => l.machineName === machine?.name || l.machineId === machine?._id);
+  const isCustomer = user?.role === 'CUSTOMER' || (user?.role !== 'OEM' && user?.role !== 'Admin' && user?.role !== 'SUPERVISOR');
+  const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
+
+  const machineLoan = loans.find(l => {
+    const isMatch = l.machineName === machine?.name || l.machineId === machine?._id;
+    if (!isMatch) return false;
+    if (!isCustomer) return false;
+    const loanCustId = (l.customerId?._id || l.customerId)?.toString();
+    return loanCustId && userCustId && loanCustId === userCustId;
+  });
 
   const technicalSpecs = [
     { label: 'Category', value: machine?.category || 'N/A' },
@@ -1228,19 +1483,24 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
     { label: 'Drive Type', value: machine?.specs?.driveType || 'N/A' },
     { label: 'Transmission', value: machine?.specs?.transmissionType || 'N/A' },
     { label: 'Battery Capacity', value: machine?.specs?.batteryCapacity || 'N/A' },
-  ].filter(s => s.value !== 'N/A' && s.value !== 'N/A HP');
+    { label: 'Engine Model', value: machine?.specs?.engineModel || 'N/A' },
+    { label: 'Cylinders', value: machine?.specs?.cylinders || 'N/A' },
+    { label: 'Mfg Year', value: machine?.specs?.year || 'N/A' },
+    { label: 'Weight', value: machine?.specs?.unladenWeight ? `${machine.specs.unladenWeight} kg` : 'N/A' },
+    { label: 'Warranty', value: machine?.warranty?.standardMonths ? `${machine.warranty.standardMonths}M / ${machine.warranty.standardHours}hr` : 'N/A' }
+  ].filter(s => s.value !== 'N/A' && s.value !== 'N/A HP' && s.value !== ' HP');
 
   useEffect(() => {
     if (machine) {
-      const images = [...(machine.images || []), machine.img].filter(Boolean);
-      setHeroImage(images[0] || 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=1200');
+      const images = Array.from(new Set([...(machine.images || []), machine.img].filter(Boolean)));
+      setHeroImage(images[0] || '/logo.png');
     }
   }, [machine]);
 
   if (!machine) return null;
 
-  const images = [...(machine.images || []), machine.img].filter(Boolean);
-  if (images.length === 0) images.push('https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=1200');
+  const images = Array.from(new Set([...(machine.images || []), machine.img].filter(Boolean)));
+  if (images.length === 0) images.push('/logo.png');
 
   return (
     <div className="h-[90vh] bg-bg-deep text-text-main flex flex-col overflow-hidden rounded-3xl border border-border-main shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1292,28 +1552,73 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
             <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-px bg-border-main overflow-hidden">
               {/* COLUMN 1: VISUAL & SPECS */}
               <div className="bg-bg-card p-6 flex flex-col gap-6 overflow-hidden">
-                <div className="relative group aspect-video bg-bg-deep border border-border-main rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-2xl">
+                <div 
+                  className="relative group aspect-video bg-bg-deep border border-border-main rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-2xl cursor-zoom-in"
+                  onClick={() => setFullScreenImage(heroImage)}
+                >
                   <img src={heroImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <button className="absolute bottom-4 right-4 p-2 bg-bg-card/90 backdrop-blur border border-border-main rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setFullScreenImage(heroImage); }}
+                    className="absolute bottom-4 right-4 p-2 bg-bg-card/90 backdrop-blur border border-border-main rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
+                  >
                     <Maximize2 size={16} className="text-text-main" />
                   </button>
                 </div>
 
                 <section className="flex-1 overflow-hidden flex flex-col">
-                  <h3 className="text-[11px] font-black text-primary mb-4 tracking-[0.3em] flex items-center gap-3 shrink-0">
-                    <div className="p-1.5 bg-primary/10 rounded-lg"><Cpu size={14} /></div>
-                    TECHNICAL INTELLIGENCE
-                  </h3>
-                  <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                    <div className="grid grid-cols-2 gap-3">
-                      {technicalSpecs.map((spec, i) => (
-                        <div key={i} className="p-4 bg-bg-deep border border-border-main rounded-xl flex flex-col justify-center hover:border-primary/40 transition-all group">
-                          <span className="text-[8px] font-black text-text-dim uppercase tracking-[0.2em] mb-1 group-hover:text-primary/70 transition-colors">{spec.label}</span>
-                          <span className="text-[12px] font-mono font-black text-text-main truncate">{spec.value}</span>
-                        </div>
-                      ))}
+                  {machineLoan?.invoiceData ? (
+                    <div className="flex gap-2 mb-3 shrink-0 bg-bg-active/10 p-1 rounded-xl">
+                      <button 
+                        onClick={() => setLeftPanelTab('SPECS')}
+                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${leftPanelTab === 'SPECS' ? 'bg-primary text-black shadow-sm' : 'text-text-dim hover:text-text-main hover:bg-bg-active/20'}`}
+                      >
+                        <Cpu size={12} /> SPECS
+                      </button>
+                      <button 
+                        onClick={() => setLeftPanelTab('INVOICE')}
+                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${leftPanelTab === 'INVOICE' ? 'bg-emerald-500 text-black shadow-sm' : 'text-text-dim hover:text-emerald-500 hover:bg-emerald-500/10'}`}
+                      >
+                        <CheckCircle2 size={12} /> INVOICE
+                      </button>
                     </div>
+                  ) : (
+                    <h3 className="text-[11px] font-black text-primary mb-2.5 tracking-[0.3em] flex items-center gap-2 shrink-0">
+                      <div className="p-1.5 bg-primary/10 rounded-lg"><Cpu size={12} /></div>
+                      TECHNICAL INTELLIGENCE
+                    </h3>
+                  )}
+
+                  <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                    {(leftPanelTab === 'SPECS' || !machineLoan?.invoiceData) && (
+                      <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-right-4 duration-300">
+                        {technicalSpecs.map((spec, i) => (
+                          <div key={i} className="px-3 py-2 bg-bg-deep border border-border-main rounded-xl flex flex-col justify-center hover:border-primary/40 transition-all group">
+                            <span className="text-[8px] font-black text-text-dim uppercase tracking-[0.2em] mb-0.5 group-hover:text-primary/70 transition-colors">{spec.label}</span>
+                            <span className="text-[11px] font-mono font-black text-text-main truncate" title={spec.value}>{spec.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {leftPanelTab === 'INVOICE' && machineLoan?.invoiceData && (
+                      <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-left-4 duration-300">
+                        {[
+                          { label: 'Order ID', value: machineLoan.invoiceData.order_id },
+                          { label: 'Delivery Note', value: machineLoan.invoiceData.deliveryNote },
+                          { label: 'Vehicle No', value: machineLoan.invoiceData.vehicleNumber },
+                          { label: 'Chassis No', value: machineLoan.invoiceData.chassisNumber },
+                          { label: 'Serial No', value: machineLoan.invoiceData.serialNumber },
+                          { label: 'Engine No', value: machineLoan.invoiceData.engineNumber },
+                          { label: 'Invoice Date', value: machineLoan.invoiceData.invoiceDate ? new Date(machineLoan.invoiceData.invoiceDate).toLocaleDateString() : null }
+                        ].filter(s => s.value).map((spec, i) => (
+                          <div key={i} className={`px-3 py-2 bg-bg-deep border border-border-main rounded-xl flex flex-col justify-center hover:border-emerald-500/40 transition-all group ${spec.label === 'Invoice Date' ? 'col-span-2' : ''}`}>
+                            <span className="text-[8px] font-black text-text-dim uppercase tracking-[0.2em] mb-0.5 group-hover:text-emerald-500/70 transition-colors">{spec.label}</span>
+                            <span className="text-[11px] font-mono font-black text-text-main truncate" title={spec.value}>{spec.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </section>
               </div>
@@ -1330,8 +1635,8 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
                       <div key={i} className={`p-4 border rounded-xl transition-all ${mod.isStandard ? 'bg-bg-deep border-blue-500/40 shadow-inner' : 'bg-bg-deep border-border-main'}`}>
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="text-xs font-black text-text-main font-mono uppercase italic tracking-tight">{mod.config || mod.type}</p>
-                            <p className="text-[9px] text-text-dim font-black tracking-widest uppercase mt-0.5">{mod.type}</p>
+                            <p className="text-xs font-black text-text-main font-mono uppercase italic tracking-tight">{mod.config || mod.type || mod.name || 'Attachment'}</p>
+                            <p className="text-[9px] text-text-dim font-black tracking-widest uppercase mt-0.5">{mod.type || 'ATTACHMENT'}</p>
                           </div>
                           <span className={`px-2 py-0.5 rounded-lg text-[8px] font-mono font-black ${mod.isStandard ? 'bg-blue-500/10 text-blue-500' : 'bg-border-main text-text-dim'}`}>
                             {mod.isStandard ? 'STD' : 'OPT'}
@@ -1385,14 +1690,35 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
                     <div className="p-1.5 bg-primary/10 rounded-lg"><DollarSign size={14} /></div>
                     VALUATION
                   </h3>
-                  <div className="p-6 bg-gradient-to-br from-bg-card to-bg-deep border border-border-main rounded-2xl shadow-2xl relative overflow-hidden group h-32 flex items-center">
+                  <div className="p-6 bg-gradient-to-br from-bg-card to-bg-deep border border-border-main rounded-2xl shadow-2xl relative overflow-hidden group mb-4 flex flex-col justify-center">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-primary/10 transition-all" />
                     <div className="relative z-10">
                       <p className="text-[10px] font-black text-text-dim uppercase tracking-[0.3em] mb-1.5">Asset Appraisal</p>
-                      <p className="text-4xl font-mono font-black text-primary tracking-tighter italic">₹{((machine.pricing?.totalPrice || 0) / 100000).toFixed(1)}L</p>
+                      <p className="text-4xl font-mono font-black text-primary tracking-tighter italic">₹{((machine.pricing?.totalPrice || 0) / 100000).toFixed(2)}L</p>
                     </div>
                     <DollarSign size={80} className="absolute -bottom-4 -right-4 text-border-main/20 group-hover:text-primary/5 transition-all" />
                   </div>
+
+                  {machine.pricing?.oemNetSaleValue > 0 && (
+                    <div className="grid grid-cols-2 gap-3 mb-4 shrink-0">
+                      <div className="p-3 bg-bg-deep border border-border-main rounded-xl">
+                        <p className="text-[8px] font-black text-text-dim uppercase tracking-widest mb-1">OEM NSV</p>
+                        <p className="text-sm font-mono font-black text-white">₹{((machine.pricing?.oemNetSaleValue || 0) / 100000).toFixed(2)}L</p>
+                      </div>
+                      <div className="p-3 bg-bg-deep border border-border-main rounded-xl">
+                        <p className="text-[8px] font-black text-text-dim uppercase tracking-widest mb-1">Service Comm.</p>
+                        <p className="text-sm font-mono font-black text-white">₹{machine.pricing?.serviceCommission?.toLocaleString()}</p>
+                      </div>
+                      <div className="p-3 bg-bg-deep border border-border-main rounded-xl">
+                        <p className="text-[8px] font-black text-text-dim uppercase tracking-widest mb-1">Sale Comm. A</p>
+                        <p className="text-sm font-mono font-black text-white">₹{machine.pricing?.commissionA?.toLocaleString()}</p>
+                      </div>
+                      <div className="p-3 bg-bg-deep border border-border-main rounded-xl">
+                        <p className="text-[8px] font-black text-text-dim uppercase tracking-widest mb-1">Sale Comm. B</p>
+                        <p className="text-sm font-mono font-black text-white">₹{machine.pricing?.commissionB?.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
                 </section>
 
                 <section className="flex-1 flex flex-col overflow-hidden">
@@ -1404,8 +1730,8 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
                     {images.map((img, i) => (
                       <div
                         key={i}
-                        onClick={() => setHeroImage(img)}
-                        className={`aspect-video bg-bg-deep border-2 rounded-2xl overflow-hidden cursor-pointer transition-all group ${heroImage === img ? 'border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]' : 'border-border-main hover:border-text-dim'}`}
+                        onClick={() => { setHeroImage(img); setFullScreenImage(img); }}
+                        className={`aspect-video bg-bg-deep border-2 rounded-2xl overflow-hidden cursor-zoom-in transition-all group ${heroImage === img ? 'border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]' : 'border-border-main hover:border-text-dim'}`}
                       >
                         <img src={img} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" />
                       </div>
@@ -1604,6 +1930,26 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-main); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--primary); }
       `}} />
+      
+      {fullScreenImage && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-300"
+          onClick={() => setFullScreenImage(null)}
+        >
+          <button 
+            onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); }}
+            className="absolute top-8 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all hover:rotate-90 z-10"
+          >
+            <X size={24} />
+          </button>
+          <img 
+            src={fullScreenImage} 
+            className="max-w-full max-h-[90vh] object-contain cursor-zoom-out animate-in zoom-in-95 duration-300 shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-lg" 
+            alt="Fullscreen View" 
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -218,6 +218,7 @@ html:not(.dark) main .text-slate-400 {
 }
 
 html:not(.dark) main .bg-\[\#0d1117\],
+html:not(.dark) main .bg-\[\#30363d\],
 html:not(.dark) main .bg-black\/20,
 html:not(.dark) main .bg-black\/40,
 html:not(.dark) main .bg-white\/5,
@@ -241,7 +242,8 @@ html:not(.dark) main .bg-\[\#30363d\]\/50 {
   background-color: var(--bg-deep) !important;
 }
 
-html:not(.dark) main .hover\:bg-\[\#30363d\]:hover {
+html:not(.dark) main .hover\:bg-\[\#30363d\]:hover,
+html:not(.dark) main .hover\:bg-\[\#444c56\]:hover {
   background-color: var(--border-main) !important;
 }
 

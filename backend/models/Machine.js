@@ -91,6 +91,7 @@ const machineSchema = new mongoose.Schema({
     default: () => []
   },
 
+  isFromAPI: { type: Boolean, default: false },
   status: { type: String, enum: ['Available', 'Assigned', 'Maintenance'], default: 'Available' }
 }, { timestamps: true });
 

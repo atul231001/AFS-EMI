@@ -18,6 +18,7 @@ import fmcRoutes from './routes/fmcRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import dispatchRoutes from './routes/dispatchRoutes.js';
 import { initScheduler } from './services/schedulerService.js';
 
 dotenv.config({ path: './backend/.env' });
@@ -49,6 +50,7 @@ app.use('/api/fmc', fmcRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/dispatch', dispatchRoutes);
 
 app.get('/', (req, res) => {
   res.send('EMI Platform API is running...');

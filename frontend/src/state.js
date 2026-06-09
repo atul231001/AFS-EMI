@@ -207,16 +207,16 @@ class State {
   }
 
   async fetchData() {
-    return this.init();
+    return this.init(true);
   }
 
-  async init() {
-    this.setState({ loading: true });
+  async init(isRefresh = false) {
+    if (!isRefresh) this.setState({ loading: true });
     try {
       const fetchJson = (url) => fetch(url, { headers: this.getHeaders() }).then(res => res.ok ? res.json() : []).catch(() => []);
 
       const [customers, machines, loans, payments, config, employees, roles,
-        fmcContracts, fmcTickets, fmcSupervisors, fmcDailyHours, fmcInvoices, ticketStatuses, approvalFlows] = await Promise.all([
+        fmcContracts, fmcTickets, fmcSupervisors, fmcDailyHours, fmcInvoices, ticketStatuses, approvalFlows, categories] = await Promise.all([
           fetchJson(`${BASE_URL}/customers`),
           fetchJson(`${BASE_URL}/machines`),
           fetchJson(`${BASE_URL}/loans`),
@@ -231,6 +231,7 @@ class State {
           fetchJson(`${BASE_URL}/fmc/invoices`),
           fetchJson(`${BASE_URL}/fmc/ticket-statuses`),
           fetchJson(`${BASE_URL}/fmc/approval-flows`),
+          fetchJson(`${BASE_URL}/machines/categories`),
         ]);
 
       this.setState({
@@ -247,7 +248,7 @@ class State {
         fmcInvoices,
         ticketStatuses,
         approvalFlows,
-        categories: config.categories || this.data.categories,
+        categories: (categories && categories.length > 0) ? categories : (config.categories || this.data.categories),
         dieselTypes: config.dieselTypes || this.data.dieselTypes,
         evTypes: config.evTypes || this.data.evTypes,
         transmissionTypes: config.transmissionTypes || this.data.transmissionTypes,

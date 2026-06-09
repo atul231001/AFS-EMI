@@ -157,6 +157,8 @@ export const confirmDispatch = async (req, res) => {
 
     loan.approvalStatus = 'Pending Commissioning';
     loan.dispatchDate = req.body.dispatchDate || new Date().toISOString().split('T')[0];
+    if (req.body.serialNumber) loan.serialNumber = req.body.serialNumber;
+    if (req.body.dispatchData) loan.dispatchData = req.body.dispatchData;
     await loan.save();
     res.json(loan);
   } catch (error) {
@@ -206,6 +208,14 @@ export const approveInvoice = async (req, res) => {
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
     loan.approvalStatus = 'Pending Dispatch';
+    
+    if (req.body.invoiceNumber) {
+      loan.invoiceNumber = req.body.invoiceNumber;
+    }
+    
+    if (req.body.invoiceData) {
+      loan.invoiceData = req.body.invoiceData;
+    }
     
     if (req.body.notes) {
       loan.approvalHistory = loan.approvalHistory || [];

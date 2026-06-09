@@ -15,7 +15,7 @@ export const generateReceiptPDF = async (loan, installment) => {
     }).format(amount);
   };
 
-  const invoiceNo = `INV-${loan._id.toString().substring(loan._id.toString().length-6).toUpperCase()}-${installment.installment.toString().padStart(2, '0')}`;
+  const invoiceNo = `INV-${loan._id.toString().substring(loan._id.toString().length - 6).toUpperCase()}-${installment.installment.toString().padStart(2, '0')}`;
   const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
   const assetName = loan.machineName.toUpperCase();
   const serialNo = loan.serialNumber || 'SN-8821034';
@@ -130,14 +130,14 @@ export const generateReceiptPDF = async (loan, installment) => {
             </div>
           </div>
           
-          <div style="margin-top: 40px; text-align: center;">
+          <div style="margin-top: 20px; text-align: center;">
             <div class="stamp">PAID & VERIFIED</div>
           </div>
         </div>
         
         <div class="footer">
           <p>This is a computer generated receipt and does not require a physical signature.</p>
-          <p style="margin-top: 10px;">LiuGong Machinery Corp. &copy; 2024 | Finance Node: ${loan._id.toString().toUpperCase()}</p>
+          <p style="margin-top: 0px;">LiuGong Machinery Corp. &copy; 2024 | Finance Node: ${loan._id.toString().toUpperCase()}</p>
         </div>
       </div>
     </body>
@@ -316,7 +316,7 @@ export const generateAgreementPDF = async (loan) => {
             </tr>
           </thead>
           <tbody>
-            ${loan.schedule.slice(0, 5).map(s => `
+            ${loan.schedule.map(s => `
               <tr>
                 <td>${s.installment}</td>
                 <td>${s.dueDate}</td>
@@ -325,7 +325,6 @@ export const generateAgreementPDF = async (loan) => {
                 <td>${formatINR(loan.emi)}</td>
               </tr>
             `).join('')}
-            ${loan.schedule.length > 5 ? '<tr><td colspan="5" style="text-align: center; font-style: italic;">... remaining schedule omitted for brevity ...</td></tr>' : ''}
           </tbody>
         </table>
       </div>

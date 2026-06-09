@@ -13,7 +13,8 @@ import {
   Wrench,
   LayoutGrid,
   Layers,
-  ChevronDown
+  ChevronDown,
+  FileText
 } from 'lucide-react';
 
 import { hasPermission } from '../utils';
@@ -76,6 +77,12 @@ const Sidebar = () => {
       icon: HandCoins,
       label: 'Settlements',
       module: 'settlements'
+    },
+    {
+      id: 'invoice-search',
+      icon: FileText,
+      label: 'Invoice Search',
+      module: 'financing'
     },
     {
       id: 'fmc-dashboard',
@@ -232,6 +239,11 @@ const Sidebar = () => {
       id: 'fmc-billing',
       icon: HandCoins,
       label: 'Invoices'
+    },
+    {
+      id: 'invoice-search',
+      icon: FileText,
+      label: 'Invoice Search'
     }
   ];
 

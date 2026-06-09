@@ -39,8 +39,12 @@ const loanSchema = new mongoose.Schema({
   approvalFlowId: { type: mongoose.Schema.Types.ObjectId, ref: 'ApprovalFlow' },
   agreementGenerated: { type: Boolean, default: false },
   agreementUrl: { type: String },
+  invoiceNumber: { type: String },
+  invoiceData: { type: Object },
   invoiceUrl: { type: String },
+  serialNumber: { type: String },
   dispatchDate: { type: String },
+  dispatchData: { type: Object },
   commissionDate: { type: String },
   schedule: [{
     installment: Number,
