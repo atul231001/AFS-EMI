@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { state } from '../state';
 import { hasPermission, showNotification, confirmAction } from '../utils';
+import Pagination from './Pagination.jsx';
 import {
   Plus, Search, AlertTriangle, Camera, Edit3, Trash2,
   Clock, User, Wrench, ChevronUp, ChevronDown, X, Check, ListOrdered, ChevronLeft, ChevronRight
@@ -733,61 +734,17 @@ const FMCTickets = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Pagination Footer */}
-        <div className="bg-bg-card border-t border-border-main p-4 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-4">
-            <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
-              Showing <span className="text-text-main">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of <span className="text-[#f0883e]">{filtered.length}</span> Tickets
-            </p>
-            <div className="flex items-center gap-2 border-l border-border-main pl-4">
-              <select
-                value={itemsPerPage}
-                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
-              >
-                {[5, 10, 25, 50].map(v => <option key={v} value={v}>{v} / Page</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => prev - 1)}
-              className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <div className="flex items-center gap-1">
-              {[...Array(totalPages)].map((_, i) => {
-                const page = i + 1;
-                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === page ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'}`}
-                    >
-                      {page}
-                    </button>
-                  );
-                } else if (page === currentPage - 2 || page === currentPage + 2) {
-                  return <span key={page} className="text-text-dim/50">...</span>;
-                }
-                return null;
-              })}
-            </div>
-            <button
-              disabled={currentPage === totalPages || totalPages === 0}
-              onClick={() => setCurrentPage(prev => prev + 1)}
-              className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
         </div>
-      </div>
+      {/* Pagination Footer */}
+      <Pagination 
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        totalItems={filtered.length}
+        itemsPerPage={itemsPerPage}
+        setItemsPerPage={setItemsPerPage}
+        itemName="Tickets"
+        className="bg-bg-card border border-border-main p-4 flex flex-col sm:flex-row items-center justify-between flex-shrink-0 mt-4 rounded-xl shadow-lg gap-4 sm:gap-0"
+      />
       {showModal && <TicketFormModal ticket={editingTicket} onClose={() => { setShowModal(false); setEditingTicket(null); }} machines={availableMachines} fmcContracts={availableContracts} />}
     </div>
   );

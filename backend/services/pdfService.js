@@ -15,10 +15,16 @@ export const generateReceiptPDF = async (loan, installment) => {
     }).format(amount);
   };
 
-  const invoiceNo = `INV-${loan._id.toString().substring(loan._id.toString().length - 6).toUpperCase()}-${installment.installment.toString().padStart(2, '0')}`;
+  const index = loan.schedule.findIndex(s => s._id === installment._id || s === installment);
+  const instNum = installment.installment || installment.installmentNo || (index + 1);
+  const invoiceNo = `INV-${loan._id.toString().substring(loan._id.toString().length - 6).toUpperCase()}-${instNum.toString().padStart(2, '0')}`;
   const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
   const assetName = loan.machineName.toUpperCase();
   const serialNo = loan.serialNumber || 'SN-8821034';
+  
+  const paidBaseEmi = installment.paidAmount !== undefined ? installment.paidAmount : loan.emi;
+  const paidOverdue = installment.paidOverdueInterest || 0;
+  const totalPaid = paidBaseEmi + paidOverdue;
 
   const html = `
     <html>
@@ -99,8 +105,8 @@ export const generateReceiptPDF = async (loan, installment) => {
             </thead>
             <tbody>
               <tr>
-                <td>EMI Installment #${installment.installment} - ${installment.dueDate}</td>
-                <td class="text-right">${formatINR(loan.emi)}</td>
+                <td>EMI Installment #${instNum} - ${installment.dueDate}</td>
+                <td class="text-right">${formatINR(paidBaseEmi)}</td>
               </tr>
               <tr>
                 <td style="color: #64748b; font-size: 12px;">&nbsp;&nbsp;&bull; Principal Component</td>
@@ -110,6 +116,12 @@ export const generateReceiptPDF = async (loan, installment) => {
                 <td style="color: #64748b; font-size: 12px;">&nbsp;&nbsp;&bull; Interest Component</td>
                 <td class="text-right" style="color: #64748b; font-size: 12px;">${formatINR(installment.interest)}</td>
               </tr>
+              ${paidOverdue > 0 ? `
+              <tr>
+                <td>Overdue / Delay Penalty Paid</td>
+                <td class="text-right" style="color: #ef4444;">${formatINR(paidOverdue)}</td>
+              </tr>
+              ` : ''}
             </tbody>
           </table>
           
@@ -117,7 +129,7 @@ export const generateReceiptPDF = async (loan, installment) => {
             <div class="total-box">
               <div class="total-row">
                 <span>Subtotal</span>
-                <span>${formatINR(loan.emi)}</span>
+                <span>${formatINR(totalPaid)}</span>
               </div>
               <div class="total-row">
                 <span>Tax (Inclusive)</span>
@@ -125,7 +137,7 @@ export const generateReceiptPDF = async (loan, installment) => {
               </div>
               <div class="total-row grand">
                 <span>Total Paid</span>
-                <span>${formatINR(loan.emi)}</span>
+                <span>${formatINR(totalPaid)}</span>
               </div>
             </div>
           </div>
@@ -265,7 +277,7 @@ export const generateAgreementPDF = async (loan) => {
             <div class="value">${formatINR(loan.principal)}</div>
           </div>
           <div>
-            <div class="label">Down Payment</div>
+            <div class="label">Margin Money</div>
             <div class="value">${formatINR(loan.downPayment || 0)}</div>
           </div>
           <div>
@@ -290,7 +302,7 @@ export const generateAgreementPDF = async (loan) => {
           </div>
           <div>
             <div class="label">Overdue Penalty</div>
-            <div class="value">${loan.delayInterest !== undefined ? loan.delayInterest : 2}% / month</div>
+            <div class="value">${loan.delayInterest !== undefined ? loan.delayInterest : 24}% P.A.</div>
           </div>
           <div>
             <div class="label">EMI Start Date</div>

@@ -14,7 +14,7 @@ import {
 
 // GitHub-style Asset Selector Dropdown with Search
 // GitHub-style Multi-Asset Selector Dropdown
-const AssetFilter = ({ options, selected, onSelect }) => {
+const AssetFilter = ({ options, selected, onSelect, allLabel = 'ALL MACHINES', filterName = 'ASSET' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const filterRef = useRef(null);
@@ -36,11 +36,11 @@ const AssetFilter = ({ options, selected, onSelect }) => {
   );
 
   const toggleOption = (opt) => {
-    if (opt === 'ALL MACHINES') {
-      onSelect(['ALL MACHINES']);
+    if (opt === allLabel) {
+      onSelect([allLabel]);
     } else {
       let next;
-      if (selected.includes('ALL MACHINES')) {
+      if (selected.includes(allLabel)) {
         next = [opt];
       } else {
         next = selected.includes(opt)
@@ -48,7 +48,7 @@ const AssetFilter = ({ options, selected, onSelect }) => {
           : [...selected, opt];
       }
       if (next.length === 0 || next.length === options.length - 1) {
-        onSelect(['ALL MACHINES']);
+        onSelect([allLabel]);
       } else {
         onSelect(next);
       }
@@ -65,11 +65,11 @@ const AssetFilter = ({ options, selected, onSelect }) => {
       >
         <Filter size={12} className="text-text-dim" />
         <span className="truncate max-w-[200px]">
-          {selected.includes('ALL MACHINES')
-            ? 'OVERALL FLEET'
+          {selected.includes(allLabel)
+            ? `OVERALL ${filterName === 'ASSET' ? 'FLEET' : 'PORTFOLIO'}`
             : selected.length === 1
-              ? `ASSET: ${selected[0]}`
-              : `${selected.length} ASSETS SELECTED`}
+              ? `${filterName}: ${selected[0]}`
+              : `${selected.length} ${filterName}S SELECTED`}
         </span>
         <ChevronDown size={12} className={`text-text-dim shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -102,7 +102,7 @@ const AssetFilter = ({ options, selected, onSelect }) => {
                       {isSelected(opt) && <Check size={10} className="text-white" />}
                     </div>
                     <span className={`transition-colors ${isSelected(opt) ? 'text-primary font-bold' : 'text-text-main'}`}>
-                      {opt === 'ALL MACHINES' ? '📊 ALL MACHINES (OVERALL)' : opt}
+                      {opt === allLabel ? `📊 ${allLabel} (OVERALL)` : opt}
                     </span>
                   </div>
                 </button>
@@ -113,13 +113,13 @@ const AssetFilter = ({ options, selected, onSelect }) => {
               </div>
             )}
           </div>
-          {selected.length > 1 && !selected.includes('ALL MACHINES') && (
+          {selected.length > 1 && !selected.includes(allLabel) && (
             <div className="p-2 border-t border-border-main bg-bg-deep/30">
               <button
-                onClick={() => onSelect(['ALL MACHINES'])}
+                onClick={() => onSelect([allLabel])}
                 className="w-full py-1.5 text-[9px] font-black text-text-dim uppercase tracking-widest hover:text-primary transition-colors"
               >
-                Reset to Overall Fleet
+                Reset to Overall {filterName === 'ASSET' ? 'Fleet' : 'Portfolio'}
               </button>
             </div>
           )}
@@ -183,7 +183,9 @@ const DateFilter = ({ range, onChange }) => (
 
 const ORMDashboard = () => {
   const { loans = [], payments = [] } = state.data;
+  const [viewMode, setViewMode] = usePersistentState('orm_view_mode', 'machine');
   const [selectedAssets, setSelectedAssets] = usePersistentState('orm_selected_assets', ['ALL MACHINES']);
+  const [selectedCustomers, setSelectedCustomers] = usePersistentState('orm_selected_customers', ['ALL CUSTOMERS']);
   const [storedDateRange, setDateRange] = usePersistentState('orm_date_range', {
     start: new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
@@ -197,32 +199,40 @@ const ORMDashboard = () => {
   };
 
   const getLoanLabel = (l) => `${l.machineName} (${l.invoiceNumber || l._id.toString().substring(l._id.toString().length - 4)})`;
+  const getCustomerLabel = (l) => l.customerId?.name || 'Unknown Customer';
 
   const approvedLoans = loans.filter(l => ['Approved', 'Active'].includes(l.approvalStatus));
   const machineOptions = ['ALL MACHINES', ...approvedLoans.map(getLoanLabel)];
+  const customerOptions = ['ALL CUSTOMERS', ...new Set(approvedLoans.map(getCustomerLabel))];
 
-  // Filtered Loans based on individual fleet selection
-  const filteredLoans = selectedAssets.includes('ALL MACHINES')
-    ? approvedLoans
-    : approvedLoans.filter(l => selectedAssets.includes(getLoanLabel(l)));
+  // Filtered Loans based on viewMode and corresponding selection
+  const filteredLoans = viewMode === 'machine'
+    ? (selectedAssets.includes('ALL MACHINES') ? approvedLoans : approvedLoans.filter(l => selectedAssets.includes(getLoanLabel(l))))
+    : (selectedCustomers.includes('ALL CUSTOMERS') ? approvedLoans : approvedLoans.filter(l => selectedCustomers.includes(getCustomerLabel(l))));
 
-  // Filtered Payments based on individual fleet selection AND date range
+  // Filtered Payments based on viewMode, individual selection, AND date range
   const filteredPayments = payments.filter(p => {
     let pDateStr = '';
     try {
       pDateStr = new Date(p.date).toISOString().split('T')[0];
-    } catch(e) {
+    } catch (e) {
       // Fallback if date is somehow invalid
-      pDateStr = new Date().toISOString().split('T')[0]; 
+      pDateStr = new Date().toISOString().split('T')[0];
     }
     const inDateRange = pDateStr >= dateRange.start && pDateStr <= dateRange.end;
+    if (!inDateRange) return false;
 
-    if (selectedAssets.includes('ALL MACHINES')) return inDateRange;
-
-    // Find the loan associated with this payment to check its label
-    const loanIdStr = (p.loanId?._id || p.loanId)?.toString();
-    const associatedLoan = approvedLoans.find(l => l._id === loanIdStr);
-    return inDateRange && associatedLoan && selectedAssets.includes(getLoanLabel(associatedLoan));
+    if (viewMode === 'machine') {
+      if (selectedAssets.includes('ALL MACHINES')) return true;
+      const loanIdStr = (p.loanId?._id || p.loanId)?.toString();
+      const associatedLoan = approvedLoans.find(l => l._id === loanIdStr);
+      return associatedLoan && selectedAssets.includes(getLoanLabel(associatedLoan));
+    } else {
+      if (selectedCustomers.includes('ALL CUSTOMERS')) return true;
+      const loanIdStr = (p.loanId?._id || p.loanId)?.toString();
+      const associatedLoan = approvedLoans.find(l => l._id === loanIdStr);
+      return associatedLoan && selectedCustomers.includes(getCustomerLabel(associatedLoan));
+    }
   });
 
   const [showGlobalReportFormats, setShowGlobalReportFormats] = useState(false);
@@ -252,7 +262,8 @@ const ORMDashboard = () => {
           'Authorization': `Bearer ${state.data.user?.token}`
         },
         body: JSON.stringify({
-          selectedAssets,
+          selectedAssets: viewMode === 'machine' ? selectedAssets : selectedCustomers,
+          viewMode,
           dateRange
         })
       });
@@ -281,6 +292,8 @@ const ORMDashboard = () => {
 
   const totalRecovery = filteredPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
   const totalExposure = filteredLoans.reduce((sum, l) => sum + (l.schedule || []).filter(s => s.status === 'Pending').reduce((s, inst) => s + inst.emi, 0), 0);
+  const totalFinanced = filteredLoans.reduce((sum, l) => sum + (l.principal || 0), 0);
+  const overdueAmount = filteredLoans.reduce((sum, l) => sum + (l.schedule || []).filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date()).reduce((s, inst) => s + inst.emi, 0), 0);
 
   const reportMonths = [];
   let curr = new Date(new Date(dateRange.start).getFullYear(), new Date(dateRange.start).getMonth(), 1);
@@ -342,14 +355,35 @@ const ORMDashboard = () => {
               </div>
             )}
           </div>
-          <DateFilter range={dateRange} onChange={setDateRange} />
-          <AssetFilter options={machineOptions} selected={selectedAssets} onSelect={setSelectedAssets} />
+          {/* <DateFilter range={dateRange} onChange={setDateRange} /> */}
+          <div className="flex bg-bg-active p-1 rounded-lg border border-border-main">
+            <button
+              onClick={() => setViewMode('machine')}
+              className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-all ${viewMode === 'machine' ? 'bg-primary text-black shadow-sm' : 'text-text-dim hover:text-text-main'}`}
+            >
+              Machine Centric
+            </button>
+            <button
+              onClick={() => setViewMode('customer')}
+              className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-all ${viewMode === 'customer' ? 'bg-primary text-black shadow-sm' : 'text-text-dim hover:text-text-main'}`}
+            >
+              Customer Centric
+            </button>
+          </div>
+          {viewMode === 'machine' ? (
+            <AssetFilter options={machineOptions} selected={selectedAssets} onSelect={setSelectedAssets} allLabel="ALL MACHINES" filterName="ASSET" />
+          ) : (
+            <AssetFilter options={customerOptions} selected={selectedCustomers} onSelect={setSelectedCustomers} allLabel="ALL CUSTOMERS" filterName="CUSTOMER" />
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 shrink-0">
-        <StatCard icon={TrendingUp} label="RECOVERY VOLUME" value={formatINR(totalRecovery)} accent="text-green-500" trend="+12.5%" isUp={true} />
-        <StatCard icon={AlertCircle} label="LIABILITY EXPOSURE" value={formatINR(totalExposure)} accent="text-red-500" trend="-2.4%" isUp={false} />
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 shrink-0">
+        <StatCard icon={History} label="TOTAL FINANCED" value={formatINR(totalFinanced)} accent="text-text-dim" />
+        <StatCard icon={TrendingUp} label="TOTAL COLLECTED" value={formatINR(totalRecovery)} accent="text-green-500" />
+        <StatCard icon={ActivityIcon} label="REMAINING AMOUNT" value={formatINR(totalExposure)} accent="text-primary" />
+        <StatCard icon={AlertCircle} label="OVERDUE AMOUNT" value={formatINR(overdueAmount)} accent="text-red-500" />
+
         <div className="bg-bg-card border border-border-main rounded-xl p-4 flex flex-col justify-between group hover:border-text-dim transition-all shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[9px] font-bold text-text-dim tracking-widest font-mono uppercase">COLLECTION HEALTH</span>
@@ -358,8 +392,10 @@ const ORMDashboard = () => {
           <div className="flex items-end gap-3">
             <span className="text-xl font-bold text-text-main font-mono">
               {(() => {
-                const valid = monthlyData.filter(m => m.progress !== 'NA');
-                return valid.length > 0 ? Math.round(valid.reduce((s, m) => s + m.progress, 0) / valid.length) : 0;
+                const expectedTotal = totalRecovery + totalExposure;
+                let health = expectedTotal > 0 ? Math.round((totalRecovery / expectedTotal) * 100) : 0;
+                if (totalExposure > 0 && health >= 100) health = 99;
+                return health;
               })()}%
             </span>
             <div className="flex-1 h-1.5 bg-bg-deep border border-border-main rounded-full mb-1.5 overflow-hidden">
@@ -367,15 +403,17 @@ const ORMDashboard = () => {
                 className="h-full bg-primary"
                 style={{
                   width: `${(() => {
-                    const valid = monthlyData.filter(m => m.progress !== 'NA');
-                    return valid.length > 0 ? Math.round(valid.reduce((s, m) => s + m.progress, 0) / valid.length) : 0;
+                    const expectedTotal = totalRecovery + totalExposure;
+                    let health = expectedTotal > 0 ? Math.round((totalRecovery / expectedTotal) * 100) : 0;
+                    if (totalExposure > 0 && health >= 100) health = 99;
+                    return health;
                   })()}%`
                 }}
               />
             </div>
           </div>
         </div>
-        <StatCard icon={Truck} label="FLEET NODES" value={`${filteredLoans.length} Units`} accent="text-blue-500" />
+        <StatCard icon={Truck} label={viewMode === 'machine' ? 'FLEET NODES' : 'PORTFOLIO UNITS'} value={`${filteredLoans.length} Units`} accent="text-blue-500" />
       </div>
 
       <div className="flex-1 grid grid-cols-12 gap-6 overflow-hidden min-h-0">
@@ -383,7 +421,7 @@ const ORMDashboard = () => {
           <div className="flex-1 bg-bg-card border border-border-main rounded-2xl overflow-hidden flex flex-col shadow-xl">
             <div className="px-6 py-4 border-b border-border-main bg-bg-active/50 flex items-center justify-between">
               <h3 className="text-[10px] font-black text-text-dim uppercase tracking-[0.2em] flex items-center gap-2">
-                <FileText size={14} className="text-primary" /> MONTHLY RECOVERY PROTOCOL LEDGER
+                <FileText size={14} className="text-primary" /> {viewMode === 'customer' ? 'CUSTOMER PORTFOLIO LEDGER' : 'MONTHLY RECOVERY PROTOCOL LEDGER'}
               </h3>
               <div className="flex items-center gap-4 text-[8px] font-bold text-text-dim uppercase tracking-widest">
                 <span>SYNCED: {new Date().toLocaleDateString()}</span>
@@ -394,34 +432,110 @@ const ORMDashboard = () => {
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 bg-bg-deep z-10">
                   <tr className="border-b border-border-main text-[9px] font-bold text-text-dim uppercase tracking-widest">
-                    <th className="px-6 py-5">Month</th>
-                    <th className="px-6 py-5">Openings</th>
-                    <th className="px-6 py-5">Due</th>
-                    <th className="px-6 py-5 text-green-600">Received</th>
-                    <th className="px-6 py-5 text-red-500">Overdue</th>
-                    <th className="px-6 py-5">Closing</th>
-                    <th className="px-6 py-5 text-right">Collection %</th>
+                    {viewMode === 'customer' ? (
+                      <>
+                        <th className="px-6 py-5">Customer</th>
+                        <th className="px-6 py-5">Machine</th>
+                        <th className="px-6 py-5">Total Expected</th>
+                        <th className="px-6 py-5">Remaining</th>
+                        <th className="px-6 py-5 text-green-600">Collected</th>
+                        <th className="px-6 py-5 text-red-500">Overdue</th>
+                        <th className="px-6 py-5 text-right">Collection %</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="px-6 py-5">Month</th>
+                        <th className="px-6 py-5">Openings</th>
+                        <th className="px-6 py-5">Due</th>
+                        <th className="px-6 py-5 text-green-600">Received</th>
+                        <th className="px-6 py-5 text-red-500">Overdue</th>
+                        <th className="px-6 py-5">Closing</th>
+                        <th className="px-6 py-5 text-right">Collection %</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-main/30">
-                  {monthlyData.map((row, i) => (
-                    <tr key={i} className="hover:bg-bg-active transition-colors group">
-                      <td className="px-6 py-5 text-[11px] font-black text-text-main">{row.month}</td>
-                      <td className="px-6 py-5 text-[11px] font-mono text-text-dim">{formatINR(row.opening)}</td>
-                      <td className="px-6 py-5 text-[11px] font-mono text-text-dim">{formatINR(row.due)}</td>
-                      <td className="px-6 py-5 text-[11px] font-mono font-bold text-green-600">{formatINR(row.received)}</td>
-                      <td className="px-6 py-5 text-[11px] font-mono font-bold text-red-500">{formatINR(row.overdue)}</td>
-                      <td className="px-6 py-5 text-[11px] font-mono text-text-main">{formatINR(row.closing)}</td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          <div className="w-16 h-1 bg-bg-deep rounded-full overflow-hidden border border-border-main">
-                            <div className={`h-full ${row.progress !== 'NA' && row.progress > 50 ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${row.progress === 'NA' ? 0 : row.progress}%` }} />
+                  {viewMode === 'customer' ? (
+                    (() => {
+                      const customers = {};
+                      filteredLoans.forEach(l => {
+                        const customerIdStr = (l.customerId?._id || l.customerId)?.toString() || 'unknown';
+                        if (!customers[customerIdStr]) {
+                          customers[customerIdStr] = {
+                            id: customerIdStr,
+                            name: getCustomerLabel(l),
+                            machineCount: 0,
+                            remaining: 0,
+                            collected: 0,
+                            overdue: 0,
+                            loans: []
+                          };
+                        }
+                        const c = customers[customerIdStr];
+                        c.machineCount++;
+                        c.remaining += (l.schedule || []).filter(s => s.status === 'Pending').reduce((s, inst) => s + (inst.outstandingAmount !== undefined ? inst.outstandingAmount : inst.emi), 0);
+                        c.collected += (l.schedule || []).reduce((sum, s) => {
+                          const principalPaid = s.paidAmount !== undefined && s.paidAmount > 0
+                            ? s.paidAmount
+                            : ((s.emi || 0) - (s.outstandingAmount !== undefined ? s.outstandingAmount : (s.status === 'Clear' || s.status === 'Paid' ? 0 : (s.emi || 0))));
+                          return sum + principalPaid + (s.paidOverdueInterest || 0);
+                        }, 0);
+                        c.overdue += (l.schedule || []).filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date()).reduce((s, inst) => s + (inst.outstandingAmount !== undefined ? inst.outstandingAmount : inst.emi), 0);
+                        c.loans.push(l);
+                      });
+
+                      return Object.values(customers).map((c) => {
+                        const expectedTotal = c.collected + c.remaining;
+                        let collPercent = expectedTotal > 0 ? Math.round((c.collected / expectedTotal) * 100) : 0;
+                        if (c.remaining > 0 && collPercent >= 100) collPercent = 99;
+
+                        return (
+                          <tr key={c.id} onClick={() => {
+                            if (c.machineCount === 1) {
+                              state.setState({ view: 'loan-details', selectedLoanId: c.loans[0]._id, previousView: 'dashboard' });
+                            } else {
+                              state.setState({ view: 'customer-analytics', selectedCustomerId: c.id, previousView: 'dashboard' });
+                            }
+                          }} className="hover:bg-bg-active transition-colors group cursor-pointer">
+                            <td className="px-6 py-5 text-[11px] font-black text-text-main">{c.name}</td>
+                            <td className="px-6 py-5 text-[11px] font-mono text-text-dim">{c.machineCount} {c.machineCount === 1 ? 'Machine' : 'Machines'}</td>
+                            <td className="px-6 py-5 text-[11px] font-mono text-text-dim">{formatINR(expectedTotal)}</td>
+                            <td className="px-6 py-5 text-[11px] font-mono text-text-dim">{formatINR(c.remaining)}</td>
+                            <td className="px-6 py-5 text-[11px] font-mono font-bold text-green-600">{formatINR(c.collected)}</td>
+                            <td className="px-6 py-5 text-[11px] font-mono font-bold text-red-500">{formatINR(c.overdue)}</td>
+                            <td className="px-6 py-5 text-right">
+                              <div className="flex items-center justify-end gap-3">
+                                <div className="w-16 h-1 bg-bg-deep rounded-full overflow-hidden border border-border-main">
+                                  <div className={`h-full ${collPercent > 50 ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${Math.min(100, collPercent)}%` }} />
+                                </div>
+                                <span className="text-[10px] font-mono font-bold text-text-main">{collPercent}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()
+                  ) : (
+                    monthlyData.map((row, i) => (
+                      <tr key={i} className="hover:bg-bg-active transition-colors group">
+                        <td className="px-6 py-5 text-[11px] font-black text-text-main">{row.month}</td>
+                        <td className="px-6 py-5 text-[11px] font-mono text-text-dim">{formatINR(row.opening)}</td>
+                        <td className="px-6 py-5 text-[11px] font-mono text-text-dim">{formatINR(row.due)}</td>
+                        <td className="px-6 py-5 text-[11px] font-mono font-bold text-green-600">{formatINR(row.received)}</td>
+                        <td className="px-6 py-5 text-[11px] font-mono font-bold text-red-500">{formatINR(row.overdue)}</td>
+                        <td className="px-6 py-5 text-[11px] font-mono text-text-main">{formatINR(row.closing)}</td>
+                        <td className="px-6 py-5 text-right">
+                          <div className="flex items-center justify-end gap-3">
+                            <div className="w-16 h-1 bg-bg-deep rounded-full overflow-hidden border border-border-main">
+                              <div className={`h-full ${row.progress !== 'NA' && row.progress > 50 ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${row.progress === 'NA' ? 0 : row.progress}%` }} />
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-text-main">{row.progress === 'NA' ? 'NA' : `${row.progress}%`}</span>
                           </div>
-                          <span className="text-[10px] font-mono font-bold text-text-main">{row.progress === 'NA' ? 'NA' : `${row.progress}%`}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

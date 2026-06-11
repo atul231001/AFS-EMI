@@ -17,6 +17,7 @@ import {
   Check,
   X
 } from 'lucide-react';
+import { generateSchedule } from '../logic/emi';
 
 const getMachineImage = (m) => {
   if (!m) return 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=300';
@@ -345,8 +346,10 @@ const NewAssignment = ({ machines, customers, user }) => {
     discountPercentage: 0,
     discountAmount: 0,
     downPayment: 0,
+    downPaymentInstallments: 1,
     interestRate: 12,
-    delayInterest: 2, // Overdue/Delay interest default
+    delayInterest: 24, // Overdue/Delay interest default
+    compoundOverdueInterest: false,
     selectedAttachments: [],
     manualCharges: []
   });
@@ -384,27 +387,19 @@ const NewAssignment = ({ machines, customers, user }) => {
   };
 
   // Generate Schedule on the fly for display
-  const schedule = [];
-  let currentBalance = P;
-  const baseDate = formData.emiStartDate ? new Date(formData.emiStartDate) : new Date();
+  const schedule = generateSchedule(
+    P + (parseFloat(formData.downPayment) || 0), // generateSchedule expects full principal
+    parseFloat(formData.interestRate) || 0,
+    (parseInt(formData.tenure) || 0) / 12, // logic/emi expects years, wait, tenure is in months here? "Tenure (Months)"
+    'reducing',
+    formData.emiStartDate ? new Date(formData.emiStartDate) : new Date(),
+    parseFloat(formData.downPayment) || 0,
+    parseInt(formData.downPaymentInstallments) || 0
+  );
+  
+  // Actually logic/emi.js calculates years. Let's adjust it. 
+  // Wait, let's fix generateSchedule call. I will just pass years = tenure / 12.
 
-  for (let i = 1; i <= norms.n; i++) {
-    const interest = Math.round(currentBalance * norms.r);
-    const principalPaid = norms.emi - interest;
-    currentBalance -= principalPaid;
-    const dueDate = new Date(baseDate);
-    dueDate.setMonth(dueDate.getMonth() + i);
-
-    schedule.push({
-      installment: i,
-      dueDate: dueDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-      emi: norms.emi,
-      principal: principalPaid,
-      interest: interest,
-      balance: Math.max(0, currentBalance),
-      status: 'Pending'
-    });
-  }
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -624,20 +619,33 @@ const NewAssignment = ({ machines, customers, user }) => {
 
             <div className="bg-bg-deep/50 border border-border-main rounded-xl p-5 grid grid-cols-2 gap-8 shadow-inner">
               <div>
-                <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Down Payment (₹)</p>
-                <input
-                  type="number"
-                  disabled={!isMachineSelected}
-                  value={formData.downPayment}
-                  onChange={e => {
-                    const raw = e.target.value.replace(/^0+(?=\d)/, '');
-                    const val = parseFloat(raw) || 0;
-                    const finalPrice = Math.max(0, formData.machinePrice - (parseFloat(formData.discountAmount) || 0));
-                    const maxDownPayment = finalPrice + attachmentTotal + manualChargesTotal;
-                    setFormData({ ...formData, downPayment: raw && val > maxDownPayment ? maxDownPayment.toString() : raw });
-                  }}
-                  className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                />
+                <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Margin Money (₹)</p>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="number"
+                    disabled={!isMachineSelected}
+                    value={formData.downPayment}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/^0+(?=\d)/, '');
+                      const val = parseFloat(raw) || 0;
+                      const finalPrice = Math.max(0, formData.machinePrice - (parseFloat(formData.discountAmount) || 0));
+                      const maxDownPayment = finalPrice + attachmentTotal + manualChargesTotal;
+                      setFormData({ ...formData, downPayment: raw && val > maxDownPayment ? maxDownPayment.toString() : raw });
+                    }}
+                    className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <div className="flex flex-col border-l border-border-main pl-4">
+                    <p className="text-[8px] font-bold text-text-dim uppercase tracking-tighter whitespace-nowrap">DP Installments</p>
+                    <input
+                      type="number"
+                      min="1"
+                      disabled={!isMachineSelected || formData.downPayment <= 0}
+                      value={formData.downPaymentInstallments}
+                      onChange={e => setFormData({ ...formData, downPaymentInstallments: e.target.value.replace(/^0+(?=\d)/, '') })}
+                      className="w-16 bg-transparent text-sm font-mono font-bold text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
               </div>
               <div className="border-l border-border-main pl-8">
                 <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Interest Rate (% p.a.)</p>
@@ -653,16 +661,30 @@ const NewAssignment = ({ machines, customers, user }) => {
             </div>
 
             <div className="grid grid-cols-2 gap-6 items-end">
-              <div>
-                <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Overdue Interest (%/mo)</p>
-                <input
-                  type="number"
-                  step="0.1"
-                  disabled={!isMachineSelected}
-                  value={formData.delayInterest}
-                  onChange={e => setFormData({ ...formData, delayInterest: e.target.value.replace(/^0+(?=\d)/, '') })}
-                  className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                />
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Overdue Interest (% P.A.)</p>
+                  <input
+                    type="number"
+                    step="0.1"
+                    disabled={!isMachineSelected}
+                    value={formData.delayInterest}
+                    onChange={e => setFormData({ ...formData, delayInterest: e.target.value.replace(/^0+(?=\d)/, '') })}
+                    className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div className="flex flex-col justify-end pb-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="accent-[#f0883e]"
+                      disabled={!isMachineSelected}
+                      checked={formData.compoundOverdueInterest}
+                      onChange={(e) => setFormData({ ...formData, compoundOverdueInterest: e.target.checked })}
+                    />
+                    <span className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Compound</span>
+                  </label>
+                </div>
               </div>
               <div className={`flex flex-col justify-end pb-2 ${!isMachineSelected ? 'opacity-50 pointer-events-none' : ''}`}>
                 <div className="flex items-center justify-between">
@@ -798,9 +820,9 @@ const NewAssignment = ({ machines, customers, user }) => {
               <tbody className="divide-y divide-border-main/50">
                 {schedule.length === 0 ? (
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-text-dim text-[10px] font-bold uppercase tracking-widest">Configure parameters to view schedule</td></tr>
-                ) : schedule.map(s => (
-                  <tr key={s.installment} className="hover:bg-bg-active transition-colors">
-                    <td className="px-4 py-2 font-mono text-[10px] font-black text-text-main">#{s.installment}</td>
+                ) : schedule.map((s, index) => (
+                  <tr key={s.installmentNo || index} className="hover:bg-bg-active transition-colors">
+                    <td className="px-4 py-2 font-mono text-[10px] font-black text-text-main">#{index + 1}</td>
                     <td className="px-4 py-2 font-mono text-[10px] text-text-main">{s.dueDate}</td>
                     <td className="px-4 py-2 font-mono text-[10px] text-text-main">{formatINR(s.principal)}</td>
                     <td className="px-4 py-2 font-mono text-[10px] text-[#f0883e]">{formatINR(s.interest)}</td>

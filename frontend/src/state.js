@@ -69,8 +69,8 @@ const INITIAL_STATE = {
   },
   loanListView: JSON.parse(localStorage.getItem('app_filters') || '{}').loanListView || 'card',
   machineListView: JSON.parse(localStorage.getItem('app_filters') || '{}').machineListView || 'list',
-  selectedCustomerId: null,
-  selectedLoanId: null,
+  selectedCustomerId: JSON.parse(localStorage.getItem('app_filters') || '{}').selectedCustomerId || null,
+  selectedLoanId: JSON.parse(localStorage.getItem('app_filters') || '{}').selectedLoanId || null,
   loading: false,
   settings: {
     fontFamily: 'Inter',
@@ -288,7 +288,7 @@ class State {
     }
     
     // Persist UI states
-    const persistKeys = ['view', 'loanListView', 'machineListView'];
+    const persistKeys = ['view', 'loanListView', 'machineListView', 'selectedCustomerId', 'selectedLoanId'];
     const shouldPersist = persistKeys.some(k => newData[k] !== undefined);
     if (shouldPersist) {
       const filters = JSON.parse(localStorage.getItem('app_filters') || '{}');

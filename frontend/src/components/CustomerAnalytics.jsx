@@ -350,12 +350,11 @@ const CustomerAnalytics = () => {
   const chartRef = useRef(null);
   const [selectedAsset, setSelectedAsset] = useState('ALL MACHINES');
   const [chartType, setChartType] = useState('bar');
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const { loans, machines, selectedCustomerId, customers, payments } = state.data;
+  const [activeTab, setActiveTab] = useState('ledger');
+  const { loans, machines, selectedCustomerId, customers, payments = [] } = state.data;
 
   const customer = customers.find(c => c._id === selectedCustomerId);
 
-  // Derived Data Calculations (Standard EMI/Rental)
   const clientLoans = customer ? loans.filter(l => l.customerId?._id === customer?._id || l.customerId === customer?._id) : [];
 
   const machineOptions = [
@@ -693,7 +692,7 @@ const CustomerAnalytics = () => {
       <div className="flex-1 grid grid-cols-12 gap-6 overflow-hidden min-h-0">
 
         {/* LEFT COLUMN: FINANCIAL PROTOCOLS & LEDGER */}
-        <div className="col-span-12 lg:col-span-8 flex flex-col gap-6 overflow-hidden">
+        <div className="col-span-12 lg:col-span-8 flex flex-col gap-6 overflow-hidden min-h-0">
 
           {/* STAT CARDS ROW */}
           <div className="grid grid-cols-4 gap-4 shrink-0">
@@ -720,7 +719,7 @@ const CustomerAnalytics = () => {
           </div>
 
           {/* RECOVERY PROTOCOL STAGES */}
-          <div className="bg-bg-card border border-border-main rounded-2xl p-6 shadow-2xl flex flex-col gap-6 overflow-hidden">
+          <div className="flex-1 bg-bg-card border border-border-main rounded-2xl p-6 shadow-2xl flex flex-col gap-6 overflow-hidden min-h-0">
             <div className="flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <button
@@ -745,100 +744,166 @@ const CustomerAnalytics = () => {
               <StageCard title="STAGE C: OVERDUE" val={formatINR(totalOverdue)} sub={`Backlog: ${filteredLoans.reduce((sum, l) => sum + l.schedule.filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date()).length, 0)} Units`} color="text-red-500" border="border-red-500/20" icon={AlertCircle} />
               <StageCard title="STAGE D: INTEREST" val={formatINR(totalOverdue * 0.18)} sub="Protocol: Standard 18%" color="text-blue-500" border="border-blue-500/20" icon={History} />
             </div>
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-4 px-1 shrink-0">
-                <h3 className="text-[10px] font-black text-text-dim uppercase tracking-widest flex items-center gap-2">
-                  <Layers size={14} className="text-primary" /> Active Node Ledger
-                </h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex p-1 bg-bg-deep border border-border-main rounded-xl">
+                    <button
+                      onClick={() => setActiveTab('ledger')}
+                      className={`px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${activeTab === 'ledger' ? 'bg-bg-card text-primary' : 'text-text-dim hover:text-white'}`}
+                    >
+                      Active Node Ledger
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('history')}
+                      className={`px-4 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all ${activeTab === 'history' ? 'bg-bg-card text-[#3fb950]' : 'text-text-dim hover:text-white'}`}
+                    >
+                      Payment History
+                    </button>
+                  </div>
+                </div>
                 <span className="text-[8px] font-mono text-text-dim uppercase font-bold italic">Authorized Strategic Access Only</span>
               </div>
-              <div className="flex-1 bg-bg-deep border border-border-main rounded-xl overflow-hidden flex flex-col">
-                <div className="overflow-y-auto custom-scrollbar flex-1">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 bg-bg-card z-10">
-                      <tr className="border-b border-border-main text-[8px] font-black uppercase text-text-dim tracking-widest">
-                        <th className="px-5 py-4">Asset Identification</th>
-                        <th className="px-5 py-4">Recovery Progress</th>
-                        <th className="px-5 py-4">Liability</th>
-                        <th className="px-5 py-4 text-red-500">Overdue</th>
-                        <th className="px-5 py-4">Next Cycle</th>
-                        <th className="px-5 py-4 text-center">Protocol</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-main/30">
-                      {filteredLoans.map(l => {
-                        const pendingAmount = l.schedule.filter(s => s.status === 'Pending').reduce((sum, s) => sum + s.emi, 0);
-                        const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
-                        const totalCount = l.schedule.length;
-                        const health = (paidCount / totalCount) * 100;
-                        const upcomingEmi = l.schedule.find(s => s.status === 'Pending')?.dueDate || 'RESOLVED';
+              <div className="flex-1 bg-bg-deep border border-border-main rounded-xl overflow-hidden flex flex-col min-h-0">
+                <div className="overflow-y-auto overflow-x-auto custom-scrollbar h-[500px]">
+                  {activeTab === 'ledger' ? (
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 bg-bg-card z-10">
+                        <tr className="border-b border-border-main text-[8px] font-black uppercase text-text-dim tracking-widest">
+                          <th className="px-5 py-4">Asset Identification</th>
+                          <th className="px-5 py-4">Recovery Progress</th>
+                          <th className="px-5 py-4">Liability</th>
+                          <th className="px-5 py-4 text-red-500">Overdue</th>
+                          <th className="px-5 py-4">Next Cycle</th>
+                          <th className="px-5 py-4 text-center">Protocol</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-main/30">
+                        {filteredLoans.map(l => {
+                          const pendingAmount = l.schedule.filter(s => s.status === 'Pending').reduce((sum, s) => sum + s.emi, 0);
+                          const paidCount = l.schedule.filter(s => s.status === 'Paid').length;
+                          const totalCount = l.schedule.length;
+                          const health = (paidCount / totalCount) * 100;
+                          const upcomingEmi = l.schedule.find(s => s.status === 'Pending')?.dueDate || 'RESOLVED';
 
-                        return (
-                          <tr key={l._id} className="hover:bg-bg-active/30 group cursor-pointer transition-colors" onClick={() => state.setState({ view: 'loan-details', selectedLoanId: l._id, previousView: 'customer-analytics' })}>
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-lg bg-bg-card border border-border-main flex items-center justify-center group-hover:border-primary/50 transition-all">
-                                  <HardHat size={18} className="text-text-dim group-hover:text-primary" />
+                          return (
+                            <tr key={l._id} className="hover:bg-bg-active/30 group cursor-pointer transition-colors" onClick={() => state.setState({ view: 'loan-details', selectedLoanId: l._id, previousView: 'customer-analytics' })}>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded-lg bg-bg-card border border-border-main flex items-center justify-center group-hover:border-primary/50 transition-all">
+                                    <HardHat size={18} className="text-text-dim group-hover:text-primary" />
+                                  </div>
+                                  <div>
+                                    <p className="text-[11px] font-black text-text-main uppercase tracking-tight">{l.machineName}</p>
+                                    <p className="text-[8px] font-mono text-text-dim uppercase font-bold tracking-widest mt-0.5">NODE_{l._id.substring(l._id.length - 6).toUpperCase()}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="text-[11px] font-black text-text-main uppercase tracking-tight">{l.machineName}</p>
-                                  <p className="text-[8px] font-mono text-text-dim uppercase font-bold tracking-widest mt-0.5">NODE_{l._id.substring(l._id.length - 6).toUpperCase()}</p>
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-20 h-1.5 bg-bg-card border border-border-main rounded-full overflow-hidden">
+                                    <div className={`h-full ${health === 100 ? 'bg-[#3fb950]' : 'bg-primary'}`} style={{ width: `${health}%` }} />
+                                  </div>
+                                  <span className="text-[9px] font-mono font-black text-text-main">{paidCount}/{totalCount}</span>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-4">
-                                <div className="w-20 h-1.5 bg-bg-card border border-border-main rounded-full overflow-hidden">
-                                  <div className={`h-full ${health === 100 ? 'bg-[#3fb950]' : 'bg-primary'}`} style={{ width: `${health}%` }} />
-                                </div>
-                                <span className="text-[9px] font-mono font-black text-text-main">{paidCount}/{totalCount}</span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-4">
-                              <p className="text-[11px] font-mono font-black text-text-main">{formatINR(pendingAmount)}</p>
-                            </td>
-                            <td className="px-5 py-4">
-                              <p className="text-[11px] font-mono font-black text-red-500">
-                                {formatINR(l.schedule.filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date()).reduce((s, inst) => s + inst.emi, 0))}
-                              </p>
-                            </td>
-                            <td className="px-5 py-4">
-                              <p className="text-[10px] font-mono font-black text-primary uppercase">{upcomingEmi}</p>
-                            </td>
-                            <td className="px-5 py-4 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); showNotification(`Initiating Sync for ${l.machineName}...`); }}
-                                  className="p-2 hover:bg-primary/10 rounded-lg text-text-dim hover:text-primary transition-all border border-transparent hover:border-primary/30"
-                                  title="Sync Asset Matrix"
-                                >
-                                  <Activity size={14} />
-                                </button>
+                              </td>
+                              <td className="px-5 py-4">
+                                <p className="text-[11px] font-mono font-black text-text-main">{formatINR(pendingAmount)}</p>
+                              </td>
+                              <td className="px-5 py-4">
+                                <p className="text-[11px] font-mono font-black text-red-500">
+                                  {formatINR(l.schedule.filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date()).reduce((s, inst) => s + inst.emi, 0))}
+                                </p>
+                              </td>
+                              <td className="px-5 py-4">
+                                <p className="text-[10px] font-mono font-black text-primary uppercase">{upcomingEmi}</p>
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); showNotification(`Initiating Sync for ${l.machineName}...`); }}
+                                    className="p-2 hover:bg-primary/10 rounded-lg text-text-dim hover:text-primary transition-all border border-transparent hover:border-primary/30"
+                                    title="Sync Asset Matrix"
+                                  >
+                                    <Activity size={14} />
+                                  </button>
 
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    const isOverdue = l.schedule.some(s => s.status === 'Pending' && new Date(s.dueDate) < new Date());
-                                    showNotification(isOverdue ? `Sending Overdue Notice for ${l.machineName}...` : `Sending Payment Reminder for ${l.machineName}...`, 'info');
-                                    const res = await state.sendOverdueNotice(l._id);
-                                    if (res.success) showNotification('Notice Dispatched Successfully', 'success');
-                                    else showNotification(res.message, 'error');
-                                  }}
-                                  className={`p-2 rounded-lg transition-all border ${l.schedule.some(s => s.status === 'Pending' && new Date(s.dueDate) < new Date())
-                                    ? 'bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border-red-500/20'
-                                    : 'bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white border-blue-500/20'
-                                    }`}
-                                  title={l.schedule.some(s => s.status === 'Pending' && new Date(s.dueDate) < new Date()) ? "Send Overdue Notice" : "Send Payment Reminder"}
-                                >
-                                  <Mail size={14} />
-                                </button>
-                              </div>
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      const isOverdue = l.schedule.some(s => s.status === 'Pending' && new Date(s.dueDate) < new Date());
+                                      showNotification(isOverdue ? `Sending Overdue Notice for ${l.machineName}...` : `Sending Payment Reminder for ${l.machineName}...`, 'info');
+                                      const res = await state.sendOverdueNotice(l._id);
+                                      if (res.success) showNotification('Notice Dispatched Successfully', 'success');
+                                      else showNotification(res.message, 'error');
+                                    }}
+                                    className={`p-2 rounded-lg transition-all border ${l.schedule.some(s => s.status === 'Pending' && new Date(s.dueDate) < new Date())
+                                      ? 'bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border-red-500/20'
+                                      : 'bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white border-blue-500/20'
+                                      }`}
+                                    title={l.schedule.some(s => s.status === 'Pending' && new Date(s.dueDate) < new Date()) ? "Send Overdue Notice" : "Send Payment Reminder"}
+                                  >
+                                    <Mail size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 bg-bg-card z-10">
+                        <tr className="border-b border-border-main text-[8px] font-black uppercase text-text-dim tracking-widest">
+                          <th className="px-5 py-4">TXN ID</th>
+                          <th className="px-5 py-4">Date</th>
+                          <th className="px-5 py-4">Asset</th>
+                          <th className="px-5 py-4">Amount</th>
+                          <th className="px-5 py-4">Allocations</th>
+                          <th className="px-5 py-4">Waived</th>
+                          <th className="px-5 py-4 text-center">Processed By</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-main/30">
+                        {payments.filter(p => filteredLoans.some(l => l._id === p.loanId?._id || l._id === p.loanId)).length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="px-5 py-10 text-center">
+                              <History size={24} className="mx-auto text-text-dim/30 mb-2" />
+                              <p className="text-[10px] text-text-dim font-bold uppercase tracking-widest">No payment history found</p>
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        ) : (
+                          payments.filter(p => filteredLoans.some(l => l._id === p.loanId?._id || l._id === p.loanId)).sort((a, b) => new Date(b.date) - new Date(a.date)).map((p, i) => {
+                            const loanObj = filteredLoans.find(l => l._id === p.loanId?._id || l._id === p.loanId);
+                            return (
+                              <tr key={i} className="hover:bg-bg-active/30 transition-colors group">
+                                <td className="px-5 py-4 text-[10px] font-mono font-bold text-text-main">{p.transactionId || '--'}</td>
+                                <td className="px-5 py-4 text-[10px] font-bold text-white uppercase italic">{new Date(p.date).toISOString().split('T')[0]}</td>
+                                <td className="px-5 py-4 text-[10px] font-bold text-text-main uppercase">{loanObj ? loanObj.machineName : 'Unknown'}</td>
+                                <td className="px-5 py-4 text-[10px] font-mono font-bold text-[#3fb950] italic">{formatINR(p.amount)}</td>
+                                <td className="px-5 py-4">
+                                  <div className="flex flex-col gap-1">
+                                    {p.allocations && p.allocations.length > 0 ? p.allocations.map((a, j) => (
+                                      <span key={j} className="text-[8px] font-mono text-text-dim">
+                                        Inst #{a.installmentNo} • {a.type}: <span className="text-white">{formatINR(a.amount)}</span>
+                                      </span>
+                                    )) : <span className="text-[8px] font-mono text-text-dim">No specific allocations</span>}
+                                  </div>
+                                </td>
+                                <td className="px-5 py-4 text-[10px] font-mono text-rose-500">
+                                  {p.waiveInterest ? (
+                                    <span className="flex items-center gap-1"><Check size={10} /> WAIVED</span>
+                                  ) : '--'}
+                                </td>
+                                <td className="px-5 py-4 text-[10px] font-bold text-white italic text-center">{p.uploadedBy?.name || 'System'}</td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </div>
             </div>

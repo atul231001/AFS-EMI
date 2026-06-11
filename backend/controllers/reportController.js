@@ -9,9 +9,10 @@ import {
 export const downloadGlobalReport = async (req, res) => {
   try {
     const { format } = req.params;
-    let { selectedAssets, dateRange } = req.body;
+    let { selectedAssets, dateRange, viewMode } = req.body;
 
     if (!selectedAssets) selectedAssets = [];
+    if (!viewMode) viewMode = 'machine';
     if (!dateRange || !dateRange.start || !dateRange.end) {
       return res.status(400).json({ message: 'Valid dateRange is required for the global report protocol' });
     }
@@ -25,20 +26,35 @@ export const downloadGlobalReport = async (req, res) => {
 
     const approvedLoans = loans.filter(l => ['Approved', 'Active'].includes(l.approvalStatus));
     const getLoanLabel = (l) => `${l.machineName} (${l.invoiceNumber || l._id.toString().substring(l._id.toString().length - 4)})`;
+    const getCustomerLabel = (l) => l.customerId?.name || 'Unknown Customer';
 
     // Filtering Logic
-    const filteredLoans = selectedAssets.includes('ALL MACHINES')
-      ? approvedLoans
-      : approvedLoans.filter(l => selectedAssets.includes(getLoanLabel(l)));
+    let filteredLoans = [];
+    if (viewMode === 'customer') {
+      filteredLoans = selectedAssets.includes('ALL CUSTOMERS')
+        ? approvedLoans
+        : approvedLoans.filter(l => selectedAssets.includes(getCustomerLabel(l)));
+    } else {
+      filteredLoans = selectedAssets.includes('ALL MACHINES')
+        ? approvedLoans
+        : approvedLoans.filter(l => selectedAssets.includes(getLoanLabel(l)));
+    }
 
     const filteredPayments = payments.filter(p => {
       const paymentDate = new Date(p.date);
       const inDateRange = paymentDate >= new Date(dateRange.start) && paymentDate <= new Date(dateRange.end);
 
-      if (selectedAssets.includes('ALL MACHINES')) return inDateRange;
+      if (!inDateRange) return false;
 
-      const associatedLoan = approvedLoans.find(l => l._id.toString() === (p.loanId?._id || p.loanId)?.toString());
-      return inDateRange && associatedLoan && selectedAssets.includes(getLoanLabel(associatedLoan));
+      if (viewMode === 'customer') {
+        if (selectedAssets.includes('ALL CUSTOMERS')) return true;
+        const associatedLoan = approvedLoans.find(l => l._id.toString() === (p.loanId?._id || p.loanId)?.toString());
+        return associatedLoan && selectedAssets.includes(getCustomerLabel(associatedLoan));
+      } else {
+        if (selectedAssets.includes('ALL MACHINES')) return true;
+        const associatedLoan = approvedLoans.find(l => l._id.toString() === (p.loanId?._id || p.loanId)?.toString());
+        return associatedLoan && selectedAssets.includes(getLoanLabel(associatedLoan));
+      }
     });
     // Generate Month Objects for calculation
     const start = new Date(dateRange.start);
@@ -58,13 +74,13 @@ export const downloadGlobalReport = async (req, res) => {
     let contentType;
 
     if (format === 'excel') {
-      reportBuffer = await generateGlobalExcelReport(filteredLoans, filteredPayments, months);
+      reportBuffer = await generateGlobalExcelReport(filteredLoans, filteredPayments, months, viewMode);
       contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     } else if (format === 'ppt') {
-      reportBuffer = await generateGlobalPPTReport(filteredLoans, filteredPayments, months);
+      reportBuffer = await generateGlobalPPTReport(filteredLoans, filteredPayments, months, viewMode);
       contentType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
     } else if (format === 'pdf') {
-      reportBuffer = await generateGlobalPDFReport(filteredLoans, filteredPayments, months);
+      reportBuffer = await generateGlobalPDFReport(filteredLoans, filteredPayments, months, viewMode);
       contentType = 'application/pdf';
     } else {
       return res.status(400).json({ message: 'Invalid report format protocol' });

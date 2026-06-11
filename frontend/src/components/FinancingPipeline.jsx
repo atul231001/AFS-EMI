@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { state } from '../state';
 import { showNotification, formatINR, hasPermission } from '../utils';
+import Pagination from './Pagination.jsx';
 import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 
 const getMachineImage = (m) => {
@@ -16,7 +17,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
   const [dispatchSerialNo, setDispatchSerialNo] = useState(loan?.invoiceData?.serialNumber || loan?.serialNumber || '');
   const [dispatchCheckFailed, setDispatchCheckFailed] = useState(false);
   const [hasAutoCheckedDispatch, setHasAutoCheckedDispatch] = useState(false);
-  
+
   useEffect(() => {
     const freshSerial = loan?.invoiceData?.serialNumber || loan?.serialNumber;
     if (freshSerial && !dispatchSerialNo) {
@@ -213,13 +214,13 @@ const FinancingFormModal = ({ loan, onClose }) => {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${state.token}`
           },
-          body: JSON.stringify({ 
-            dispatchDate: apiData.result.dispatchDate, 
+          body: JSON.stringify({
+            dispatchDate: apiData.result.dispatchDate,
             serialNumber: dispatchSerialNo.trim(),
             dispatchData: apiData.result
           })
         });
-        
+
         if (res.ok) {
           showNotification('Machine dispatched successfully.', 'success');
           state.fetchData();
@@ -228,8 +229,8 @@ const FinancingFormModal = ({ loan, onClose }) => {
           setDispatchCheckFailed(true);
         }
       } else {
-         if (!isAuto) showNotification('Dispatch data not found for this Serial Number', 'error');
-         setDispatchCheckFailed(true);
+        if (!isAuto) showNotification('Dispatch data not found for this Serial Number', 'error');
+        setDispatchCheckFailed(true);
       }
     } catch (e) {
       if (!isAuto) showNotification('Dispatch confirmation failed', 'error');
@@ -304,7 +305,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
     if (!loan.invoiceData) return null;
     return (
       <div className="mt-3 pt-3 border-t border-border-main">
-        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2 mb-3"><CheckCircle size={12}/> Confirmed Invoice</p>
+        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2 mb-3"><CheckCircle size={12} /> Confirmed Invoice</p>
         <div className="grid grid-cols-2 gap-x-2 gap-y-3">
           <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Order ID</p>
@@ -443,7 +444,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                         <p className="text-sm font-black text-text-main">{loan.tenure} Months</p>
                       </div>
                       <div className="bg-bg-deep p-3 rounded-xl border border-border-main">
-                        <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">Down Payment</p>
+                        <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">Margin Money</p>
                         <p className="text-sm font-black text-text-main">{formatINR(loan.downPayment)}</p>
                       </div>
                       <div className="bg-bg-deep p-3 rounded-xl border border-border-main">
@@ -462,7 +463,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                       </div>
                       <div className="bg-bg-deep p-3 rounded-xl border border-border-main">
                         <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">Overdue Interest</p>
-                        <p className="text-sm font-black text-text-main">{loan.delayInterest !== undefined ? loan.delayInterest : 2}% / month</p>
+                        <p className="text-sm font-black text-text-main">{loan.delayInterest !== undefined ? loan.delayInterest : 24}% P.A.</p>
                       </div>
                       <div className="bg-bg-deep p-3 rounded-xl border border-border-main">
                         <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">Est. End Date</p>
@@ -577,9 +578,9 @@ const FinancingFormModal = ({ loan, onClose }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-main/50">
-                      {!loan.schedule || loan.schedule.length === 0 ? <tr><td colSpan={6} className="px-8 py-8 text-center text-text-dim text-[10px] font-bold uppercase tracking-widest">No schedule data available</td></tr> : loan.schedule.map(s => (
-                        <tr key={s.installment} className="hover:bg-bg-active transition-colors">
-                          <td className="px-8 py-3 font-mono text-[10px] font-black text-text-main">#{s.installment}</td>
+                      {!loan.schedule || loan.schedule.length === 0 ? <tr><td colSpan={6} className="px-8 py-8 text-center text-text-dim text-[10px] font-bold uppercase tracking-widest">No schedule data available</td></tr> : loan.schedule.map((s, index) => (
+                        <tr key={s.installment || s.installmentNo || index} className="hover:bg-bg-active transition-colors">
+                          <td className="px-8 py-3 font-mono text-[10px] font-black text-text-main">#{index + 1}</td>
                           <td className="px-4 py-3 font-mono text-[10px] text-text-main">{s.dueDate}</td>
                           <td className="px-4 py-3 font-mono text-[10px] text-text-main">{formatINR(s.principal)}</td>
                           <td className="px-4 py-3 font-mono text-[10px] text-[#f0883e]">{formatINR(s.interest)}</td>
@@ -1074,7 +1075,7 @@ const FinancingPipeline = () => {
             <div key={st.i} className="flex items-center flex-1 last:flex-none">
               <div className="relative group/dot flex-shrink-0 flex flex-col items-center">
                 <div className={`w-2.5 h-2.5 rounded-full border transition-all duration-300 cursor-help ${dotColor}`}></div>
-                <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[8px] font-black text-text-dim uppercase tracking-widest text-center w-16 opacity-70">{st.name.substring(0,3)}</span>
+                <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[8px] font-black text-text-dim uppercase tracking-widest text-center w-16 opacity-70">{st.name.substring(0, 3)}</span>
 
                 <div className={`absolute ${rowIndex <= 2 ? 'top-full mt-4' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2 w-48 bg-bg-card border border-border-main rounded-xl p-3 shadow-2xl opacity-0 invisible group-hover/dot:opacity-100 group-hover/dot:visible transition-all duration-200 z-[60] pointer-events-none`}>
                   <div className="flex flex-col gap-1.5">
@@ -1290,61 +1291,17 @@ const FinancingPipeline = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Pagination Footer */}
-        <div className="bg-bg-card border-t border-border-main p-4 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-4">
-            <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
-              Showing <span className="text-text-main">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredLoans.length)}</span> of <span className="text-[#f0883e]">{filteredLoans.length}</span> Requests
-            </p>
-            <div className="flex items-center gap-2 border-l border-border-main pl-4">
-              <select
-                value={itemsPerPage}
-                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
-              >
-                {[5, 10, 25, 50].map(v => <option key={v} value={v}>{v} / Page</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => prev - 1)}
-              className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <div className="flex items-center gap-1">
-              {[...Array(totalPages)].map((_, i) => {
-                const page = i + 1;
-                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === page ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'}`}
-                    >
-                      {page}
-                    </button>
-                  );
-                } else if (page === currentPage - 2 || page === currentPage + 2) {
-                  return <span key={page} className="text-text-dim/50">...</span>;
-                }
-                return null;
-              })}
-            </div>
-            <button
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(prev => prev + 1)}
-              className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
       </div>
+      {/* Pagination Footer */}
+      <Pagination 
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        totalItems={filteredLoans.length}
+        itemsPerPage={itemsPerPage}
+        setItemsPerPage={setItemsPerPage}
+        itemName="Requests"
+        className="bg-bg-card border border-border-main p-4 flex flex-col sm:flex-row items-center justify-between flex-shrink-0 mt-4 rounded-xl shadow-lg gap-4 sm:gap-0"
+      />
     </div>
   );
 };

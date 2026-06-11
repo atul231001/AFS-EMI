@@ -26,41 +26,83 @@ export const calculateReducingEMI = (principal, annualRate, years) => {
 /**
  * Generate Repayment Schedule
  */
-export const generateSchedule = (principal, annualRate, years, type = 'reducing', startDate = new Date()) => {
+export const generateSchedule = (principal, annualRate, years, type = 'reducing', startDate = new Date(), downPayment = 0, dpInstallments = 0) => {
   const schedule = [];
-  const months = years * 12;
-  let remainingBalance = principal;
-  const emi = type === 'reducing' 
-    ? calculateReducingEMI(principal, annualRate, years)
-    : calculateFlatEMI(principal, annualRate, years);
+  const totalMonths = years * 12;
+  const emiMonths = totalMonths;
+  let currentInstallment = 1;
 
-  const monthlyRate = annualRate / 12 / 100;
-
-  for (let i = 1; i <= months; i++) {
-    let interestPayment, principalPayment;
-
-    if (type === 'reducing') {
-      interestPayment = Math.round(remainingBalance * monthlyRate);
-      principalPayment = emi - interestPayment;
-    } else {
-      interestPayment = Math.round((principal * (annualRate / 100) * years) / months);
-      principalPayment = emi - interestPayment;
-    }
-
-    remainingBalance -= principalPayment;
+  let baseDate = new Date(startDate);
+  
+  // Phase 1: Down Payment Installments
+  if (downPayment > 0 && dpInstallments > 0) {
+    const dpEmi = Math.round(downPayment / dpInstallments);
+    let remainingDp = downPayment;
     
-    const dueDate = new Date(startDate);
-    dueDate.setMonth(dueDate.getMonth() + i);
+    for (let i = 1; i <= dpInstallments; i++) {
+      let principalPayment = dpEmi;
+      if (i === dpInstallments) principalPayment = remainingDp; // Adjust last installment
+      
+      remainingDp -= principalPayment;
+      
+      const dueDate = new Date(baseDate);
+      dueDate.setMonth(dueDate.getMonth() + i);
 
-    schedule.push({
-      installmentNo: i,
-      dueDate: dueDate.toISOString().split('T')[0],
-      emi,
-      interest: interestPayment,
-      principal: principalPayment,
-      balance: Math.max(0, Math.round(remainingBalance)),
-      status: 'Pending'
-    });
+      schedule.push({
+        installmentNo: currentInstallment++,
+        type: 'DownPayment',
+        dueDate: dueDate.toISOString().split('T')[0],
+        emi: principalPayment,
+        interest: 0,
+        principal: principalPayment,
+        outstandingAmount: principalPayment,
+        balance: 0, // Not tracked the same way for DP
+        status: 'Pending'
+      });
+    }
+    
+    // Shift EMI start date by dpInstallments months
+    baseDate.setMonth(baseDate.getMonth() + dpInstallments);
+  }
+
+  // Phase 2: Regular EMI
+  const remainingPrincipal = principal - downPayment;
+  if (remainingPrincipal > 0) {
+    let remainingBalance = remainingPrincipal;
+    const emi = type === 'reducing' 
+      ? calculateReducingEMI(remainingPrincipal, annualRate, years)
+      : calculateFlatEMI(remainingPrincipal, annualRate, years);
+
+    const monthlyRate = annualRate / 12 / 100;
+
+    for (let i = 1; i <= emiMonths; i++) {
+      let interestPayment, principalPayment;
+
+      if (type === 'reducing') {
+        interestPayment = Math.round(remainingBalance * monthlyRate);
+        principalPayment = emi - interestPayment;
+      } else {
+        interestPayment = Math.round((remainingPrincipal * (annualRate / 100) * years) / emiMonths);
+        principalPayment = emi - interestPayment;
+      }
+
+      remainingBalance -= principalPayment;
+      
+      const dueDate = new Date(baseDate);
+      dueDate.setMonth(dueDate.getMonth() + i);
+
+      schedule.push({
+        installmentNo: currentInstallment++,
+        type: 'EMI',
+        dueDate: dueDate.toISOString().split('T')[0],
+        emi,
+        interest: interestPayment,
+        principal: principalPayment,
+        outstandingAmount: emi,
+        balance: Math.max(0, Math.round(remainingBalance)),
+        status: 'Pending'
+      });
+    }
   }
 
   return schedule;

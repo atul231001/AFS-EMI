@@ -46,14 +46,29 @@ const loanSchema = new mongoose.Schema({
   dispatchDate: { type: String },
   dispatchData: { type: Object },
   commissionDate: { type: String },
+  downPaymentInstallments: { type: Number, default: 1 },
+  compoundOverdueInterest: { type: Boolean, default: false },
+  interestWaiverLogs: [{
+    user: String,
+    date: { type: Date, default: Date.now },
+    amountWaived: Number,
+    reason: String,
+    installmentNo: Number
+  }],
   schedule: [{
     installment: Number,
+    type: { type: String, enum: ['DownPayment', 'EMI'], default: 'EMI' },
     dueDate: String,
     emi: Number,
     principal: Number,
     interest: Number,
+    outstandingAmount: { type: Number, default: 0 },
+    overdueInterest: { type: Number, default: 0 },
+    paidOverdueInterest: { type: Number, default: 0 },
+    paidAmount: { type: Number, default: 0 },
+    paidDate: Date,
     balance: Number,
-    status: { type: String, enum: ['Pending', 'Paid'], default: 'Pending' }
+    status: { type: String, enum: ['Pending', 'Partial', 'Paid'], default: 'Pending' }
   }]
 }, { timestamps: true });
 

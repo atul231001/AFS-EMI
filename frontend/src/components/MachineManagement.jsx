@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { state } from '../state';
 import { showNotification, confirmAction, hasPermission } from '../utils';
+import Pagination from './Pagination.jsx';
 import { usePersistentState } from '../hooks/usePersistentState';
 import Modal from './Modal.jsx';
 import {
@@ -93,7 +94,7 @@ const MachineManagement = () => {
       const loanCustId = (l.customerId?._id || l.customerId)?.toString();
       return loanCustId && userCustId && loanCustId === userCustId && l.invoiceData;
     });
-    
+
     const myMachineIdsStr = clientLoans.map(l => l.machineId?.toString()).filter(Boolean);
     const myMachineNames = clientLoans.map(l => (l.machineName || '').toLowerCase().trim());
 
@@ -116,8 +117,8 @@ const MachineManagement = () => {
 
   const filteredMachines = baseMachines.filter(m => {
     const matchesSearch = m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          m.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          m.category?.toLowerCase().includes(searchTerm.toLowerCase());
+      m.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.category?.toLowerCase().includes(searchTerm.toLowerCase());
     const mCat = m.category || 'Uncategorized';
     const matchesCategory = categoryFilter === 'All Categories' || mCat.toLowerCase() === categoryFilter.toLowerCase();
     return matchesSearch && matchesCategory;
@@ -127,50 +128,7 @@ const MachineManagement = () => {
   const totalPages = Math.ceil(filteredMachines.length / itemsPerPage);
   const paginatedData = filteredMachines.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-    return (
-      <div className="flex items-center gap-1">
-        {[1, 2].filter(p => p <= totalPages).map(p => (
-          <button
-            key={p}
-            onClick={() => setCurrentPage(p)}
-            className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === p ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'}`}
-          >
-            {p}
-          </button>
-        ))}
-        {totalPages > 4 && (
-          <div className="flex items-center gap-1 px-1">
-            <span className="text-text-dim text-[10px] font-black">...</span>
-            <input
-              type="number"
-              min="1" max={totalPages}
-              className="w-10 h-8 bg-bg-deep border border-border-main rounded text-center text-[10px] font-black text-text-main focus:border-[#f0883e] outline-none hide-spinners"
-              placeholder={currentPage > 2 && currentPage < totalPages - 1 ? currentPage : '-'}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const val = parseInt(e.target.value);
-                  if (val >= 1 && val <= totalPages) setCurrentPage(val);
-                  e.target.value = '';
-                }
-              }}
-            />
-            <span className="text-text-dim text-[10px] font-black">...</span>
-          </div>
-        )}
-        {[totalPages - 1, totalPages].filter(p => p > 2 && p <= totalPages).map(p => (
-          <button
-            key={p}
-            onClick={() => setCurrentPage(p)}
-            className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === p ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'}`}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
-    );
-  };
+
 
   return (
     <div className="space-y-6 animate-fade-in h-[calc(100vh-140px)] overflow-hidden flex flex-col">
@@ -329,40 +287,16 @@ const MachineManagement = () => {
               ))}
             </div>
           </div>
-          <div className="bg-bg-card border-t border-border-main p-4 flex items-center justify-between flex-shrink-0 mt-4 rounded-xl shadow-lg">
-            <div className="flex items-center gap-4">
-              <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
-                Showing <span className="text-text-main">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredMachines.length)}</span> of <span className="text-[#f0883e]">{filteredMachines.length}</span> Assets
-              </p>
-              <div className="flex items-center gap-2 border-l border-border-main pl-4">
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                  className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
-                >
-                  {[8, 16, 24, 48].map(v => <option key={v} value={v}>{v} / Page</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(prev => prev - 1)}
-                className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              {renderPagination()}
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(prev => prev + 1)}
-                className="p-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-[#768390] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
+          {/* Pagination Footer */}
+          <Pagination 
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalItems={filteredMachines.length}
+            itemsPerPage={itemsPerPage}
+            setItemsPerPage={setItemsPerPage}
+            itemName="Assets"
+            className="bg-bg-card border border-border-main p-4 flex flex-col sm:flex-row items-center justify-between flex-shrink-0 mt-4 rounded-xl shadow-lg gap-4 sm:gap-0"
+          />
         </div>
       ) : (
         <div className="glass-card !p-0 flex-1 overflow-hidden shadow-2xl border border-border-main bg-bg-card/80 flex flex-col min-h-0 mt-2">
@@ -513,41 +447,16 @@ const MachineManagement = () => {
               </tbody>
             </table>
           </div>
-
-          <div className="bg-bg-card border-t border-border-main p-4 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-4">
-              <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
-                Showing <span className="text-text-main">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredMachines.length)}</span> of <span className="text-[#f0883e]">{filteredMachines.length}</span> Assets
-              </p>
-              <div className="flex items-center gap-2 border-l border-border-main pl-4">
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                  className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
-                >
-                  {[8, 16, 24, 48].map(v => <option key={v} value={v}>{v} / Page</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(prev => prev - 1)}
-                className="p-2 bg-bg-deep border border-border-main rounded-lg text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              {renderPagination()}
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(prev => prev + 1)}
-                className="p-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-[#768390] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
+                    {/* Pagination Footer */}
+          <Pagination 
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalItems={filteredMachines.length}
+            itemsPerPage={itemsPerPage}
+            setItemsPerPage={setItemsPerPage}
+            itemName="Assets"
+            className="bg-bg-card border border-border-main p-4 flex flex-col sm:flex-row items-center justify-between flex-shrink-0 mt-4 rounded-xl shadow-lg gap-4 sm:gap-0"
+          />
         </div>
       )}
 
@@ -605,7 +514,7 @@ const MachineManagement = () => {
             {!isCustomer && <span className="text-[10px] font-mono font-bold text-[#f0883e] italic relative z-10">₹{((machine.pricing?.totalPrice || 0) / 100000).toFixed(1)}L</span>}
           </div>
           <p className="text-[10px] text-text-dim font-bold uppercase tracking-[0.1em] relative z-10">{machine.model || 'N/A MODEL'}</p>
-          
+
           {isCustomer ? (
             <div className="mt-3 p-2 bg-bg-deep border border-border-main rounded-lg relative z-10">
               {(() => {
@@ -1552,13 +1461,13 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
             <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-px bg-border-main overflow-hidden">
               {/* COLUMN 1: VISUAL & SPECS */}
               <div className="bg-bg-card p-6 flex flex-col gap-6 overflow-hidden">
-                <div 
+                <div
                   className="relative group aspect-video bg-bg-deep border border-border-main rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-2xl cursor-zoom-in"
                   onClick={() => setFullScreenImage(heroImage)}
                 >
                   <img src={heroImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); setFullScreenImage(heroImage); }}
                     className="absolute bottom-4 right-4 p-2 bg-bg-card/90 backdrop-blur border border-border-main rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
                   >
@@ -1569,13 +1478,13 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
                 <section className="flex-1 overflow-hidden flex flex-col">
                   {machineLoan?.invoiceData ? (
                     <div className="flex gap-2 mb-3 shrink-0 bg-bg-active/10 p-1 rounded-xl">
-                      <button 
+                      <button
                         onClick={() => setLeftPanelTab('SPECS')}
                         className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${leftPanelTab === 'SPECS' ? 'bg-primary text-black shadow-sm' : 'text-text-dim hover:text-text-main hover:bg-bg-active/20'}`}
                       >
                         <Cpu size={12} /> SPECS
                       </button>
-                      <button 
+                      <button
                         onClick={() => setLeftPanelTab('INVOICE')}
                         className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${leftPanelTab === 'INVOICE' ? 'bg-emerald-500 text-black shadow-sm' : 'text-text-dim hover:text-emerald-500 hover:bg-emerald-500/10'}`}
                       >
@@ -1600,7 +1509,7 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
                         ))}
                       </div>
                     )}
-                    
+
                     {leftPanelTab === 'INVOICE' && machineLoan?.invoiceData && (
                       <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-left-4 duration-300">
                         {[
@@ -1930,22 +1839,22 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-main); border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--primary); }
       `}} />
-      
+
       {fullScreenImage && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-300"
           onClick={() => setFullScreenImage(null)}
         >
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); }}
             className="absolute top-8 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all hover:rotate-90 z-10"
           >
             <X size={24} />
           </button>
-          <img 
-            src={fullScreenImage} 
-            className="max-w-full max-h-[90vh] object-contain cursor-zoom-out animate-in zoom-in-95 duration-300 shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-lg" 
-            alt="Fullscreen View" 
+          <img
+            src={fullScreenImage}
+            className="max-w-full max-h-[90vh] object-contain cursor-zoom-out animate-in zoom-in-95 duration-300 shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-lg"
+            alt="Fullscreen View"
             onClick={(e) => e.stopPropagation()}
           />
         </div>

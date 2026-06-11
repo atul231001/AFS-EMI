@@ -3,6 +3,7 @@ import { state } from '../state';
 import { showNotification, confirmAction, hasPermission } from '../utils';
 import { usePersistentState } from '../hooks/usePersistentState';
 import Modal from './Modal.jsx';
+import Pagination from './Pagination.jsx';
 import {
   X, Search, Edit3, Trash2, UserPlus, ShieldCheck, Mail, Phone,
   Fingerprint, ShieldAlert, AlertCircle, RefreshCw, Loader2, CheckCircle2,
@@ -40,7 +41,7 @@ const EmployeeManagement = () => {
   }, []);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(8);
   const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
   const [error, setError] = useState(null);
 
@@ -308,54 +309,18 @@ const EmployeeManagement = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Pagination Footer */}
-        <div className="bg-bg-card border-t border-border-main p-4 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-4">
-            <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
-              Showing <span className="text-text-main">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredEmployees.length)}</span> of <span className="text-[#f0883e]">{filteredEmployees.length}</span> Personnel
-            </p>
-            <div className="flex items-center gap-2 border-l border-border-main pl-4">
-              <select
-                value={itemsPerPage}
-                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="bg-bg-deep border border-border-main rounded-lg text-[9px] font-black text-text-main px-2 py-1 outline-none focus:border-[#f0883e]"
-              >
-                {[5, 10, 25, 50].map(v => <option key={v} value={v}>{v} / Page</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => prev - 1)}
-              className="p-2 bg-bg-deep border border-border-main text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <div className="flex items-center gap-1">
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-[#f0883e] text-black shadow-lg shadow-orange-500/20' : 'bg-bg-deep border border-border-main text-text-dim hover:text-text-main'
-                    }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
-            <button
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(prev => prev + 1)}
-              className="p-2 bg-bg-deep border border-border-main text-text-dim hover:text-text-main disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
       </div>
+
+      {/* Pagination Footer */}
+      <Pagination 
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        totalItems={filteredEmployees.length}
+        itemsPerPage={itemsPerPage}
+        setItemsPerPage={setItemsPerPage}
+        itemName="Personnel"
+        className="bg-bg-card border border-border-main p-4 flex flex-col sm:flex-row items-center justify-between flex-shrink-0 mt-4 rounded-xl shadow-lg gap-4 sm:gap-0"
+      />
 
       <Modal
         isOpen={isModalOpen}

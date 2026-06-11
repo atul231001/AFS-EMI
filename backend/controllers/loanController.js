@@ -4,10 +4,14 @@ import { generateReceiptPDF } from '../services/pdfService.js';
 import { generateAgreementPDF } from '../services/pdfService.js';
 import { generateExcelReport, generatePPTReport, generatePDFReport } from '../services/reportService.js';
 
+import { calculateOverdueInterest } from '../utils/interestCalculator.js';
+
 export const getLoans = async (req, res) => {
   try {
     const loans = await Loan.find().populate('customerId').populate('approvalFlowId').sort({ createdAt: -1 });
-    res.json(loans);
+    // Dynamically calculate overdue interest for all loans before sending to frontend
+    const updatedLoans = loans.map(loan => calculateOverdueInterest(loan.toObject ? loan.toObject() : loan));
+    res.json(updatedLoans);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -242,7 +246,7 @@ export const downloadReceipt = async (req, res) => {
     }
 
     const installmentNum = parseInt(req.params.installment);
-    const installment = loan.schedule.find(s => s.installment === installmentNum);
+    const installment = loan.schedule.find((s, index) => s.installment === installmentNum || s.installmentNo === installmentNum || (index + 1) === installmentNum);
 
     if (!installment) {
       return res.status(404).json({ message: 'Installment not found' });

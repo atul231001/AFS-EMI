@@ -4,6 +4,7 @@ import { Search, Download, FileText, AlertCircle, CheckCircle2, Truck, Calendar,
 const InvoiceSearch = () => {
   const [searchMode, setSearchMode] = useState('invoice');
   const [searchQuery, setSearchQuery] = useState('');
+  const [invoiceQuery, setInvoiceQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -43,7 +44,8 @@ const InvoiceSearch = () => {
         }
       } else {
         // Dispatch Mode
-        const response = await fetch(`https://lipl.sods.app/api/dmobile/isDispatched?serial_no=${encodeURIComponent(searchQuery.trim())}`,
+        const q = encodeURIComponent(searchQuery.trim());
+        const response = await fetch(`https://lipl.sods.app/api/dmobile/isDispatched?serial_no=${q}&invoice_no=${q}`,
           { method: "POST" });
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
@@ -128,7 +130,7 @@ const InvoiceSearch = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="block w-full pl-11 pr-4 py-4 bg-[#0d1117] border border-[#30363d] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#f0883e] focus:border-transparent transition-all"
-              placeholder={searchMode === 'invoice' ? "Enter Invoice Number (e.g., LIPLTD2324-6386)" : "Enter Serial Number (e.g., CLG2000ZKPT881321)"}
+              placeholder={searchMode === 'invoice' ? "Enter Invoice Number (e.g., LIPLTD2324-6386)" : "Enter Serial Number or Invoice Number"}
             />
           </div>
           <button
@@ -141,7 +143,7 @@ const InvoiceSearch = () => {
             ) : (
               <>
                 <Search size={20} />
-                Search Invoice
+                Search
               </>
             )}
           </button>

@@ -13,24 +13,41 @@ export const generateExcelReport = async (loan) => {
   worksheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } };
   worksheet.getCell('A1').alignment = { horizontal: 'center' };
 
+  const actualTotalValue = loan.schedule.reduce((sum, s) => sum + (s.emi || 0), 0);
+  const actualTotalPaidAmt = loan.schedule.reduce((sum, s) => {
+    const outstanding = s.outstandingAmount !== undefined ? s.outstandingAmount : (s.status === 'Clear' || s.status === 'Paid' ? 0 : (s.emi || 0));
+    return sum + ((s.emi || 0) - outstanding);
+  }, 0);
+  const totalOutstandingBalance = loan.schedule
+    .filter(s => s.status === 'Pending' || s.status === 'Partial')
+    .reduce((sum, s) => sum + (s.outstandingAmount || 0), 0);
+  const totalOverdueInterest = loan.schedule
+    .filter(s => s.status === 'Pending' || s.status === 'Partial')
+    .reduce((sum, s) => sum + (s.overdueInterest || 0), 0);
+
+  worksheet.addRow(['TOTAL AMOUNT:', actualTotalValue, 'RECEIVED AMOUNT:', actualTotalPaidAmt]);
+  worksheet.addRow(['OUTSTANDING BAL:', totalOutstandingBalance, 'OVERDUE INT:', totalOverdueInterest]);
+  worksheet.addRow([]);
+
   // Headers
-  const headers = ['#ID', 'Due Date', 'EMI', 'Principal', 'Interest', 'Balance', 'Status', 'Received Date', 'Delay Interest'];
+  const headers = ['#ID', 'Type', 'Due Date', 'Paid Date', 'EMI', 'Outstanding', 'Overdue', 'Delay Interest', 'Status'];
   worksheet.addRow(headers);
-  worksheet.getRow(2).font = { bold: true };
-  worksheet.getRow(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE4D6' } };
+  const headerRowObj = worksheet.getRow(worksheet.rowCount);
+  headerRowObj.font = { bold: true };
+  headerRowObj.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE4D6' } };
 
   // Data
   loan.schedule.forEach(s => {
     worksheet.addRow([
-      s.installment,
+      s.installment || s.installmentNo,
+      s.type === 'DownPayment' ? 'MARGIN MONEY' : 'EMI',
       s.dueDate,
-      loan.emi,
-      s.principal,
-      s.interest,
-      s.balance,
-      s.status,
-      s.status === 'Paid' ? s.dueDate : '--',
-      s.status === 'Paid' && Math.random() > 0.8 ? 1200 : 0
+      s.paidDate ? new Date(s.paidDate).toISOString().split('T')[0] : '--',
+      s.emi,
+      s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi,
+      (s.status === 'Pending' || s.status === 'Partial') && new Date(s.dueDate) < new Date() ? (s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi) : 0,
+      s.overdueInterest || 0,
+      s.status
     ]);
   });
 
@@ -656,9 +673,9 @@ export const generatePPTReport = async (loan, allLoans = []) => {
     const ledgerSlide = pptx.addSlide();
     addDecorations(ledgerSlide, slideTitle, `Detailed repayment schedule for ${loan.machineName.toUpperCase()}`);
 
-    const ledgerHeaders = ['Inst. #', 'Due Date', 'EMI Amount', 'Principal', 'Interest', 'Remaining Balance', 'Status'].map(t => ({
+    const ledgerHeaders = ['Inst. #', 'Type', 'Due Date', 'Paid Date', 'EMI', 'Outstanding', 'Overdue', 'Delay Int', 'Status'].map(t => ({
       text: t,
-      options: { bold: true, fill: '1c2128', color: PRIMARY_ORANGE, fontSize: 9 }
+      options: { bold: true, fill: '1c2128', color: PRIMARY_ORANGE, fontSize: 7 }
     }));
 
     const ledgerTableData = [ledgerHeaders];
@@ -669,13 +686,15 @@ export const generatePPTReport = async (loan, allLoans = []) => {
 
     chunk.forEach(s => {
       ledgerTableData.push([
-        { text: `#${s.installment.toString().padStart(2, '0')}`, options: { color: TEXT_WHITE, fontFace: 'Courier New' } },
+        { text: `#${(s.installment || s.installmentNo).toString().padStart(2, '0')}`, options: { color: TEXT_WHITE, fontFace: 'Courier New' } },
+        { text: s.type === 'DownPayment' ? 'DOWN P.' : 'EMI', options: { color: TEXT_MUTED } },
         { text: s.dueDate, options: { color: TEXT_LIGHT, fontFace: 'Courier New' } },
-        { text: formatINRVal(loan.emi), options: { color: TEXT_WHITE } },
-        { text: formatINRVal(s.principal), options: { color: TEXT_LIGHT } },
-        { text: formatINRVal(s.interest), options: { color: TEXT_LIGHT } },
-        { text: formatINRVal(s.balance), options: { color: TEXT_WHITE, bold: true } },
-        { text: s.status.toUpperCase(), options: { color: s.status === 'Paid' ? GREEN_PAID : BLUE_PENDING, bold: true } }
+        { text: s.paidDate ? new Date(s.paidDate).toISOString().split('T')[0] : '--', options: { color: TEXT_LIGHT, fontFace: 'Courier New' } },
+        { text: formatINRVal(s.emi), options: { color: TEXT_WHITE } },
+        { text: formatINRVal(s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi), options: { color: TEXT_LIGHT } },
+        { text: (s.status === 'Pending' || s.status === 'Partial') && new Date(s.dueDate) < new Date() ? formatINRVal(s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi) : '--', options: { color: RED_OVERDUE } },
+        { text: s.overdueInterest > 0 ? formatINRVal(s.overdueInterest) : '--', options: { color: RED_OVERDUE } },
+        { text: s.status.toUpperCase(), options: { color: (s.status === 'Paid' || s.status === 'Clear') ? GREEN_PAID : BLUE_PENDING, bold: true } }
       ]);
     });
 
@@ -683,7 +702,7 @@ export const generatePPTReport = async (loan, allLoans = []) => {
       x: 0.5,
       y: 1.2,
       w: 9.0,
-      fontSize: 8.5,
+      fontSize: 7,
       rowH: 0.3,
       border: { type: 'solid', color: '30363d', width: 1 },
       valign: 'middle'
@@ -709,6 +728,17 @@ export const generatePDFReport = async (loan) => {
   const page = await browser.newPage();
   
   const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+  const actualTotalValue = loan.schedule.reduce((sum, s) => sum + (s.emi || 0), 0);
+  const actualTotalPaidAmt = loan.schedule.reduce((sum, s) => {
+    const outstanding = s.outstandingAmount !== undefined ? s.outstandingAmount : (s.status === 'Clear' || s.status === 'Paid' ? 0 : (s.emi || 0));
+    return sum + ((s.emi || 0) - outstanding);
+  }, 0);
+  const totalOutstandingBalance = loan.schedule
+    .filter(s => s.status === 'Pending' || s.status === 'Partial')
+    .reduce((sum, s) => sum + (s.outstandingAmount || 0), 0);
+  const totalOverdueInterest = loan.schedule
+    .filter(s => s.status === 'Pending' || s.status === 'Partial')
+    .reduce((sum, s) => sum + (s.overdueInterest || 0), 0);
 
   const html = `
     <html>
@@ -717,11 +747,16 @@ export const generatePDFReport = async (loan) => {
           body { font-family: sans-serif; padding: 40px; background: #f8fafc; }
           .header { background: #0f172a; color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; }
           h1 { margin: 0; color: #f0883e; }
+          .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+          .kpi-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+          .kpi-label { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: bold; }
+          .kpi-value { font-size: 16px; color: #0f172a; font-weight: 900; margin-top: 5px; }
           table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
           th { background: #f1f5f9; padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b; }
           td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }
-          .status-paid { color: #059669; font-weight: bold; }
+          .status-paid, .status-clear { color: #059669; font-weight: bold; }
           .status-pending { color: #d97706; font-weight: bold; }
+          .status-partial { color: #f59e0b; font-weight: bold; }
         </style>
       </head>
       <body>
@@ -730,25 +765,37 @@ export const generatePDFReport = async (loan) => {
           <p>${loan.machineName} | ${loan.serialNumber}</p>
           <p>Customer: ${loan.customerId?.name}</p>
         </div>
+        <div class="kpi-grid">
+          <div class="kpi-box"><div class="kpi-label">TOTAL AMOUNT</div><div class="kpi-value">${formatINR(actualTotalValue)}</div></div>
+          <div class="kpi-box"><div class="kpi-label">RECEIVED AMOUNT</div><div class="kpi-value">${formatINR(actualTotalPaidAmt)}</div></div>
+          <div class="kpi-box"><div class="kpi-label">OUTSTANDING BAL</div><div class="kpi-value">${formatINR(totalOutstandingBalance)}</div></div>
+          <div class="kpi-box"><div class="kpi-label">OVERDUE INT</div><div class="kpi-value" style="color: #ef4444;">${formatINR(totalOverdueInterest)}</div></div>
+        </div>
         <table>
           <thead>
             <tr>
               <th>#ID</th>
+              <th>Type</th>
               <th>Due Date</th>
+              <th>Paid Date</th>
               <th>EMI</th>
-              <th>Principal</th>
-              <th>Balance</th>
+              <th>Outstanding</th>
+              <th>Overdue</th>
+              <th>Delay Int.</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
             ${loan.schedule.map(s => `
               <tr>
-                <td>${s.installment}</td>
+                <td>${s.installment || s.installmentNo}</td>
+                <td>${s.type === 'DownPayment' ? 'MARGIN MONEY' : 'EMI'}</td>
                 <td>${s.dueDate}</td>
-                <td>${formatINR(loan.emi)}</td>
-                <td>${formatINR(s.principal)}</td>
-                <td>${formatINR(s.balance)}</td>
+                <td>${s.paidDate ? new Date(s.paidDate).toISOString().split('T')[0] : '--'}</td>
+                <td>${formatINR(s.emi)}</td>
+                <td>${formatINR(s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi)}</td>
+                <td style="color: #d97706;">${(s.status === 'Pending' || s.status === 'Partial') && new Date(s.dueDate) < new Date() ? formatINR(s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi) : '--'}</td>
+                <td style="color: #d97706;">${s.overdueInterest > 0 ? formatINR(s.overdueInterest) : '--'}</td>
                 <td><span class="status-${s.status.toLowerCase()}">${s.status.toUpperCase()}</span></td>
               </tr>
             `).join('')}
@@ -766,7 +813,7 @@ export const generatePDFReport = async (loan) => {
 
 // --- GLOBAL REPORTS ---
 
-export const generateGlobalExcelReport = async (loans, payments, months) => {
+export const generateGlobalExcelReport = async (loans, payments, months, viewMode = 'machine') => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('FLEET_STRATEGIC_LEDGER');
   
@@ -804,12 +851,68 @@ export const generateGlobalExcelReport = async (loans, payments, months) => {
   sheet.addRow(['Fleet Nodes', `${loans.length} Units`]);
   sheet.addRow([]);
 
-  // Add Asset Breakdown
-  sheet.addRow(['ASSET BREAKDOWN']).font = { bold: true, size: 11 };
-  sheet.addRow(['Asset Type', 'Recovery Rate']).font = { bold: true };
-  sheet.addRow(['EX-Series Recovery', '92%']);
-  sheet.addRow(['MT-Logistics Flow', '55%']);
-  sheet.addRow(['ZL-Wheel Collection', '78%']);
+  if (viewMode === 'customer') {
+    sheet.addRow(['CUSTOMER PORTFOLIO BREAKDOWN']).font = { bold: true, size: 11 };
+    sheet.addRow(['Customer Name', 'Active Units', 'Total Expected', 'Recovered Amount', 'Remaining Exposure', 'Collection Health']).font = { bold: true };
+    
+    const customers = {};
+    loans.forEach(l => {
+      const customerIdStr = (l.customerId?._id || l.customerId)?.toString() || 'unknown';
+      if (!customers[customerIdStr]) {
+        customers[customerIdStr] = {
+          name: l.customerId?.name || 'Unknown',
+          units: 0,
+          financed: 0,
+          actualTotalValue: 0,
+          collected: 0,
+          remaining: 0
+        };
+      }
+      const c = customers[customerIdStr];
+      c.units++;
+      c.financed += l.principal || 0;
+      c.remaining += (l.schedule || []).filter(s => s.status === 'Pending').reduce((s, inst) => s + (inst.outstandingAmount !== undefined ? inst.outstandingAmount : inst.emi), 0);
+      c.actualTotalValue += (l.schedule || []).reduce((sum, s) => sum + (s.emi || 0), 0);
+      c.collected += (l.schedule || []).reduce((sum, s) => {
+        const principalPaid = s.paidAmount !== undefined && s.paidAmount > 0 
+          ? s.paidAmount 
+          : ((s.emi || 0) - (s.outstandingAmount !== undefined ? s.outstandingAmount : (s.status === 'Clear' || s.status === 'Paid' ? 0 : (s.emi || 0))));
+        return sum + principalPaid + (s.paidOverdueInterest || 0);
+      }, 0);
+    });
+
+    Object.values(customers).forEach(c => {
+      const expectedTotal = c.collected + c.remaining;
+      let health = expectedTotal > 0 ? Math.round((c.collected / expectedTotal) * 100) : 0;
+      if (c.remaining > 0 && health >= 100) health = 99;
+      const row = sheet.addRow([c.name, c.units, expectedTotal, c.collected, c.remaining, `${health}%`]);
+      row.getCell(3).numFmt = '"₹"#,##,##0';
+      row.getCell(4).numFmt = '"₹"#,##,##0';
+      row.getCell(5).numFmt = '"₹"#,##,##0';
+    });
+  } else {
+    sheet.addRow(['MACHINE PORTFOLIO BREAKDOWN']).font = { bold: true, size: 11 };
+    sheet.addRow(['Machine Name', 'Total Expected', 'Recovered Amount', 'Remaining Exposure', 'Collection Health']).font = { bold: true };
+    
+    loans.forEach(l => {
+      const remaining = (l.schedule || []).filter(s => s.status === 'Pending').reduce((s, inst) => s + (inst.outstandingAmount !== undefined ? inst.outstandingAmount : inst.emi), 0);
+      const collected = (l.schedule || []).reduce((sum, s) => {
+        const principalPaid = s.paidAmount !== undefined && s.paidAmount > 0 
+          ? s.paidAmount 
+          : ((s.emi || 0) - (s.outstandingAmount !== undefined ? s.outstandingAmount : (s.status === 'Clear' || s.status === 'Paid' ? 0 : (s.emi || 0))));
+        return sum + principalPaid + (s.paidOverdueInterest || 0);
+      }, 0);
+      
+      const expectedTotal = collected + remaining;
+      let health = expectedTotal > 0 ? Math.round((collected / expectedTotal) * 100) : 0;
+      if (remaining > 0 && health >= 100) health = 99;
+      
+      const row = sheet.addRow([l.machineName, expectedTotal, collected, remaining, `${health}%`]);
+      row.getCell(2).numFmt = '"₹"#,##,##0';
+      row.getCell(3).numFmt = '"₹"#,##,##0';
+      row.getCell(4).numFmt = '"₹"#,##,##0';
+    });
+  }
   sheet.addRow([]);
 
   // Add Monthly Ledger Table
@@ -833,7 +936,7 @@ export const generateGlobalExcelReport = async (loans, payments, months) => {
   return await workbook.xlsx.writeBuffer();
 };
 
-export const generateGlobalPPTReport = async (loans, payments, months) => {
+export const generateGlobalPPTReport = async (loans, payments, months, viewMode = 'machine') => {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_16x9';
 
@@ -1119,16 +1222,24 @@ export const generateGlobalPPTReport = async (loans, payments, months) => {
   });
 
   // Calculate machine breakdowns for Slide 4
-  const machinePayback = {};
+  const assetPayback = {};
   loans.forEach(l => {
-    const tot = l.emi * l.schedule.length;
-    const pd = l.schedule.filter(s => s.status === 'Paid').reduce((sum, s) => sum + s.emi, 0);
-    if (!machinePayback[l.machineName]) {
-      machinePayback[l.machineName] = { total: 0, paid: 0, count: 0 };
+    const remaining = (l.schedule || []).filter(s => s.status === 'Pending').reduce((s, inst) => s + (inst.outstandingAmount !== undefined ? inst.outstandingAmount : inst.emi), 0);
+    const collected = (l.schedule || []).reduce((sum, s) => {
+      const principalPaid = s.paidAmount !== undefined && s.paidAmount > 0 
+        ? s.paidAmount 
+        : ((s.emi || 0) - (s.outstandingAmount !== undefined ? s.outstandingAmount : (s.status === 'Clear' || s.status === 'Paid' ? 0 : (s.emi || 0))));
+      return sum + principalPaid + (s.paidOverdueInterest || 0);
+    }, 0);
+    
+    const keyName = viewMode === 'customer' ? (l.customerId?.name || 'Unknown Customer') : l.machineName;
+    if (!assetPayback[keyName]) {
+      assetPayback[keyName] = { total: 0, paid: 0, remaining: 0, count: 0 };
     }
-    machinePayback[l.machineName].total += tot;
-    machinePayback[l.machineName].paid += pd;
-    machinePayback[l.machineName].count += 1;
+    assetPayback[keyName].total += collected + remaining;
+    assetPayback[keyName].paid += collected;
+    assetPayback[keyName].remaining += remaining;
+    assetPayback[keyName].count += 1;
   });
 
   // Slide 4: Asset Portfolio Segmentation (Pie Chart + Side-card info)
@@ -1152,8 +1263,9 @@ export const generateGlobalPPTReport = async (loans, payments, months) => {
     { text: `• Total Fleet Size: ${loans.length} Units active under tracking.\n`, options: { color: TEXT_WHITE, fontSize: 8, fontFace: 'Segoe UI' } }
   ];
 
-  Object.entries(machinePayback).forEach(([name, data]) => {
-    const rate = data.total > 0 ? Math.round((data.paid / data.total) * 100) : 0;
+  Object.entries(assetPayback).forEach(([name, data]) => {
+    let rate = data.total > 0 ? Math.round((data.paid / data.total) * 100) : 0;
+    if (data.remaining > 0 && rate >= 100) rate = 99;
     segTheoryLines.push({
       text: `• ${name}: ${data.count} units (payback rate ${rate}%)\n`,
       options: { color: rate > 80 ? GREEN_PAID : (rate > 50 ? BLUE_PENDING : PRIMARY_ORANGE), fontSize: 7.5, fontFace: 'Segoe UI' }
@@ -1168,11 +1280,11 @@ export const generateGlobalPPTReport = async (loans, payments, months) => {
     lineSpacing: 11
   });
 
-  const machineTypes = Object.keys(machinePayback);
+  const assetTypes = Object.keys(assetPayback);
   const pieData = [{
     name: 'Asset Count',
-    labels: machineTypes,
-    values: machineTypes.map(type => machinePayback[type].count)
+    labels: assetTypes,
+    values: assetTypes.map(type => assetPayback[type].count)
   }];
 
   slide4.addChart(pptx.ChartType.pie, pieData, { 
@@ -1191,18 +1303,20 @@ export const generateGlobalPPTReport = async (loans, payments, months) => {
   const modelPayback = {};
   loans.forEach(l => {
     const model = l.model || 'N/A';
-    const tot = l.emi * l.schedule.length;
-    const pd = l.schedule.filter(s => s.status === 'Paid').reduce((sum, s) => sum + s.emi, 0);
-    const exposure = tot - pd;
-    const monthlyEmi = l.emi;
-
+    const remaining = (l.schedule || []).filter(s => s.status === 'Pending').reduce((s, inst) => s + (inst.outstandingAmount !== undefined ? inst.outstandingAmount : inst.emi), 0);
+    const collected = (l.schedule || []).reduce((sum, s) => {
+      const principalPaid = s.paidAmount !== undefined && s.paidAmount > 0 
+        ? s.paidAmount 
+        : ((s.emi || 0) - (s.outstandingAmount !== undefined ? s.outstandingAmount : (s.status === 'Clear' || s.status === 'Paid' ? 0 : (s.emi || 0))));
+      return sum + principalPaid + (s.paidOverdueInterest || 0);
+    }, 0);
+    
     if (!modelPayback[model]) {
-      modelPayback[model] = { total: 0, paid: 0, exposure: 0, monthlyEmi: 0, count: 0 };
+      modelPayback[model] = { total: 0, paid: 0, exposure: 0, count: 0 };
     }
-    modelPayback[model].total += tot;
-    modelPayback[model].paid += pd;
-    modelPayback[model].exposure += exposure;
-    modelPayback[model].monthlyEmi += monthlyEmi;
+    modelPayback[model].total += collected + remaining;
+    modelPayback[model].paid += collected;
+    modelPayback[model].exposure += remaining;
     modelPayback[model].count += 1;
   });
 
@@ -1228,7 +1342,8 @@ export const generateGlobalPPTReport = async (loans, payments, months) => {
   ];
 
   Object.entries(modelPayback).forEach(([model, data]) => {
-    const rate = data.total > 0 ? Math.round((data.paid / data.total) * 100) : 0;
+    let rate = data.total > 0 ? Math.round((data.paid / data.total) * 100) : 0;
+    if (data.exposure > 0 && rate >= 100) rate = 99;
     segModelTheoryLines.push({
       text: `• ${model}: ${data.count} units (payback rate ${rate}%)\n`,
       options: { color: rate > 80 ? GREEN_PAID : (rate > 50 ? BLUE_PENDING : PRIMARY_ORANGE), fontSize: 7.5, fontFace: 'Segoe UI' }
@@ -1652,7 +1767,7 @@ export const generateGlobalPPTReport = async (loans, payments, months) => {
   return await pptx.write('nodebuffer');
 };
 
-export const generateGlobalPDFReport = async (loans, payments, months) => {
+export const generateGlobalPDFReport = async (loans, payments, months, viewMode = 'machine') => {
   const browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox'] });
   const page = await browser.newPage();
   const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -1723,30 +1838,68 @@ export const generateGlobalPDFReport = async (loans, payments, months) => {
           </div>
         </div>
 
-        <div class="section-title">Asset Breakdown</div>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
-          <div class="metric-card">
-            <div class="metric-label">EX-Series Recovery</div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-              <div class="progress-bar" style="width: 70%;"><div class="progress-fill" style="width: 92%; background: #f0883e;"></div></div>
-              <span style="font-size: 11px; font-weight: bold; font-family: monospace;">92%</span>
-            </div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">MT-Logistics Flow</div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-              <div class="progress-bar" style="width: 70%;"><div class="progress-fill" style="width: 55%; background: #3b82f6;"></div></div>
-              <span style="font-size: 11px; font-weight: bold; font-family: monospace;">55%</span>
-            </div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-label">ZL-Wheel Collection</div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-              <div class="progress-bar" style="width: 70%;"><div class="progress-fill" style="width: 78%; background: #10b981;"></div></div>
-              <span style="font-size: 11px; font-weight: bold; font-family: monospace;">78%</span>
-            </div>
-          </div>
-        </div>
+        <div class="section-title">${viewMode === 'customer' ? 'Customer Portfolio Breakdown' : 'Machine Portfolio Breakdown'}</div>
+        <table style="margin-bottom: 30px;">
+          <thead>
+            <tr>
+              <th>${viewMode === 'customer' ? 'Customer Name' : 'Machine Name'}</th>
+              ${viewMode === 'customer' ? '<th>Active Units</th>' : ''}
+              <th>Total Expected</th>
+              <th>Recovered Amount</th>
+              <th>Remaining Exposure</th>
+              <th>Health %</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(() => {
+              const items = {};
+              loans.forEach(l => {
+                const keyName = viewMode === 'customer' ? (l.customerId?.name || 'Unknown') : l.machineName;
+                if (!items[keyName]) {
+                  items[keyName] = { 
+                    units: 0, 
+                    financed: 0, 
+                    actualTotalValue: 0,
+                    collected: 0, 
+                    remaining: 0 
+                  };
+                }
+                const c = items[keyName];
+                c.units++;
+                c.financed += l.principal || 0;
+                c.remaining += (l.schedule || []).filter(s => s.status === 'Pending').reduce((s, inst) => s + (inst.outstandingAmount !== undefined ? inst.outstandingAmount : inst.emi), 0);
+                c.actualTotalValue += (l.schedule || []).reduce((sum, s) => sum + (s.emi || 0), 0);
+                c.collected += (l.schedule || []).reduce((sum, s) => {
+                  const principalPaid = s.paidAmount !== undefined && s.paidAmount > 0 
+                    ? s.paidAmount 
+                    : ((s.emi || 0) - (s.outstandingAmount !== undefined ? s.outstandingAmount : (s.status === 'Clear' || s.status === 'Paid' ? 0 : (s.emi || 0))));
+                  return sum + principalPaid + (s.paidOverdueInterest || 0);
+                }, 0);
+              });
+
+              return Object.entries(items).map(([name, data]) => {
+                const expectedTotal = data.collected + data.remaining;
+                let health = expectedTotal > 0 ? Math.round((data.collected / expectedTotal) * 100) : 0;
+                if (data.remaining > 0 && health >= 100) health = 99;
+                
+                const color = health > 80 ? '#059669' : (health > 50 ? '#2563eb' : '#d97706');
+                return `
+                  <tr>
+                    <td style="font-weight: bold;">${name}</td>
+                    ${viewMode === 'customer' ? `<td>${data.units}</td>` : ''}
+                    <td>${formatINR(expectedTotal)}</td>
+                    <td style="color: #059669; font-weight: bold;">${formatINR(data.collected)}</td>
+                    <td style="color: #dc2626;">${formatINR(data.remaining)}</td>
+                    <td>
+                      <div class="progress-bar"><div class="progress-fill" style="width: ${health}%; background: ${color};"></div></div>
+                      <span style="font-weight: bold;">${health}%</span>
+                    </td>
+                  </tr>
+                `;
+              }).join('');
+            })()}
+          </tbody>
+        </table>
 
         <div class="section-title">Monthly Recovery Protocol Ledger</div>
         <table>
