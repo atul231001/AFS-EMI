@@ -56,7 +56,11 @@ app.get('/', (req, res) => {
   res.send('EMI Platform API is running...');
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  initScheduler();
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    initScheduler();
+  });
+}
+
+export default app;
