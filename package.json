@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "server": "nodemon backend/server.js",
-    "build": "cd frontend && npm run build && cd .. && cross-env NODE_ENV=production node backend/server.js",
+    "build": "cd frontend && npm run build",
+    "postinstall": "cd frontend && npm install",
+    "start": "cross-env NODE_ENV=production node backend/server.js",
     "client": "npm --prefix frontend run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "seed": "node seed.js"
