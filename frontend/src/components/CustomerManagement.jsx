@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { state } from '../state';
 import { showNotification, formatINR, confirmAction, hasPermission } from '../utils';
 import { usePersistentState } from '../hooks/usePersistentState';
 import Modal from './Modal.jsx';
 import Pagination from './Pagination.jsx';
 import {
-  X, Search, Check, ChevronDown, FileText, MapPin, Building2,
-  Fingerprint, ShieldCheck, UserCheck, Eye, Edit3, Trash2, Plus,
-  LayoutGrid, List, MoreHorizontal, Filter, SlidersHorizontal, RefreshCw,
-  Loader2, CheckCircle2, AlertCircle, Fingerprint as UserIcon, Mail, Phone,
-  Settings2, EyeOff, Hash, Globe, CreditCard, Landmark, Navigation,
-  ChevronLeft, ChevronRight
+  Search, Check, ChevronDown, FileText, MapPin, Building2,
+  Fingerprint, ShieldCheck, UserCheck, Edit3, Trash2, Plus,
+  Filter, SlidersHorizontal, RefreshCw,
+  Loader2, CheckCircle2, AlertCircle, Mail, Phone,
+  Settings2, Hash, Globe, CreditCard, Landmark, Navigation
 } from 'lucide-react';
 import Captcha from './Captcha';
 
@@ -205,7 +204,7 @@ const CustomerManagement = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 h-[calc(100vh-140px)] overflow-hidden flex flex-col">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 h-[calc(100vh-80px)] overflow-hidden flex flex-col">
       <div className="flex flex-col gap-6 flex-shrink-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
@@ -468,7 +467,7 @@ const CustomerManagement = () => {
       </div>
 
       {/* Pagination Footer */}
-      <Pagination 
+      <Pagination
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         totalItems={filtered.length}
