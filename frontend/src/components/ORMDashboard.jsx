@@ -150,17 +150,7 @@ const StatCard = ({ icon: Icon, label, value, accent, trend, isUp }) => (
   </div>
 );
 
-const ProgressItem = ({ label, val, color }) => (
-  <div className="space-y-1">
-    <div className="flex justify-between text-[8px] font-black uppercase tracking-tight">
-      <span className="text-text-dim">{label}</span>
-      <span className="text-text-main font-mono">{val}</span>
-    </div>
-    <div className="h-1 w-full bg-bg-deep rounded-full overflow-hidden border border-border-main">
-      <div className={`h-full ${color}`} style={{ width: val }} />
-    </div>
-  </div>
-);
+
 
 const DateFilter = ({ range, onChange }) => (
   <div className="flex items-center gap-2 bg-bg-active border border-border-main rounded-md px-3 py-1.5 shadow-sm">
@@ -575,17 +565,7 @@ const ORMDashboard = () => {
             </div>
           </section>
 
-          <section className="bg-bg-card border border-border-main rounded-2xl p-5 flex flex-col shrink-0 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[9px] font-bold text-text-dim uppercase tracking-widest">ASSET BREAKDOWN</h3>
-              <BarChart3 size={12} className="text-blue-500" />
-            </div>
-            <div className="space-y-4">
-              <ProgressItem label="EX-Series Recovery" val="92%" color="bg-primary" />
-              <ProgressItem label="MT-Logistics Flow" val="55%" color="bg-blue-500" />
-              <ProgressItem label="ZL-Wheel Collection" val="78%" color="bg-green-500" />
-            </div>
-          </section>
+
 
 
         </div>
