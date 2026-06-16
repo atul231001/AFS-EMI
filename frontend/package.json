@@ -16,12 +16,6 @@
     "tailwindcss": "^4.2.4",
     "vite": "^8.0.10"
   },
-  {
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build"
-  },
-}
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.1",
     "chart.js": "^4.5.1",
@@ -36,3 +30,4 @@
     "sweetalert2": "^11.26.24"
   }
 }
+
