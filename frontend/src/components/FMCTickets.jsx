@@ -415,6 +415,13 @@ const TicketFormModal = ({ ticket, onClose, machines, fmcContracts }) => {
 // ── Tickets List ───────────────────────────────────────────────────────────
 const FMCTickets = () => {
   const { fmcTickets = [], machines = [], fmcContracts = [], user, approvalFlows = [], ticketStatuses = [], fmcSupervisors = [], employees = [], roles = [] } = state.data;
+
+  React.useEffect(() => {
+    if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
+      state.ensureMachinesLight();
+    }
+  }, [state?.data?.machines?.length]);
+
   const [search, setSearch] = useState('');
   const [filterSev, setFilterSev] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');

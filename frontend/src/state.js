@@ -216,10 +216,9 @@ class State {
     try {
       const fetchJson = (url) => fetch(url, { headers: this.getHeaders() }).then(res => res.ok ? res.json() : []).catch(() => []);
 
-      const [customers, machines, loans, payments, config, employees, roles,
+      const [customers, loans, payments, config, employees, roles,
         fmcContracts, fmcTickets, fmcSupervisors, fmcDailyHours, fmcInvoices, ticketStatuses, approvalFlows, categories] = await Promise.all([
           fetchJson(`${BASE_URL}/customers`),
-          fetchJson(`${BASE_URL}/machines`),
           fetchJson(`${BASE_URL}/loans`),
           fetchJson(`${BASE_URL}/payments`),
           fetch(`${BASE_URL}/config`, { headers: this.getHeaders() }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
@@ -237,7 +236,7 @@ class State {
 
       this.setState({
         customers,
-        machines,
+        machines: [], // Machines are no longer fetched globally on load
         loans,
         payments,
         employees,
@@ -266,6 +265,19 @@ class State {
     } catch (err) {
       console.error('Failed to fetch data', err);
       this.setState({ loading: false });
+    }
+  }
+
+  async ensureMachinesLight() {
+    if (this.data.machines && this.data.machines.length > 0) return;
+    try {
+      const res = await fetch(`${BASE_URL}/machines`, { headers: this.getHeaders() });
+      if (res.ok) {
+        const machines = await res.json();
+        this.setState({ machines: Array.isArray(machines) ? machines : (machines.machines || []) });
+      }
+    } catch (err) {
+      console.error('Failed to load lightweight machines', err);
     }
   }
 

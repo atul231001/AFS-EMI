@@ -38,6 +38,13 @@ const Select = ({ value, onChange, children }) => (
 // ── Contract Form Modal ────────────────────────────────────────────────────
 const ContractFormModal = ({ contract, onClose }) => {
   const { customers, machines } = state.data;
+
+  React.useEffect(() => {
+    if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
+      state.ensureMachinesLight();
+    }
+  }, [state?.data?.machines?.length]);
+
   const [activeTab, setActiveTab] = useState('CUSTOMER');
   const [form, setForm] = useState(contract || {
     customerName: '', companyName: '', siteName: '', siteAddress: '',

@@ -6,6 +6,13 @@ import { Plus, Search, DollarSign, FileText, Edit3, Trash2, X, Download } from '
 // ── Billing Engine ─────────────────────────────────────────────────────────
 const FMCBilling = () => {
   const { fmcInvoices = [], fmcContracts = [], fmcDailyHours = [], machines = [], user } = state.data;
+
+  React.useEffect(() => {
+    if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
+      state.ensureMachinesLight();
+    }
+  }, [state?.data?.machines?.length]);
+
   const [showGenModal, setShowGenModal] = useState(false);
 
   let availableContracts = fmcContracts;

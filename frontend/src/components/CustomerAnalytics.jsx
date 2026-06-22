@@ -186,6 +186,13 @@ const FMCCustomerAnalytics = ({ customer }) => {
   const [selectedAsset, setSelectedAsset] = useState('ALL MACHINES');
   const { fmcContracts, fmcTickets, fmcDailyHours, fmcInvoices, machines } = state.data;
 
+  React.useEffect(() => {
+    if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
+      state.ensureMachinesLight();
+    }
+  }, [state?.data?.machines?.length]);
+
+
   // Filter data for this specific customer
   const myContracts = (fmcContracts || []).filter(c => (c.customerId?._id || c.customerId) === customer._id);
   const myMachineIds = myContracts.flatMap(c => c.machines || []);
