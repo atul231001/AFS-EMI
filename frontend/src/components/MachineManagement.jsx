@@ -35,11 +35,51 @@ const MachineManagement = () => {
     };
   }, []);
 
+  const [serverData, setServerData] = useState({ machines: [], total: 0, loading: false });
   const [searchTerm, setSearchTerm] = usePersistentState('machine_search', '');
   const [categoryFilter, setCategoryFilter] = usePersistentState('machine_category', 'All Categories');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(8);
   const globalConfig = systemConfig?.machineColumns || localColConfig;
+
+  const fetchServerMachines = async () => {
+    const isCustomer = user?.role === 'CUSTOMER' || (user?.role !== 'OEM' && user?.role !== 'Admin' && user?.role !== 'SUPERVISOR');
+    if (isCustomer) return;
+    setServerData(prev => ({ ...prev, loading: true }));
+    try {
+      const url = new URL(`${state.apiUrl}/machines`);
+      url.searchParams.append('paginated', 'true');
+      url.searchParams.append('page', currentPage);
+      url.searchParams.append('limit', itemsPerPage);
+      if (searchTerm) url.searchParams.append('search', searchTerm);
+      if (categoryFilter && categoryFilter !== 'All Categories') url.searchParams.append('category', categoryFilter);
+
+      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${state.token}` } });
+      const data = await res.json();
+      if (res.ok) {
+        setServerData({
+          machines: Array.isArray(data.machines) ? data.machines : (Array.isArray(data) ? data : []),
+          total: data.total || (Array.isArray(data) ? data.length : 0),
+          loading: false
+        });
+      }
+    } catch (e) {
+      setServerData(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  useEffect(() => {
+    const isCustomer = user?.role === 'CUSTOMER' || (user?.role !== 'OEM' && user?.role !== 'Admin' && user?.role !== 'SUPERVISOR');
+    if (!isCustomer) {
+      fetchServerMachines().then(() => {
+        const container = document.getElementById('asset-scroll-container');
+        if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    } else {
+      const container = document.getElementById('asset-scroll-container');
+      if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentPage, itemsPerPage, searchTerm, categoryFilter, user]);
 
   const toggleColumn = (key) => {
     const newConfig = { ...localColConfig, [key]: !localColConfig[key] };
@@ -67,6 +107,7 @@ const MachineManagement = () => {
       const result = await state.deleteMachine(id);
       if (result.success) {
         showNotification('Asset decommissioned', 'success');
+        fetchServerMachines();
       } else {
         showNotification(`Deletion Failed: ${result.message}`, 'error');
       }
@@ -115,18 +156,22 @@ const MachineManagement = () => {
     ...baseMachines.map(m => m.category || 'Uncategorized')
   ])];
 
+  // Pagination Logic
+  const safeSearch = searchTerm || '';
   const filteredMachines = baseMachines.filter(m => {
-    const matchesSearch = m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.category?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = m.name?.toLowerCase().includes(safeSearch.toLowerCase()) ||
+      m.model?.toLowerCase().includes(safeSearch.toLowerCase()) ||
+      m.category?.toLowerCase().includes(safeSearch.toLowerCase());
     const mCat = m.category || 'Uncategorized';
     const matchesCategory = categoryFilter === 'All Categories' || mCat.toLowerCase() === categoryFilter.toLowerCase();
     return matchesSearch && matchesCategory;
   });
 
-  // Pagination Logic
-  const totalPages = Math.ceil(filteredMachines.length / itemsPerPage);
-  const paginatedData = filteredMachines.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalItems = isCustomer ? filteredMachines.length : (serverData?.total || 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const paginatedData = isCustomer
+    ? filteredMachines.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+    : (serverData?.machines || []);
 
 
 
@@ -262,18 +307,7 @@ const MachineManagement = () => {
 
       {machineListView === 'card' ? (
         <div className="flex-1 overflow-hidden flex flex-col">
-          <div
-            className="flex-1 overflow-y-auto no-scrollbar pb-8"
-            onScroll={(e) => {
-              const { scrollTop, scrollHeight, clientHeight } = e.target;
-              if (scrollHeight - scrollTop <= clientHeight + 10) {
-                if (currentPage < totalPages) {
-                  setCurrentPage(prev => prev + 1);
-                  e.target.scrollTop = 0;
-                }
-              }
-            }}
-          >
+          <div id="asset-scroll-container" className="flex-1 overflow-y-auto no-scrollbar pb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
               {paginatedData.map(m => (
                 <MachineCard
@@ -288,10 +322,10 @@ const MachineManagement = () => {
             </div>
           </div>
           {/* Pagination Footer */}
-          <Pagination 
+          <Pagination
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
-            totalItems={filteredMachines.length}
+            totalItems={totalItems}
             itemsPerPage={itemsPerPage}
             setItemsPerPage={setItemsPerPage}
             itemName="Assets"
@@ -447,11 +481,11 @@ const MachineManagement = () => {
               </tbody>
             </table>
           </div>
-                    {/* Pagination Footer */}
-          <Pagination 
+          {/* Pagination Footer */}
+          <Pagination
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
-            totalItems={filteredMachines.length}
+            totalItems={totalItems}
             itemsPerPage={itemsPerPage}
             setItemsPerPage={setItemsPerPage}
             itemName="Assets"
@@ -462,7 +496,7 @@ const MachineManagement = () => {
 
       <MachineFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); fetchServerMachines(); }}
         machine={editingMachine}
       />
     </div>

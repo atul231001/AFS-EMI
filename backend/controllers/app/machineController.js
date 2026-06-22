@@ -1,5 +1,5 @@
-import Machine from '../models/Machine.js';
-import Category from '../models/Category.js';
+import Machine from '../../models/Machine.js';
+import Category from '../../models/Category.js';
 
 export const getMachines = async (req, res) => {
   try {
@@ -7,7 +7,6 @@ export const getMachines = async (req, res) => {
 
     if (paginated === 'true' || page) {
       let filter = {};
-      console.log(`[getMachines] Paginated Request: page=${page}, limit=${limit}, search=${search}`);
       
       if (search) {
         filter.$or = [
