@@ -57,6 +57,9 @@ const ReportCenter = () => {
   // arrives from the API (e.g. after a page reload).
   const [appData, setAppData] = useState(state.data);
   useEffect(() => {
+    // Ensure machines data is fetched for the reports
+    state.ensureMachinesLight();
+
     const unsubscribe = state.subscribe((newData) => setAppData({ ...newData }));
     return () => unsubscribe();
   }, []);
