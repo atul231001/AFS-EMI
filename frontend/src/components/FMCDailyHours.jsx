@@ -5,6 +5,13 @@ import { Plus, Clock, Fuel, AlertCircle, X, Calendar, Search } from 'lucide-reac
 
 const FMCDailyHours = () => {
   const { fmcDailyHours = [], machines = [], fmcContracts = [], fmcSupervisors = [], user } = state.data;
+
+  React.useEffect(() => {
+    if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
+      state.ensureMachinesLight();
+    }
+  }, [state?.data?.machines?.length]);
+
   const [showModal, setShowModal] = useState(false);
   const [filterDate, setFilterDate] = useState('');
   const [search, setSearch] = useState('');

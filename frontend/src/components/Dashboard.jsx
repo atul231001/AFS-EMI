@@ -119,6 +119,13 @@ const CustomerDashboard = () => {
 
 const FMCCustomerDashboard = () => {
   const { fmcContracts, fmcTickets, fmcDailyHours, fmcInvoices, user, machines } = state.data;
+
+  React.useEffect(() => {
+    if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
+      state.ensureMachinesLight();
+    }
+  }, [state?.data?.machines?.length]);
+
   const myContracts = fmcContracts.filter(c =>
     (c.customerId && user?.customerId && c.customerId.toString() === user.customerId.toString()) ||
     (c.customerName === user?.name)

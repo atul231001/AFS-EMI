@@ -64,9 +64,17 @@ const MachineManagement = () => {
         });
       }
     } catch (e) {
+      console.error("Failed to fetch machines via backend pagination:", e);
       setServerData(prev => ({ ...prev, loading: false }));
     }
   };
+
+  useEffect(() => {
+    const isCustomer = user?.role === 'CUSTOMER' || (!isAdmin && user?.role !== 'SUPERVISOR');
+    if (isCustomer && machines.length === 0) {
+      state.ensureMachinesLight();
+    }
+  }, [user, machines.length, isAdmin]);
 
   useEffect(() => {
     const isCustomer = user?.role === 'CUSTOMER' || (user?.role !== 'OEM' && user?.role !== 'Admin' && user?.role !== 'SUPERVISOR');

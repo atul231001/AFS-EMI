@@ -36,8 +36,8 @@ export const getMachines = async (req, res) => {
       });
     }
 
-    // Fallback for global unpaginated requests
-    const machines = await Machine.find().sort({ createdAt: -1, _id: -1 });
+    // Fallback for global unpaginated requests (Lightweight for dropdowns, includes pricing for financing)
+    const machines = await Machine.find().select('_id name model machineId category status pricing attachments').sort({ createdAt: -1, _id: -1 });
     res.json(machines);
   } catch (error) {
     res.status(500).json({ message: error.message });

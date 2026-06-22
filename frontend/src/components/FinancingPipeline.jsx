@@ -11,6 +11,13 @@ const getMachineImage = (m) => {
 
 const FinancingFormModal = ({ loan, onClose }) => {
   const { user, approvalFlows = [], employees = [], machines = [], customers = [] } = state.data;
+
+  React.useEffect(() => {
+    if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
+      state.ensureMachinesLight();
+    }
+  }, [state?.data?.machines?.length]);
+
   const [approvalNotes, setApprovalNotes] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [viewTab, setViewTab] = useState('data'); // 'data' or 'schedule'

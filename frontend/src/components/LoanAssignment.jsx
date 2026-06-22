@@ -26,6 +26,13 @@ const getMachineImage = (m) => {
 
 const LoanAssignment = () => {
   const { loans, machines, customers, view, loanListView, user } = state.data;
+
+  React.useEffect(() => {
+    if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
+      state.ensureMachinesLight();
+    }
+  }, [state?.data?.machines?.length]);
+
   const activeTab = view === 'new-financing' ? 'new' : 'portfolio';
 
   const handleToggleView = (v) => {

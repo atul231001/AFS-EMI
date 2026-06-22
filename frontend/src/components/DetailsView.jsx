@@ -12,6 +12,13 @@ const LoanDetails = () => {
   const [activeTab, setActiveTab] = useState('schedule');
   const { loans, machines, selectedLoanId, payments = [] } = state.data;
 
+  React.useEffect(() => {
+    if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
+      state.ensureMachinesLight();
+    }
+  }, [state?.data?.machines?.length]);
+
+
   if (!selectedLoanId) return null;
 
   const loan = loans.find(l => l._id === selectedLoanId);
