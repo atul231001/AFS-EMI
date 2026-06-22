@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Filter, Clock, ChevronDown, Download } from "lucide-react";
 
 import { state } from "../../state";
@@ -36,6 +36,22 @@ const ReportCenter = () => {
     machine: { category: '', models: [], status: '' },
     advanced: []
   });
+
+  // Count active (non-default) filter fields for the badge
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (globalFilters.date.from || globalFilters.date.to) count++;
+    if (globalFilters.status.length > 0) count++;
+    if (globalFilters.customer.name) count++;
+    if (globalFilters.customer.type) count++;
+    if (globalFilters.machine.category) count++;
+    if (globalFilters.machine.status) count++;
+    if (globalFilters.financial.downPayment.min || globalFilters.financial.downPayment.max) count++;
+    if (globalFilters.financial.emi.min || globalFilters.financial.emi.max) count++;
+    if (globalFilters.financial.outstanding.min || globalFilters.financial.outstanding.max) count++;
+    if (globalFilters.overdueDays.min || globalFilters.overdueDays.max) count++;
+    return count;
+  }, [globalFilters]);
 
   // Subscribe to global state so the component re-renders when data
   // arrives from the API (e.g. after a page reload).
@@ -193,13 +209,22 @@ const ReportCenter = () => {
         onToggle={() => setIsSidebarOpen(o => !o)}
         filters={globalFilters}
         onApply={setGlobalFilters}
+        activeFilterCount={activeFilterCount}
         headerRight={
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-deep border border-border-main rounded text-[10px] font-bold text-text-main hover:text-primary transition-colors uppercase shrink-0"
-          >
-            <Download size={12} /> Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            {activeFilterCount > 0 && (
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-primary/15 border border-primary/30 rounded-full text-[9px] font-black text-primary uppercase tracking-wider animate-fade-in">
+                <span className="inline-flex items-center justify-center w-3.5 h-3.5 bg-primary text-black rounded-full text-[8px] font-black">{activeFilterCount}</span>
+                Active
+              </span>
+            )}
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-deep border border-border-main rounded text-[10px] font-bold text-text-main hover:text-primary transition-colors uppercase shrink-0"
+            >
+              <Download size={12} /> Export CSV
+            </button>
+          </div>
         }
       />
 
@@ -253,11 +278,11 @@ const ReportCenter = () => {
       </div>
 
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        {activeReport === "Machine Reports" && <MachineReport ref={machineReportRef} machines={machines} loans={loans} {...dragHandlers} />}
-        {activeReport === "Customer Reports" && <CustomerReport ref={customerReportRef} customers={customers} loans={loans} payments={payments} {...dragHandlers} />}
-        {activeReport === "Sales Reports" && <SalesReport ref={salesReportRef} customers={customers} loans={loans} {...dragHandlers} />}
-        {activeReport === "Rental Reports" && <RentalReport ref={rentalReportRef} customers={customers} loans={loans} {...dragHandlers} />}
-        {activeReport === "Contract Reports" && <ContractReport ref={contractReportRef} customers={customers} loans={loans} {...dragHandlers} />}
+        {activeReport === "Machine Reports" && <MachineReport ref={machineReportRef} machines={machines} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
+        {activeReport === "Customer Reports" && <CustomerReport ref={customerReportRef} customers={customers} loans={loans} payments={payments} globalFilters={globalFilters} {...dragHandlers} />}
+        {activeReport === "Sales Reports" && <SalesReport ref={salesReportRef} customers={customers} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
+        {activeReport === "Rental Reports" && <RentalReport ref={rentalReportRef} customers={customers} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
+        {activeReport === "Contract Reports" && <ContractReport ref={contractReportRef} customers={customers} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
         {activeReport === "EMI & Payment Reports" && <EMIPaymentReport ref={emiPaymentReportRef} customers={customers} loans={loans} payments={payments} globalFilters={globalFilters} {...dragHandlers} />}
       </div>
     </div>

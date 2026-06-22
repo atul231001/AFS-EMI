@@ -3,7 +3,7 @@ import { formatINR } from "../../../utils";
 import { StatCard } from "../../ORMDashboard";
 import { FileCheck, Banknote, HardHat, Timer, Search, FileText } from "lucide-react";
 
-const ContractReport = forwardRef(({ customers = [], loans = [], scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
+const ContractReport = forwardRef(({ customers = [], loans = [], globalFilters, scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
   const realContracts = useMemo(() => {
     return customers.map(c => {
       const customerLoans = loans.filter(l => (l.customerId?._id || l.customerId) === c._id);
@@ -78,7 +78,22 @@ const ContractReport = forwardRef(({ customers = [], loans = [], scrollContainer
     const matchesStart = contractFilters.startDate === "All Dates" || c.startDate.startsWith(contractFilters.startDate);
     const matchesEnd = contractFilters.endDate === "All Dates" || c.endDate.startsWith(contractFilters.endDate);
 
-    return matchesSearch && matchesType && matchesCustomer && matchesProject && matchesStatus && matchesLocation && matchesStart && matchesEnd;
+    // Global sidebar filters
+    let matchesGlobal = true;
+    if (globalFilters) {
+      // Date range on contract start date
+      if (globalFilters.date.from && c.startDate < globalFilters.date.from) matchesGlobal = false;
+      if (globalFilters.date.to && c.startDate > globalFilters.date.to) matchesGlobal = false;
+      // Customer name search
+      if (globalFilters.customer.name && !c.customer.toLowerCase().includes(globalFilters.customer.name.toLowerCase())) matchesGlobal = false;
+      // Status filter
+      if (globalFilters.status.length > 0 && !globalFilters.status.includes(c.status)) matchesGlobal = false;
+      // Financial – outstanding maps to revenue for contracts
+      if (globalFilters.financial.outstanding.min && c.revenue < Number(globalFilters.financial.outstanding.min)) matchesGlobal = false;
+      if (globalFilters.financial.outstanding.max && c.revenue > Number(globalFilters.financial.outstanding.max)) matchesGlobal = false;
+    }
+
+    return matchesSearch && matchesType && matchesCustomer && matchesProject && matchesStatus && matchesLocation && matchesStart && matchesEnd && matchesGlobal;
   });
 
   const activeContractsCount = filteredContracts.filter((c) => c.status === "Active").length;

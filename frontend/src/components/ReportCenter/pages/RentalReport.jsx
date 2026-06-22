@@ -3,7 +3,7 @@ import { formatINR } from "../../../utils";
 import { StatCard } from "../../ORMDashboard";
 import { PlayCircle, Banknote, Activity as ActivityIcon, RefreshCcw, Search, FileText } from "lucide-react";
 
-const RentalReport = forwardRef(({ customers = [], loans = [], scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
+const RentalReport = forwardRef(({ customers = [], loans = [], globalFilters, scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
   const realRentals = useMemo(() => {
     return loans.map(l => {
       const custId = l.customerId?._id || l.customerId;
@@ -80,7 +80,22 @@ const RentalReport = forwardRef(({ customers = [], loans = [], scrollContainerRe
     const matchesStart = rentalFilters.startDate === "All Dates" || r.startDate.startsWith(rentalFilters.startDate);
     const matchesEnd = rentalFilters.endDate === "All Dates" || r.endDate.startsWith(rentalFilters.endDate);
 
-    return matchesSearch && matchesType && matchesCustomer && matchesMachine && matchesStatus && matchesLocation && matchesOperator && matchesStart && matchesEnd;
+    // Global sidebar filters
+    let matchesGlobal = true;
+    if (globalFilters) {
+      // Date range filter on rental start date
+      if (globalFilters.date.from && r.startDate < globalFilters.date.from) matchesGlobal = false;
+      if (globalFilters.date.to && r.startDate > globalFilters.date.to) matchesGlobal = false;
+      // Customer name search
+      if (globalFilters.customer.name && !r.customer.toLowerCase().includes(globalFilters.customer.name.toLowerCase())) matchesGlobal = false;
+      // Status filter
+      if (globalFilters.status.length > 0 && !globalFilters.status.includes(r.status)) matchesGlobal = false;
+      // Financial – outstanding maps to revenue
+      if (globalFilters.financial.outstanding.min && r.revenue < Number(globalFilters.financial.outstanding.min)) matchesGlobal = false;
+      if (globalFilters.financial.outstanding.max && r.revenue > Number(globalFilters.financial.outstanding.max)) matchesGlobal = false;
+    }
+
+    return matchesSearch && matchesType && matchesCustomer && matchesMachine && matchesStatus && matchesLocation && matchesOperator && matchesStart && matchesEnd && matchesGlobal;
   });
 
   const activeRentalsCount = filteredRentals.filter((r) => r.status === "Active").length;

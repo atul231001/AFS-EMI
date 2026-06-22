@@ -11,7 +11,7 @@ import {
   FileText,
 } from "lucide-react";
 
-const CustomerReport = forwardRef(({ customers = [], loans = [], payments = [], scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
+const CustomerReport = forwardRef(({ customers = [], loans = [], payments = [], globalFilters, scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
   const realCustomers = useMemo(() => {
     return customers.map((c) => {
       const customerLoans = loans.filter(
@@ -78,7 +78,16 @@ const CustomerReport = forwardRef(({ customers = [], loans = [], payments = [], 
     if (customerFilters.revenue === "1 Cr - 5 Cr") matchesRev = c.lifetimeValue >= 10000000 && c.lifetimeValue <= 50000000;
     if (customerFilters.revenue === "> 5 Cr") matchesRev = c.lifetimeValue > 50000000;
 
-    return matchesSearch && matchesType && matchesIndustry && matchesLocation && matchesExec && matchesStatus && matchesRev;
+    // Global sidebar filters
+    let matchesGlobal = true;
+    if (globalFilters) {
+      if (globalFilters.customer.name && !c.name.toLowerCase().includes(globalFilters.customer.name.toLowerCase())) matchesGlobal = false;
+      if (globalFilters.customer.type && c.type !== globalFilters.customer.type) matchesGlobal = false;
+      if (globalFilters.financial.outstanding.min && c.outstanding < Number(globalFilters.financial.outstanding.min)) matchesGlobal = false;
+      if (globalFilters.financial.outstanding.max && c.outstanding > Number(globalFilters.financial.outstanding.max)) matchesGlobal = false;
+    }
+
+    return matchesSearch && matchesType && matchesIndustry && matchesLocation && matchesExec && matchesStatus && matchesRev && matchesGlobal;
   });
 
   const totalCustomers = filteredCustomers.length;

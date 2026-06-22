@@ -3,7 +3,7 @@ import { formatINR } from "../../../utils";
 import { StatCard } from "../../ORMDashboard";
 import { Banknote, Wallet, Receipt, AlertCircle, Search, FileText } from "lucide-react";
 
-const SalesReport = forwardRef(({ customers = [], loans = [], scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
+const SalesReport = forwardRef(({ customers = [], loans = [], globalFilters, scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
   const realSales = useMemo(() => {
     return loans.map((l) => {
       const custId = l.customerId?._id || l.customerId;
@@ -82,7 +82,25 @@ const SalesReport = forwardRef(({ customers = [], loans = [], scrollContainerRef
     if (salesFilters.downPayment === "5L - 10L") matchesDP = s.downPayment >= 500000 && s.downPayment <= 1000000;
     if (salesFilters.downPayment === "> 10L") matchesDP = s.downPayment > 1000000;
 
-    return matchesSearch && matchesCustomer && matchesMachine && matchesExec && matchesDate && matchesStatus && matchesProvider && matchesDP;
+    // Global sidebar filters
+    let matchesGlobal = true;
+    if (globalFilters) {
+      // Date range on sale date
+      if (globalFilters.date.from && s.saleDate < globalFilters.date.from) matchesGlobal = false;
+      if (globalFilters.date.to && s.saleDate > globalFilters.date.to) matchesGlobal = false;
+      // Customer name search
+      if (globalFilters.customer.name && !s.customer.toLowerCase().includes(globalFilters.customer.name.toLowerCase())) matchesGlobal = false;
+      // Down payment financial range from sidebar
+      if (globalFilters.financial.downPayment.min && s.downPayment < Number(globalFilters.financial.downPayment.min)) matchesGlobal = false;
+      if (globalFilters.financial.downPayment.max && s.downPayment > Number(globalFilters.financial.downPayment.max)) matchesGlobal = false;
+      // EMI amount maps to totalValue here
+      if (globalFilters.financial.emi.min && s.totalValue < Number(globalFilters.financial.emi.min)) matchesGlobal = false;
+      if (globalFilters.financial.emi.max && s.totalValue > Number(globalFilters.financial.emi.max)) matchesGlobal = false;
+      // Status array filter
+      if (globalFilters.status.length > 0 && !globalFilters.status.includes(s.emiStatus)) matchesGlobal = false;
+    }
+
+    return matchesSearch && matchesCustomer && matchesMachine && matchesExec && matchesDate && matchesStatus && matchesProvider && matchesDP && matchesGlobal;
   });
 
   const totalSalesCount = filteredSales.length;

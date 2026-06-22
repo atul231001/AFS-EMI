@@ -12,7 +12,7 @@ import {
   Search,
 } from "lucide-react";
 
-const MachineReport = forwardRef(({ machines = [], loans = [], scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
+const MachineReport = forwardRef(({ machines = [], loans = [], globalFilters, scrollContainerRef, isDragging, handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove }, ref) => {
   const realMachines = useMemo(() => {
     return machines.map((m) => {
       const machineLoans = loans.filter((l) => l.machineId === m._id || l.machineName === m.name);
@@ -83,6 +83,19 @@ const MachineReport = forwardRef(({ machines = [], loans = [], scrollContainerRe
       machineFilters.purchaseYear === "All Years" ||
       m.purchaseYear.toString() === machineFilters.purchaseYear.toString();
 
+    // Global sidebar filters
+    let matchesGlobal = true;
+    if (globalFilters) {
+      if (globalFilters.machine.category && m.category !== globalFilters.machine.category) matchesGlobal = false;
+      if (globalFilters.machine.status) {
+        // Map sidebar machine status vocabulary to report status vocabulary
+        const sidebarStatus = globalFilters.machine.status.toLowerCase();
+        if (sidebarStatus === 'sold' && m.status !== 'Sold') matchesGlobal = false;
+        else if (sidebarStatus === 'available' && m.status !== 'Available') matchesGlobal = false;
+        else if (sidebarStatus === 'rented' && m.status !== 'Active Rental') matchesGlobal = false;
+      }
+    }
+
     return (
       matchesSearch &&
       matchesCategory &&
@@ -90,7 +103,8 @@ const MachineReport = forwardRef(({ machines = [], loans = [], scrollContainerRe
       matchesModel &&
       matchesLocation &&
       matchesStatus &&
-      matchesYear
+      matchesYear &&
+      matchesGlobal
     );
   });
 

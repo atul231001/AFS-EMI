@@ -24,6 +24,40 @@ const EMI_STATUSES = ['Upcoming', 'Overdue', 'Paid', 'Unpaid', 'Partially Paid',
 
 const inputCls = "w-full bg-bg-deep border border-border-main rounded px-2 py-1.5 text-[11px] text-text-main focus:border-primary focus:outline-none transition-colors placeholder:text-text-dim/50";
 
+// Custom Date Input to force dd/mm/yyyy display format visually
+const DateInput = ({ value, onChange, placeholder = "dd/mm/yyyy" }) => {
+  const formattedDate = React.useMemo(() => {
+    if (!value) return "";
+    const parts = value.split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts;
+      return `${d}/${m}/${y}`;
+    }
+    return value;
+  }, [value]);
+
+  return (
+    <div className="relative flex items-center w-full">
+      <input 
+        type="date" 
+        value={value} 
+        onChange={onChange} 
+        className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full" 
+        onClick={(e) => {
+          try { e.target.showPicker(); } catch(err) {}
+        }}
+      />
+      <input 
+        type="text"
+        readOnly
+        value={formattedDate}
+        placeholder={placeholder}
+        className={`${inputCls} relative z-0`}
+      />
+    </div>
+  );
+};
+
 const Section = ({ icon: Icon, title, children }) => {
   const [open, setOpen] = useState(true);
   return (
@@ -45,7 +79,7 @@ const Section = ({ icon: Icon, title, children }) => {
   );
 };
 
-const FilterSidebar = ({ isOpen, onToggle, filters, onApply, headerRight }) => {
+const FilterSidebar = ({ isOpen, onToggle, filters, onApply, activeFilterCount = 0, headerRight }) => {
   const [local, setLocal] = useState(() => ({ ...INITIAL_FILTERS, ...filters }));
 
   // Sync when filters prop changes externally
@@ -95,7 +129,12 @@ const FilterSidebar = ({ isOpen, onToggle, filters, onApply, headerRight }) => {
         >
           <Settings2 size={15} className="text-primary" />
           <span className="text-[12px] font-black text-text-main tracking-wide uppercase group-hover:text-primary transition-colors">Advanced Filters</span>
-          <button className="p-1 rounded-md transition-colors text-text-dim group-hover:text-primary ml-2">
+          {activeFilterCount > 0 && (
+            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-primary text-black rounded-full text-[9px] font-black tabular-nums">
+              {activeFilterCount}
+            </span>
+          )}
+          <button className="p-1 rounded-md transition-colors text-text-dim group-hover:text-primary ml-1">
             {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </button>
         </div>
@@ -126,11 +165,11 @@ const FilterSidebar = ({ isOpen, onToggle, filters, onApply, headerRight }) => {
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1">
                 <span className="text-[9px] font-bold text-text-dim uppercase">From</span>
-                <input type="date" className={inputCls} value={local.date.from} onChange={e => set('date.from', e.target.value)} />
+                <DateInput value={local.date.from} onChange={e => set('date.from', e.target.value)} />
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[9px] font-bold text-text-dim uppercase">To</span>
-                <input type="date" className={inputCls} value={local.date.to} onChange={e => set('date.to', e.target.value)} />
+                <DateInput value={local.date.to} onChange={e => set('date.to', e.target.value)} />
               </div>
             </div>
           </Section>
@@ -234,8 +273,8 @@ const FilterSidebar = ({ isOpen, onToggle, filters, onApply, headerRight }) => {
         </div>
       </div>
     </div>
+    </div>
   </div>
-</div>
   );
 };
 
