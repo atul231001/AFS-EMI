@@ -87,7 +87,7 @@ export const login = async (req, res) => {
       res.status(401).json({
         success: false,
         statusCode: 401,
-        message: "Invalid email, password or role"
+        message: "Invalid email and  password"
       })
     }
   } catch (error) {
