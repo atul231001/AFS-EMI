@@ -1,0 +1,1117 @@
+{
+  "aboutsettings": [
+    {
+      "_id": "6a3a32979ef22d904c621542",
+      "companyName": "LiuGong Machinery",
+      "companyLogo": "/uploads/1782199296767-Screenshot (4).png",
+      "gstNumber": "GST67890",
+      "panNumber": "PAN12345",
+      "cinNumber": "CIN345678",
+      "companyAddress": "RAIPUR COM[PANY ADRESS",
+      "contactNumber": "1234567890",
+      "supportEmail": "mail@mail.com",
+      "website": "website.in",
+      "currency": "INR",
+      "timeZone": "Asia/Kolkata",
+      "createdAt": "2026-06-23T07:15:35.312Z",
+      "updatedAt": "2026-06-23T07:21:43.710Z",
+      "__v": 0
+    }
+  ],
+  "fmcsupervisors": [],
+  "fmcdailyhours": [],
+  "loans": [
+    {
+      "_id": "6a34dee5f6aa5ca17a099c4d",
+      "customerId": "6a327e92f100c6cb8a789de8",
+      "machineName": "818N",
+      "emiStartDate": "2026-06-19",
+      "principal": 2336000,
+      "emi": 794292,
+      "tenure": 3,
+      "interestRate": 12,
+      "downPayment": 0,
+      "machinePrice": 2920000,
+      "discountAmount": 584000,
+      "discountPercentage": 20,
+      "delayInterest": 24,
+      "selectedAttachments": [],
+      "manualCharges": [],
+      "status": "Active",
+      "approvalStatus": "Requested",
+      "approvalStep": 1,
+      "agreementGenerated": false,
+      "downPaymentInstallments": 1,
+      "compoundOverdueInterest": false,
+      "schedule": [
+        {
+          "type": "EMI",
+          "dueDate": "2026-07-19",
+          "emi": 794292,
+          "principal": 770932,
+          "interest": 23360,
+          "outstandingAmount": 0,
+          "overdueInterest": 0,
+          "paidOverdueInterest": 0,
+          "paidAmount": 794292,
+          "balance": 1565068,
+          "status": "Paid",
+          "_id": "6a34dee5f6aa5ca17a099c4e",
+          "paidDate": "2026-06-20T07:36:23.419Z"
+        },
+        {
+          "type": "EMI",
+          "dueDate": "2026-08-19",
+          "emi": 794292,
+          "principal": 778641,
+          "interest": 15651,
+          "outstandingAmount": 794292,
+          "overdueInterest": 0,
+          "paidOverdueInterest": 0,
+          "paidAmount": 0,
+          "balance": 786427,
+          "status": "Pending",
+          "_id": "6a34dee5f6aa5ca17a099c4f"
+        },
+        {
+          "type": "EMI",
+          "dueDate": "2026-09-19",
+          "emi": 794292,
+          "principal": 786428,
+          "interest": 7864,
+          "outstandingAmount": 794292,
+          "overdueInterest": 0,
+          "paidOverdueInterest": 0,
+          "paidAmount": 0,
+          "balance": 0,
+          "status": "Pending",
+          "_id": "6a34dee5f6aa5ca17a099c50"
+        }
+      ],
+      "startDate": "19/6/2026",
+      "approvalHistory": [
+        {
+          "action": "Approved",
+          "notes": "",
+          "approverId": "6a2126e9533f281ebb663768",
+          "approverName": "Liugong OEM Admin",
+          "status": "Requested",
+          "date": "2026-06-19T06:38:33.185Z",
+          "_id": "6a34e3e946f35036e76f14a5"
+        }
+      ],
+      "interestWaiverLogs": [],
+      "approvalFlowId": "6a2149563274e80f3cb61dc2",
+      "createdAt": "2026-06-19T06:17:09.277Z",
+      "updatedAt": "2026-06-20T07:36:24.026Z",
+      "__v": 2
+    },
+    {
+      "_id": "6a3a140ed7f736bd78a9f20d",
+      "customerId": "6a327e92f100c6cb8a789de8",
+      "machineName": "LS0608H",
+      "emiStartDate": "2026-06-23",
+      "principal": 730000,
+      "emi": 248216,
+      "tenure": 3,
+      "interestRate": 12,
+      "downPayment": 0,
+      "machinePrice": 730000,
+      "discountAmount": 0,
+      "discountPercentage": 0,
+      "delayInterest": 24,
+      "selectedAttachments": [],
+      "manualCharges": [],
+      "status": "Active",
+      "approvalStatus": "Active",
+      "approvalStep": 3,
+      "agreementGenerated": false,
+      "downPaymentInstallments": 1,
+      "compoundOverdueInterest": false,
+      "schedule": [
+        {
+          "type": "EMI",
+          "dueDate": "2026-07-23",
+          "emi": 248216,
+          "principal": 240916,
+          "interest": 7300,
+          "outstandingAmount": 0,
+          "overdueInterest": 0,
+          "paidOverdueInterest": 0,
+          "paidAmount": 248216,
+          "balance": 489084,
+          "status": "Paid",
+          "_id": "6a3a140ed7f736bd78a9f20e",
+          "paidDate": "2026-06-23T11:53:37.612Z"
+        },
+        {
+          "type": "EMI",
+          "dueDate": "2026-08-23",
+          "emi": 248216,
+          "principal": 243325,
+          "interest": 4891,
+          "outstandingAmount": 248216,
+          "overdueInterest": 0,
+          "paidOverdueInterest": 0,
+          "paidAmount": 0,
+          "balance": 245759,
+          "status": "Pending",
+          "_id": "6a3a140ed7f736bd78a9f20f"
+        },
+        {
+          "type": "EMI",
+          "dueDate": "2026-09-23",
+          "emi": 248216,
+          "principal": 245758,
+          "interest": 2458,
+          "outstandingAmount": 248216,
+          "overdueInterest": 0,
+          "paidOverdueInterest": 0,
+          "paidAmount": 0,
+          "balance": 1,
+          "status": "Pending",
+          "_id": "6a3a140ed7f736bd78a9f210"
+        }
+      ],
+      "startDate": "23/6/2026",
+      "approvalHistory": [
+        {
+          "action": "Approved",
+          "notes": "",
+          "approverId": "6a2126e9533f281ebb663768",
+          "approverName": "Liugong OEM Admin",
+          "status": "Requested",
+          "date": "2026-06-23T05:05:39.248Z",
+          "_id": "6a3a1423d7f736bd78a9f21a"
+        },
+        {
+          "action": "Approved",
+          "notes": "",
+          "approverId": "6a2126e9533f281ebb663768",
+          "approverName": "Liugong OEM Admin",
+          "status": "Resolved",
+          "date": "2026-06-23T05:05:39.971Z",
+          "_id": "6a3a1423d7f736bd78a9f226"
+        },
+        {
+          "action": "Approved",
+          "notes": "",
+          "approverId": "6a2126e9533f281ebb663768",
+          "approverName": "Liugong OEM Admin",
+          "status": "Resolved",
+          "date": "2026-06-23T05:05:41.180Z",
+          "_id": "6a3a1425d7f736bd78a9f234"
+        },
+        {
+          "action": "Agreement Uploaded",
+          "notes": "oem@liugong.com",
+          "approverId": "6a2126e9533f281ebb663768",
+          "approverName": "Liugong OEM Admin",
+          "status": "Agreement Confirmed",
+          "date": "2026-06-23T05:34:31.899Z",
+          "_id": "6a3a1ae7d7f736bd78a9f273"
+        }
+      ],
+      "interestWaiverLogs": [],
+      "approvalFlowId": "6a2149563274e80f3cb61dc2",
+      "createdAt": "2026-06-23T05:05:18.501Z",
+      "updatedAt": "2026-06-23T11:53:37.840Z",
+      "__v": 5,
+      "agreementUrl": "/uploads/1782192871823-file-sample_150kB.pdf",
+      "invoiceData": {
+        "id": 137,
+        "order_id": 76,
+        "invoiceNumber": "LIPLMP2324-1223",
+        "invoiceDate": "2023-08-27T18:30:00.000000Z",
+        "invoiceFile": "uploads/2023/manufacturer/1/45/76/MI/MI_652e2fe84d422728279422.pdf",
+        "deliveryNote": null,
+        "vehicleNumber": null,
+        "engineNumber": null,
+        "serialNumber": null,
+        "chassisNumber": null,
+        "created_at": "2023-10-17T01:25:36.000000Z",
+        "updated_at": "2023-10-17T01:25:36.000000Z"
+      },
+      "invoiceNumber": "LIPLMP2324-1223",
+      "dispatchData": {
+        "dispatchId": 2,
+        "orderId": 18,
+        "ddFile": "uploads/2023/manufacturer/34/13/13/DD/DD_13OFMLIPLSEP23.pdf",
+        "lrNo": "NA",
+        "lrFile": "uploads/2023/manufacturer/1/13/18/LRDocument/LRDocument_650193c2ce94e257707564.pdf",
+        "eWayBillNo": null,
+        "eWayBillFile": null,
+        "dispatchDate": "2023-09-05T18:30:00.000000Z",
+        "deliveryDate": null,
+        "isDispatched": true
+      },
+      "dispatchDate": "2023-09-05T18:30:00.000000Z",
+      "serialNumber": "CLG2000ZKPT881321",
+      "commissionDate": "2026-06-23"
+    }
+  ],
+  "approvalflows": [
+    {
+      "_id": "6a2144c08fb07328a12dbae8",
+      "name": "Standard Mining Site Flow",
+      "type": "TICKET",
+      "steps": [
+        {
+          "sequence": 1,
+          "approverId": "6a2144bd8fb07328a12dba9f",
+          "statusId": "6a2144c08fb07328a12dbae6",
+          "_id": "6a2144c08fb07328a12dbae9"
+        },
+        {
+          "sequence": 2,
+          "approverId": "6a2144bd8fb07328a12dbaa0",
+          "statusId": "6a2144c08fb07328a12dbae7",
+          "_id": "6a2144c08fb07328a12dbaea"
+        }
+      ],
+      "isActive": true,
+      "supervisorId": "6a2144bf8fb07328a12dbade",
+      "createdAt": "2026-06-04T09:26:24.630Z",
+      "updatedAt": "2026-06-04T09:26:24.630Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a2149563274e80f3cb61dc2",
+      "name": "Approval Flow for Liugong OEM Admin",
+      "type": "FINANCING",
+      "steps": [
+        {
+          "sequence": 1,
+          "approverId": "6a2126e9533f281ebb663768",
+          "statusId": "6a2144c08fb07328a12dbae5",
+          "_id": "6a21555d3274e80f3cb62344"
+        },
+        {
+          "sequence": 2,
+          "approverId": "6a2126e9533f281ebb663768",
+          "statusId": "6a2144c08fb07328a12dbae7",
+          "_id": "6a21555d3274e80f3cb62345"
+        },
+        {
+          "sequence": 3,
+          "approverId": "6a2126e9533f281ebb663768",
+          "statusId": "6a2144c08fb07328a12dbae7",
+          "_id": "6a21555d3274e80f3cb62346"
+        }
+      ],
+      "isActive": true,
+      "supervisorId": "6a2126e9533f281ebb663768",
+      "createdAt": "2026-06-04T09:45:58.560Z",
+      "updatedAt": "2026-06-04T10:37:17.254Z",
+      "__v": 0
+    }
+  ],
+  "users": [
+    {
+      "_id": "6a2126e9533f281ebb663768",
+      "name": "Liugong OEM Admin",
+      "email": "oem@liugong.com",
+      "password": "$2a$12$ocNKE60FEnqjmYxEB9cihO23ZdNY7iF0DCsDp8BlBNEUmmnFxm7Ca",
+      "role": "OEM",
+      "status": "Active",
+      "settings": {
+        "fontFamily": "Roboto",
+        "fontSize": "15"
+      },
+      "mustResetPassword": false,
+      "createdAt": "2026-06-04T07:19:05.138Z",
+      "updatedAt": "2026-06-23T05:33:23.068Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a327e92f100c6cb8a789de9",
+      "name": " Silicon Traders",
+      "email": "silicontraders45@gmail.com",
+      "password": "$2b$10$6VJdZdn4UJ9Ryz9PvvzmoeNSS2ntEEV.6tNkIa2ljEN72Oe2khHKm",
+      "role": "CUSTOMER",
+      "customerId": "6a327e92f100c6cb8a789de8",
+      "type": "EMI",
+      "status": "Active",
+      "settings": {
+        "fontFamily": "Inter",
+        "fontSize": "14"
+      },
+      "mustResetPassword": false,
+      "createdAt": "2026-06-17T11:01:38.483Z",
+      "updatedAt": "2026-06-23T06:32:47.646Z",
+      "__v": 0
+    }
+  ],
+  "fmctickets": [
+    {
+      "_id": "6a2144c08fb07328a12dbaeb",
+      "ticketNumber": "TKT-2026-001",
+      "contractId": "6a2144c08fb07328a12dbae4",
+      "machineName": "LiuGong 922D (LM-112233)",
+      "breakdownType": "Hydraulics",
+      "severity": "High",
+      "description": "Hydraulic pump overheating. Main pressure drops under peak load.",
+      "location": "Ranchi Coal Mine A - Pit 3",
+      "hourReading": "1450",
+      "status": "Under Review",
+      "photos": [],
+      "currentStepIndex": 1,
+      "supervisorId": null,
+      "approvalHistory": [
+        {
+          "approverId": "6a2144bf8fb07328a12dbadf",
+          "approverName": "Supervisor Dave",
+          "status": "Requested",
+          "action": "Created",
+          "notes": "Raised breakdown ticket due to pressure drop.",
+          "timestamp": "2026-05-18T10:00:00.000Z",
+          "_id": "6a2144c08fb07328a12dbaec"
+        },
+        {
+          "approverId": "6a2126e9533f281ebb663768",
+          "approverName": "Liugong OEM Admin",
+          "status": "Under Review",
+          "action": "Approved",
+          "notes": "Assigned inspection team.",
+          "timestamp": "2026-05-18T14:30:00.000Z",
+          "_id": "6a2144c08fb07328a12dbaed"
+        }
+      ],
+      "createdAt": "2026-06-04T09:26:24.699Z",
+      "updatedAt": "2026-06-04T09:26:24.699Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a2144c08fb07328a12dbaee",
+      "ticketNumber": "TKT-2026-002",
+      "contractId": "6a2144c08fb07328a12dbae4",
+      "machineName": "LiuGong 856H (LM-445566)",
+      "breakdownType": "Electrical",
+      "severity": "Medium",
+      "description": "Alternator charging fault. Battery drains overnight.",
+      "location": "Ranchi Coal Mine A - Yard 1",
+      "hourReading": "1020",
+      "status": "Under Review",
+      "photos": [],
+      "currentStepIndex": 1,
+      "supervisorId": null,
+      "approvalHistory": [
+        {
+          "approverId": "6a2126e9533f281ebb663768",
+          "approverName": "Liugong OEM Admin",
+          "status": "Under Review",
+          "action": "Approved",
+          "notes": "Approved step",
+          "_id": "6a2403f6f1d2e75851fc961c",
+          "timestamp": "2026-06-06T11:26:46.701Z"
+        }
+      ],
+      "createdAt": "2026-06-04T09:26:24.757Z",
+      "updatedAt": "2026-06-06T11:26:46.707Z",
+      "__v": 1
+    }
+  ],
+  "payments": [
+    {
+      "_id": "6a3642f702621205c6c7b6d7",
+      "loanId": "6a34dee5f6aa5ca17a099c4d",
+      "amount": 794292,
+      "date": "2026-06-20T07:36:23.419Z",
+      "method": "Digital Settlement",
+      "transactionId": "TXN883650",
+      "uploadedBy": "6a2126e9533f281ebb663768",
+      "allocations": [
+        {
+          "installmentNo": 1,
+          "type": "Principal",
+          "amount": 794292,
+          "_id": "6a3642f702621205c6c7b6dc"
+        }
+      ],
+      "createdAt": "2026-06-20T07:36:23.777Z",
+      "updatedAt": "2026-06-20T07:36:23.777Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a3a73c13fca39053f50b0ba",
+      "loanId": "6a3a140ed7f736bd78a9f20d",
+      "amount": 248216,
+      "date": "2026-06-23T11:53:37.612Z",
+      "method": "Digital Settlement",
+      "transactionId": "TXN975107",
+      "uploadedBy": "6a327e92f100c6cb8a789de9",
+      "allocations": [
+        {
+          "installmentNo": 1,
+          "type": "Principal",
+          "amount": 248216,
+          "_id": "6a3a73c13fca39053f50b0c2"
+        }
+      ],
+      "createdAt": "2026-06-23T11:53:37.765Z",
+      "updatedAt": "2026-06-23T11:53:37.765Z",
+      "__v": 0
+    }
+  ],
+  "fmcinvoices": [
+    {
+      "_id": "6a2144c18fb07328a12dbaf9",
+      "invoiceNumber": "INV-FMC-2026-01",
+      "contractId": "6a2144c08fb07328a12dbae4",
+      "agreementNumber": "AGR-FMC-2026-001",
+      "customerName": "Mining Corp",
+      "billingMonth": "April 2026",
+      "totalHours": 220,
+      "billedHours": 220,
+      "hourlyRate": 1500,
+      "fixedCharge": 200000,
+      "usageCharge": 330000,
+      "partsCharge": 15000,
+      "laborCharge": 10000,
+      "gst": 99900,
+      "totalAmount": 654900,
+      "status": "Paid",
+      "paidAt": "2026-05-05T00:00:00.000Z",
+      "createdAt": "2026-06-04T09:26:25.449Z",
+      "updatedAt": "2026-06-04T09:26:25.449Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a2144c18fb07328a12dbafa",
+      "invoiceNumber": "INV-FMC-2026-02",
+      "contractId": "6a2144c08fb07328a12dbae4",
+      "agreementNumber": "AGR-FMC-2026-001",
+      "customerName": "Mining Corp",
+      "billingMonth": "May 2026",
+      "totalHours": 195,
+      "billedHours": 195,
+      "hourlyRate": 1500,
+      "fixedCharge": 200000,
+      "usageCharge": 292500,
+      "partsCharge": 0,
+      "laborCharge": 5000,
+      "gst": 89550,
+      "totalAmount": 587050,
+      "status": "Pending",
+      "createdAt": "2026-06-04T09:26:25.531Z",
+      "updatedAt": "2026-06-04T09:26:25.531Z",
+      "__v": 0
+    }
+  ],
+  "notificationtemplates": [
+    {
+      "_id": "6a21767001589f97a21c8d70",
+      "event": "customer_welcome",
+      "__v": 0,
+      "body": "Hello {{name}},\n\nThis is an automated message regarding New Customer Welcome.\n\nThank you,\nLiuGong Team {{name}} {{customId}} {{email}} {{username}} {{password}} {{loginUrl}}",
+      "channels": [
+        "email"
+      ],
+      "createdAt": "2026-06-04T12:58:24.944Z",
+      "enabled": true,
+      "name": "New Customer Welcome",
+      "subject": "Notification: New Customer Welcome",
+      "updatedAt": "2026-06-04T12:58:24.944Z",
+      "variables": []
+    },
+    {
+      "_id": "6a21767c01589f97a21c8d71",
+      "event": "emi_reminder",
+      "__v": 0,
+      "body": "Hello {{name}},\n\nThis is an automated message regarding Payment Reminder.\n\nThank you,\nLiuGong Team {{email}} {{customId}} {{name}}",
+      "channels": [
+        "email"
+      ],
+      "createdAt": "2026-06-04T12:58:36.761Z",
+      "enabled": true,
+      "name": "Payment Reminder",
+      "subject": "Notification: Payment Reminder",
+      "updatedAt": "2026-06-04T12:58:36.761Z",
+      "variables": []
+    }
+  ],
+  "systemconfigs": [
+    {
+      "_id": "6a211fe301637cc71ba022be",
+      "categories": [
+        "Wheeled",
+        "Crawler"
+      ],
+      "dieselTypes": [
+        "BS IV",
+        "BS V",
+        "BS VI"
+      ],
+      "evTypes": [
+        "Lithium-Ion",
+        "LFP",
+        "Hydrogen Cell"
+      ],
+      "transmissionTypes": [
+        "Manual",
+        "Automatic",
+        "Hydrostatic (HST)",
+        "Power Shift",
+        "CVT",
+        "Electric Drive"
+      ],
+      "attachmentTypes": [
+        "Bucket",
+        "Fork",
+        "Grapple"
+      ],
+      "numbering": {
+        "customer": {
+          "mode": "Auto",
+          "prefix": "CUST",
+          "nextNumber": 25
+        },
+        "employee": {
+          "mode": "Auto",
+          "prefix": "EMP",
+          "nextNumber": 9
+        },
+        "supervisor": {
+          "mode": "Auto",
+          "prefix": "SUP",
+          "nextNumber": 1
+        }
+      },
+      "security": {
+        "captcha": {
+          "onboardClient": false,
+          "authorizePersonnel": false,
+          "onboardSupervisor": false
+        }
+      },
+      "customerColumns": {
+        "name": true,
+        "customId": true,
+        "mobile": true,
+        "email": true,
+        "gst": true,
+        "pan": true,
+        "bankAcc": true,
+        "ifsc": true,
+        "status": true,
+        "type": true,
+        "city": true,
+        "pin": true,
+        "address": true,
+        "control": true
+      },
+      "employeeColumns": {
+        "name": true,
+        "customId": true,
+        "phone": true,
+        "email": true,
+        "role": true,
+        "status": true,
+        "control": true
+      },
+      "machineColumns": {
+        "identity": true,
+        "status": true,
+        "specs": true,
+        "valuation": true,
+        "dataSync": true,
+        "control": true
+      },
+      "notifications": {
+        "customer_welcome": true,
+        "employee_welcome": true,
+        "emi_reminder": true,
+        "overdue_alert": true,
+        "overdue_interval": 2
+      },
+      "smtp": {
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "user": "oem@liugong.com",
+        "pass": "admin123",
+        "from": "EMI Portal <no-reply@emiportal.com>",
+        "secure": false
+      },
+      "createdAt": "2026-06-04T06:49:07.739Z",
+      "updatedAt": "2026-06-22T07:31:07.317Z",
+      "__v": 0
+    }
+  ],
+  "categories": [
+    {
+      "_id": "6a23f17401589f97a21c98e9",
+      "cat_id": 1,
+      "__v": 0,
+      "cat_name": "EXCAVATOR",
+      "createdAt": "2026-06-06T10:07:48.216Z",
+      "rawData": {
+        "cat_id": 1,
+        "mf_id": 1,
+        "cat_cov": "CEV",
+        "cat_hsn": 84295200,
+        "cat_name": "EXCAVATOR",
+        "cat_descr": "Excavator",
+        "cat_image": null,
+        "cat_status": true,
+        "gst": 18,
+        "carbon_monoxide": 0,
+        "hydro_carbon": 0,
+        "nm_h_carbon": null,
+        "nox": 0,
+        "hc_nox": 0,
+        "thc_nox": 0,
+        "methane": 0,
+        "ammonia": 0,
+        "m_of_pMatter": 0,
+        "no_of_ptcs": 0,
+        "certificate_no": null,
+        "horn_level": "0",
+        "bystander_pos": "0",
+        "driver_ear_level": "0"
+      },
+      "updatedAt": "2026-06-06T11:58:18.427Z"
+    },
+    {
+      "_id": "6a23f17401589f97a21c98ea",
+      "cat_id": 2,
+      "__v": 0,
+      "cat_name": "WHEEL LOADER",
+      "createdAt": "2026-06-06T10:07:48.216Z",
+      "rawData": {
+        "cat_id": 2,
+        "mf_id": 1,
+        "cat_cov": "CEV",
+        "cat_hsn": 84295900,
+        "cat_name": "WHEEL LOADER",
+        "cat_descr": "Wheel Loader",
+        "cat_image": null,
+        "cat_status": true,
+        "gst": 18,
+        "carbon_monoxide": 0.016,
+        "hydro_carbon": 0,
+        "nm_h_carbon": null,
+        "nox": 0.145,
+        "hc_nox": 0,
+        "thc_nox": 0,
+        "methane": 0,
+        "ammonia": 0.6,
+        "m_of_pMatter": 0.0051,
+        "no_of_ptcs": 2.18,
+        "certificate_no": "AAQN0373",
+        "horn_level": "106.4",
+        "bystander_pos": "109",
+        "driver_ear_level": "75"
+      },
+      "updatedAt": "2026-06-06T11:58:18.427Z"
+    }
+  ],
+  "machines": [
+    {
+      "_id": "6a23f7f001589f97a21c996e",
+      "model": "BS IV",
+      "name": "818N",
+      "__v": 0,
+      "attachments": [],
+      "brand": "LiuGong",
+      "category": "WHEEL LOADER",
+      "createdAt": "2026-06-06T10:35:28.353Z",
+      "documents": [],
+      "images": [
+        "https://lipl.sods.app/uploads/2023/manufacturer/model/1/CLG 818N/machine_64df28e742a4b918920272.png"
+      ],
+      "img": "https://lipl.sods.app/uploads/2023/manufacturer/model/1/CLG 818N/machine_64df28e742a4b918920272.png",
+      "isFromAPI": true,
+      "machineId": "PROD-84",
+      "machineType": "WHEELED",
+      "pricing": {
+        "commissionA": 65000,
+        "commissionB": 30000,
+        "oemNetSaleValue": 2250000,
+        "serviceCommission": 58000,
+        "totalPrice": 2920000
+      },
+      "specs": {
+        "cylinders": "6",
+        "engineModel": "Kirloskar 4R1190NA1",
+        "fuelType": "Diesel",
+        "horsePower": "74 HP",
+        "unladenWeight": "5610",
+        "year": "2023"
+      },
+      "status": "Available",
+      "updatedAt": "2026-06-22T06:57:06.795Z",
+      "warranty": {
+        "standardHours": 2000,
+        "standardMonths": 12
+      }
+    },
+    {
+      "_id": "6a23f7f001589f97a21c996f",
+      "model": "BS IV",
+      "name": "836N",
+      "__v": 0,
+      "attachments": [],
+      "brand": "LiuGong",
+      "category": "WHEEL LOADER",
+      "createdAt": "2026-06-06T10:35:28.353Z",
+      "documents": [],
+      "images": [
+        "https://lipl.sods.app/uploads/2023/manufacturer/model/1/CLG 836N/machine_64c3aa4dd3ff516319979.png"
+      ],
+      "img": "https://lipl.sods.app/uploads/2023/manufacturer/model/1/CLG 836N/machine_64c3aa4dd3ff516319979.png",
+      "isFromAPI": true,
+      "machineId": "PROD-2",
+      "machineType": "WHEELED",
+      "pricing": {
+        "commissionA": 85000,
+        "commissionB": 30000,
+        "oemNetSaleValue": 3750000,
+        "serviceCommission": 80000,
+        "totalPrice": 4867000
+      },
+      "specs": {
+        "cylinders": "6",
+        "engineModel": "Ashok Leyland H6C416022",
+        "fuelType": "Diesel",
+        "horsePower": "160 HP",
+        "unladenWeight": "11660",
+        "year": "2025"
+      },
+      "status": "Available",
+      "updatedAt": "2026-06-22T06:57:06.795Z",
+      "warranty": {
+        "standardHours": 2000,
+        "standardMonths": 12
+      }
+    }
+  ],
+  "ticketstatuses": [
+    {
+      "_id": "6a2144c08fb07328a12dbae5",
+      "name": "Requested",
+      "color": "#3B82F6",
+      "description": "The ticket has been raised and is awaiting technical triage.",
+      "allowedUsers": [],
+      "createdAt": "2026-06-04T09:26:24.290Z",
+      "updatedAt": "2026-06-04T09:26:24.290Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a2144c08fb07328a12dbae6",
+      "name": "Under Review",
+      "color": "#F59E0B",
+      "description": "Undergoing OEM technical evaluation.",
+      "allowedUsers": [],
+      "createdAt": "2026-06-04T09:26:24.427Z",
+      "updatedAt": "2026-06-04T09:26:24.427Z",
+      "__v": 0
+    }
+  ],
+  "customers": [
+    {
+      "_id": "6a327e92f100c6cb8a789de8",
+      "name": " Silicon Traders",
+      "customId": "CUST0023",
+      "mobile": "9867395722",
+      "email": "silicontraders45@gmail.com",
+      "status": "Active",
+      "address": "",
+      "city": "",
+      "pin": "",
+      "gst": "27AEIFS0145Q1ZJ",
+      "pan": "",
+      "bankAcc": "",
+      "ifsc": "",
+      "type": "EMI",
+      "password": "u6ruYsbqLg",
+      "createdAt": "2026-06-17T11:01:38.022Z",
+      "updatedAt": "2026-06-17T11:01:38.022Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a38e4bb14221a9b165f172c",
+      "name": "dinesh1",
+      "customId": "CUST0024",
+      "mobile": "1234567890",
+      "email": "dinesh@mail.com",
+      "status": "Active",
+      "address": "corporate address",
+      "city": "bhilai",
+      "pin": "42235",
+      "gst": "gst1234in",
+      "pan": "pan1234",
+      "bankAcc": "123456789",
+      "ifsc": "ifsc12345",
+      "type": "FMC",
+      "password": "dine7890",
+      "createdAt": "2026-06-22T07:31:07.466Z",
+      "updatedAt": "2026-06-22T07:31:07.466Z",
+      "__v": 0
+    }
+  ],
+  "notificationlogs": [
+    {
+      "_id": "6a2176874b840e6b663ea2ea",
+      "event": "emi_reminder",
+      "channel": "email",
+      "recipient": "customer@test.com",
+      "status": "Failed",
+      "error": "SMTP configuration incomplete",
+      "metadata": {
+        "loanId": "6a216f824b840e6b663ea02a"
+      },
+      "retryCount": 0,
+      "createdAt": "2026-06-04T12:58:47.787Z",
+      "updatedAt": "2026-06-04T12:58:47.787Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a21768b4b840e6b663ea30f",
+      "event": "emi_reminder",
+      "channel": "email",
+      "recipient": "customer@test.com",
+      "status": "Failed",
+      "error": "SMTP configuration incomplete",
+      "metadata": {
+        "loanId": "6a216f824b840e6b663ea02a"
+      },
+      "retryCount": 0,
+      "createdAt": "2026-06-04T12:58:51.248Z",
+      "updatedAt": "2026-06-04T12:58:51.248Z",
+      "__v": 0
+    }
+  ],
+  "roles": [
+    {
+      "_id": "6a214107396d297997a0ce78",
+      "name": "Employee",
+      "permissions": {
+        "dashboard": {
+          "read": true
+        },
+        "customers": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "machines": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "financing": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "new_financing": {
+          "read": true,
+          "create": true
+        },
+        "financed_machines": {
+          "read": true,
+          "update": true
+        },
+        "financing_scheduling": {
+          "read": true,
+          "approve": true,
+          "update": false
+        },
+        "financing_invoicing": {
+          "read": true,
+          "approve": true,
+          "update": false
+        },
+        "settlements": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "employees": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "settings_parent": {
+          "read": true
+        },
+        "settings_general": {
+          "read": true,
+          "update": true
+        },
+        "settings_rbac": {
+          "read": true,
+          "update": true
+        },
+        "fmc": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "service_desk": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        }
+      },
+      "createdAt": "2026-06-04T09:10:31.974Z",
+      "updatedAt": "2026-06-19T07:10:53.661Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a214113396d297997a0ce79",
+      "name": "Manager",
+      "permissions": {
+        "dashboard": {
+          "read": true
+        },
+        "customers": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "machines": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "financing": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "new_financing": {
+          "read": true,
+          "create": true
+        },
+        "financed_machines": {
+          "read": true,
+          "update": true
+        },
+        "financing_scheduling": {
+          "read": true,
+          "approve": true,
+          "update": false
+        },
+        "financing_invoicing": {
+          "read": true,
+          "approve": true,
+          "update": false
+        },
+        "settlements": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "employees": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "settings_parent": {
+          "read": true
+        },
+        "settings_general": {
+          "read": true,
+          "update": true
+        },
+        "settings_rbac": {
+          "read": true,
+          "update": true
+        },
+        "fmc": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        },
+        "service_desk": {
+          "read": true,
+          "create": true,
+          "update": true,
+          "delete": true
+        }
+      },
+      "createdAt": "2026-06-04T09:10:43.179Z",
+      "updatedAt": "2026-06-08T12:46:30.778Z",
+      "__v": 0
+    }
+  ],
+  "dispatches": [
+    {
+      "_id": "6a267c7201589f97a21ca60c",
+      "serialNumber": "CLG2000ZKPT881321",
+      "__v": 0,
+      "createdAt": "2026-06-08T08:25:22.876Z",
+      "ddFile": "uploads/2023/manufacturer/34/13/13/DD/DD_13OFMLIPLSEP23.pdf",
+      "deliveryDate": null,
+      "dispatchDate": "2023-09-05T18:30:00.000000Z",
+      "dispatchId": 2,
+      "eWayBillFile": null,
+      "eWayBillNo": null,
+      "isDispatched": true,
+      "lrFile": "uploads/2023/manufacturer/1/13/18/LRDocument/LRDocument_650193c2ce94e257707564.pdf",
+      "lrNo": "NA",
+      "orderId": 18,
+      "updatedAt": "2026-06-10T11:35:33.247Z"
+    },
+    {
+      "_id": "6a27d49301589f97a21caea9",
+      "serialNumber": "CLG2000ZKPT88132",
+      "__v": 0,
+      "createdAt": "2026-06-09T08:53:39.353Z",
+      "ddFile": "uploads/2023/manufacturer/34/13/13/DD/DD_13OFMLIPLSEP23.pdf",
+      "deliveryDate": null,
+      "dispatchDate": "2023-09-05T18:30:00.000000Z",
+      "dispatchId": 2,
+      "eWayBillFile": null,
+      "eWayBillNo": null,
+      "isDispatched": true,
+      "lrFile": "uploads/2023/manufacturer/1/13/18/LRDocument/LRDocument_650193c2ce94e257707564.pdf",
+      "lrNo": "NA",
+      "orderId": 18,
+      "updatedAt": "2026-06-09T08:53:39.353Z"
+    }
+  ],
+  "fmccontracts": [],
+  "bulkuploadlogs": [
+    {
+      "_id": "6a27f3a939a20cc2e566a42c",
+      "fileName": "EMI_Settlement_Format_1781003134731.xlsx",
+      "uploadedBy": "6a2126e9533f281ebb663768",
+      "totalRecords": 1,
+      "successfulRecords": 1,
+      "failedRecords": 0,
+      "uploadErrors": [],
+      "uploadDate": "2026-06-09T11:06:17.535Z",
+      "createdAt": "2026-06-09T11:06:17.535Z",
+      "updatedAt": "2026-06-09T11:06:17.535Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a27f41c39a20cc2e566ae40",
+      "fileName": "EMI_Settlement_Format_1781003134731.xlsx",
+      "uploadedBy": "6a2126e9533f281ebb663768",
+      "totalRecords": 1,
+      "successfulRecords": 1,
+      "failedRecords": 0,
+      "uploadErrors": [],
+      "uploadDate": "2026-06-09T11:08:12.197Z",
+      "createdAt": "2026-06-09T11:08:12.198Z",
+      "updatedAt": "2026-06-09T11:08:12.198Z",
+      "__v": 0
+    }
+  ]
+}

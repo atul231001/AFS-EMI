@@ -5,25 +5,21 @@ import { saveAs } from 'file-saver';
 
 import { state } from "../../state";
 
-import MachineReport from "./pages/MachineReport";
-import CustomerReport from "./pages/CustomerReport";
-import SalesReport from "./pages/SalesReport";
-import RentalReport from "./pages/RentalReport";
-import ContractReport from "./pages/ContractReport";
-import EMIPaymentReport from "./pages/EMIPaymentReport";
 import AllDataReport from "./pages/AllDataReport";
+import EMILoanPaymentReport from "./pages/EMILoanPaymentReport";
+import FMCInvoiceReport from "./pages/FMCInvoiceReport";
+import ServiceDeskReport from "./pages/ServiceDeskReport";
+import CustomerPaymentSummaryReport from "./pages/CustomerPaymentSummaryReport";
 import FilterSidebar from "./Filters/FilterSidebar";
 
 const ReportCenter = () => {
   const [activeReport, setActiveReport] = useState("All Reports");
   const reportTypes = [
     "All Reports",
-    "Machine Reports",
-    "Customer Reports",
-    "Sales Reports",
-    "Rental Reports",
-    "Contract Reports",
-    "EMI & Payment Reports",
+    "EMI Loan & Payment Report",
+    "FMC Contract & Invoice Report",
+    "Service Desk Report",
+    "Customer Payment Summary"
   ];
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -68,7 +64,16 @@ const ReportCenter = () => {
     return () => unsubscribe();
   }, []);
 
-  const { customers = [], loans = [], payments = [], machines = [] } = appData || {};
+  const { 
+    customers = [], 
+    loans = [], 
+    payments = [], 
+    machines = [],
+    fmcContracts = [],
+    fmcTickets = [],
+    fmcInvoices = [],
+    employees = []
+  } = appData || {};
 
   // Drag to scroll logic shared across tables (Optimized with useRef to prevent heavy re-renders)
   const scrollContainerRef = useRef(null);
@@ -117,31 +122,25 @@ const ReportCenter = () => {
     handleMouseMove
   };
 
-  const machineReportRef = useRef(null);
-  const customerReportRef = useRef(null);
-  const salesReportRef = useRef(null);
-  const rentalReportRef = useRef(null);
-  const contractReportRef = useRef(null);
-  const emiPaymentReportRef = useRef(null);
   const allDataReportRef = useRef(null);
+  const emiLoanPaymentReportRef = useRef(null);
+  const fmcInvoiceReportRef = useRef(null);
+  const serviceDeskReportRef = useRef(null);
+  const customerPaymentSummaryReportRef = useRef(null);
 
   const handleExportCSV = async () => {
     let result = null;
 
     if (activeReport === "All Reports" && allDataReportRef.current) {
       result = allDataReportRef.current.exportCSV();
-    } else if (activeReport === "Machine Reports" && machineReportRef.current) {
-      result = machineReportRef.current.exportCSV();
-    } else if (activeReport === "Customer Reports" && customerReportRef.current) {
-      result = customerReportRef.current.exportCSV();
-    } else if (activeReport === "Sales Reports" && salesReportRef.current) {
-      result = salesReportRef.current.exportCSV();
-    } else if (activeReport === "Rental Reports" && rentalReportRef.current) {
-      result = rentalReportRef.current.exportCSV();
-    } else if (activeReport === "Contract Reports" && contractReportRef.current) {
-      result = contractReportRef.current.exportCSV();
-    } else if (activeReport === "EMI & Payment Reports" && emiPaymentReportRef.current) {
-      result = emiPaymentReportRef.current.exportCSV();
+    } else if (activeReport === "EMI Loan & Payment Report" && emiLoanPaymentReportRef.current) {
+      result = emiLoanPaymentReportRef.current.exportCSV();
+    } else if (activeReport === "FMC Contract & Invoice Report" && fmcInvoiceReportRef.current) {
+      result = fmcInvoiceReportRef.current.exportCSV();
+    } else if (activeReport === "Service Desk Report" && serviceDeskReportRef.current) {
+      result = serviceDeskReportRef.current.exportCSV();
+    } else if (activeReport === "Customer Payment Summary" && customerPaymentSummaryReportRef.current) {
+      result = customerPaymentSummaryReportRef.current.exportCSV();
     }
 
     if (result) {
@@ -157,7 +156,15 @@ const ReportCenter = () => {
         
         if (result.merges) {
           result.merges.forEach(m => {
-            sheet.mergeCells(m[0], m[1], m[2], m[3]);
+            if (Array.isArray(m)) {
+              sheet.mergeCells(m[0], m[1], m[2], m[3]);
+            } else {
+              sheet.mergeCells(m.range[0], m.range[1], m.range[2], m.range[3]);
+              if (m.color) {
+                const cell = sheet.getCell(m.range[0], m.range[1]);
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: m.color } };
+              }
+            }
           });
         }
       }
@@ -200,54 +207,30 @@ const ReportCenter = () => {
 
   const handlePresetClick = (preset) => {
     switch (preset) {
-      case "Active Rentals":
-        setActiveReport("Rental Reports");
-        setTimeout(() => {
-          if (rentalReportRef.current) {
-            rentalReportRef.current.setFilters({
-              type: "All Types",
-              customer: "All Customers",
-              machine: "All Machines",
-              status: "Active",
-              location: "All Locations",
-              operator: "All Operators",
-              startDate: "All Dates",
-              endDate: "All Dates"
-            });
-            rentalReportRef.current.setSearch("");
-          }
-        }, 0);
-        break;
       case "Overdue EMIs":
-        setActiveReport("EMI & Payment Reports");
+        setActiveReport("EMI Loan & Payment Report");
         setTimeout(() => {
-          if (emiPaymentReportRef.current) {
-            emiPaymentReportRef.current.setFilters({
-              customer: "All Customers",
-              machine: "All Machines",
-              status: "Overdue",
-              dueDate: "All Dates",
-              paymentMethod: "All Methods",
-              provider: "All Providers",
-            });
-            emiPaymentReportRef.current.setSearch("");
+          if (emiLoanPaymentReportRef.current) {
+            emiLoanPaymentReportRef.current.setFilters({ status: "All Statuses" }); // Assuming we might add an overdue filter later
+            emiLoanPaymentReportRef.current.setSearch("");
           }
         }, 0);
         break;
-      case "Expiring Contracts":
-        setActiveReport("Contract Reports");
+      case "Pending Invoices":
+        setActiveReport("FMC Contract & Invoice Report");
         setTimeout(() => {
-          if (contractReportRef.current) {
-            contractReportRef.current.setFilters({
-              type: "All Types",
-              customer: "All Customers",
-              projectName: "All Projects",
-              status: "Active",
-              location: "All Locations",
-              startDate: "All Dates",
-              endDate: "All Dates"
-            });
-            contractReportRef.current.setSearch("");
+          if (fmcInvoiceReportRef.current) {
+            fmcInvoiceReportRef.current.setFilters({ status: "Pending" });
+            fmcInvoiceReportRef.current.setSearch("");
+          }
+        }, 0);
+        break;
+      case "High Severity Tickets":
+        setActiveReport("Service Desk Report");
+        setTimeout(() => {
+          if (serviceDeskReportRef.current) {
+            serviceDeskReportRef.current.setFilters({ status: "All Statuses", severity: "High" });
+            serviceDeskReportRef.current.setSearch("");
           }
         }, 0);
         break;
@@ -293,15 +276,18 @@ const ReportCenter = () => {
               key={type}
               onClick={() => {
                 if (activeReport === type) {
-                  if (type === "Rental Reports" && rentalReportRef.current && rentalReportRef.current.setFilters) {
-                    rentalReportRef.current.setFilters({ type: "All Types", customer: "All Customers", machine: "All Machines", status: "All Statuses", location: "All Locations", operator: "All Operators", startDate: "All Dates", endDate: "All Dates" });
-                    rentalReportRef.current.setSearch("");
-                  } else if (type === "EMI & Payment Reports" && emiPaymentReportRef.current && emiPaymentReportRef.current.setFilters) {
-                    emiPaymentReportRef.current.setFilters({ customer: "All Customers", machine: "All Machines", status: "All Statuses", dueDate: "All Dates", paymentMethod: "All Methods", provider: "All Providers" });
-                    emiPaymentReportRef.current.setSearch("");
-                  } else if (type === "Contract Reports" && contractReportRef.current && contractReportRef.current.setFilters) {
-                    contractReportRef.current.setFilters({ type: "All Types", customer: "All Customers", projectName: "All Projects", status: "All Statuses", location: "All Locations", startDate: "All Dates", endDate: "All Dates" });
-                    contractReportRef.current.setSearch("");
+                  if (type === "EMI Loan & Payment Report" && emiLoanPaymentReportRef.current) {
+                    emiLoanPaymentReportRef.current.setFilters({ status: "All Statuses" });
+                    emiLoanPaymentReportRef.current.setSearch("");
+                  } else if (type === "FMC Contract & Invoice Report" && fmcInvoiceReportRef.current) {
+                    fmcInvoiceReportRef.current.setFilters({ status: "All Statuses" });
+                    fmcInvoiceReportRef.current.setSearch("");
+                  } else if (type === "Service Desk Report" && serviceDeskReportRef.current) {
+                    serviceDeskReportRef.current.setFilters({ status: "All Statuses", severity: "All Severities" });
+                    serviceDeskReportRef.current.setSearch("");
+                  } else if (type === "Customer Payment Summary" && customerPaymentSummaryReportRef.current) {
+                    customerPaymentSummaryReportRef.current.setFilters({ paymentType: "All Types" });
+                    customerPaymentSummaryReportRef.current.setSearch("");
                   }
                 } else {
                   setActiveReport(type);
@@ -319,7 +305,7 @@ const ReportCenter = () => {
 
         {/* Preset chips */}
         <span className="text-[9px] font-black text-text-dim uppercase tracking-widest shrink-0">Presets:</span>
-        {["Active Rentals", "Overdue EMIs", "Expiring Contracts"].map((chip) => (
+        {["Overdue EMIs", "Pending Invoices", "High Severity Tickets"].map((chip) => (
           <button
             key={chip}
             onClick={() => handlePresetClick(chip)}
@@ -334,13 +320,11 @@ const ReportCenter = () => {
       </div>
 
       <div className="flex-1 flex flex-col min-h-0 min-w-0 h-full">
-        {activeReport === "All Reports" && <AllDataReport ref={allDataReportRef} customers={customers} machines={machines} loans={loans} payments={payments} globalFilters={globalFilters} {...dragHandlers} />}
-        {activeReport === "Machine Reports" && <MachineReport ref={machineReportRef} machines={machines} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
-        {activeReport === "Customer Reports" && <CustomerReport ref={customerReportRef} customers={customers} loans={loans} payments={payments} globalFilters={globalFilters} {...dragHandlers} />}
-        {activeReport === "Sales Reports" && <SalesReport ref={salesReportRef} customers={customers} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
-        {activeReport === "Rental Reports" && <RentalReport ref={rentalReportRef} customers={customers} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
-        {activeReport === "Contract Reports" && <ContractReport ref={contractReportRef} customers={customers} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
-        {activeReport === "EMI & Payment Reports" && <EMIPaymentReport ref={emiPaymentReportRef} customers={customers} loans={loans} payments={payments} globalFilters={globalFilters} {...dragHandlers} />}
+        {activeReport === "All Reports" && <AllDataReport ref={allDataReportRef} customers={customers} machines={machines} loans={loans} payments={payments} fmcInvoices={fmcInvoices} fmcContracts={fmcContracts} fmcTickets={fmcTickets} employees={employees} globalFilters={globalFilters} {...dragHandlers} />}
+        {activeReport === "EMI Loan & Payment Report" && <EMILoanPaymentReport ref={emiLoanPaymentReportRef} customers={customers} machines={machines} loans={loans} payments={payments} globalFilters={globalFilters} {...dragHandlers} />}
+        {activeReport === "FMC Contract & Invoice Report" && <FMCInvoiceReport ref={fmcInvoiceReportRef} fmcInvoices={fmcInvoices} fmcContracts={fmcContracts} customers={customers} globalFilters={globalFilters} {...dragHandlers} />}
+        {activeReport === "Service Desk Report" && <ServiceDeskReport ref={serviceDeskReportRef} fmcTickets={fmcTickets} employees={employees} globalFilters={globalFilters} {...dragHandlers} />}
+        {activeReport === "Customer Payment Summary" && <CustomerPaymentSummaryReport ref={customerPaymentSummaryReportRef} customers={customers} loans={loans} payments={payments} fmcInvoices={fmcInvoices} globalFilters={globalFilters} {...dragHandlers} />}
       </div>
     </div>
   );
