@@ -57,34 +57,47 @@ export const getMachines = async (req, res) => {
 
       const total = await Machine.countDocuments(filter);
 
+
+
       return res.json({
         success: true,
         statusCode: 200,
         message: "Data retrieved successfully",
         data: machines,
-        pagination: {
-          totalRecords: total,
-          currentPage: pageNumber,
-          perPage: limitNumber,
-          totalPages: Math.ceil(total / limitNumber),
-          hasNextPage: pageNumber < Math.ceil(total / limitNumber),
-          hasPreviousPage: pageNumber > 1,
-          nextPage:
-            pageNumber < Math.ceil(total / limitNumber)
-              ? pageNumber + 1
-              : null,
-          previousPage:
-            pageNumber > 1
-              ? pageNumber - 1
-              : null,
-        },
-        filters: {
-          category: category || null,
-          search: search || null,
-          minPrice: minPrice || null,
-          maxPrice: maxPrice || null,
-        },
+        total: machines.length,
+        page: 1,
+        totalPages: Math.ceil(machines.length / 10),
       });
+
+
+      // return res.json({
+      //   success: true,
+      //   statusCode: 200,
+      //   message: "Data retrieved successfully",
+      //   data: machines,
+      //   pagination: {
+      //     totalRecords: total,
+      //     currentPage: pageNumber,
+      //     perPage: limitNumber,
+      //     totalPages: Math.ceil(total / limitNumber),
+      //     hasNextPage: pageNumber < Math.ceil(total / limitNumber),
+      //     hasPreviousPage: pageNumber > 1,
+      //     nextPage:
+      //       pageNumber < Math.ceil(total / limitNumber)
+      //         ? pageNumber + 1
+      //         : null,
+      //     previousPage:
+      //       pageNumber > 1
+      //         ? pageNumber - 1
+      //         : null,
+      //   },
+      //   filters: {
+      //     category: category || null,
+      //     search: search || null,
+      //     minPrice: minPrice || null,
+      //     maxPrice: maxPrice || null,
+      //   },
+      // });
     }
 
     // Non-paginated response
