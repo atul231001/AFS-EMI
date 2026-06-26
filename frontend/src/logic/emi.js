@@ -69,9 +69,15 @@ export const generateSchedule = (principal, annualRate, years, type = 'reducing'
   const remainingPrincipal = principal - downPayment;
   if (remainingPrincipal > 0) {
     let remainingBalance = remainingPrincipal;
-    const emi = type === 'reducing' 
-      ? calculateReducingEMI(remainingPrincipal, annualRate, years)
-      : calculateFlatEMI(remainingPrincipal, annualRate, years);
+    
+    let emi;
+    if (type === 'flat_upfront') {
+      emi = Math.round(remainingPrincipal / emiMonths);
+    } else if (type === 'reducing') {
+      emi = calculateReducingEMI(remainingPrincipal, annualRate, years);
+    } else {
+      emi = calculateFlatEMI(remainingPrincipal, annualRate, years);
+    }
 
     const monthlyRate = annualRate / 12 / 100;
 
@@ -81,6 +87,9 @@ export const generateSchedule = (principal, annualRate, years, type = 'reducing'
       if (type === 'reducing') {
         interestPayment = Math.round(remainingBalance * monthlyRate);
         principalPayment = emi - interestPayment;
+      } else if (type === 'flat_upfront') {
+        interestPayment = 0;
+        principalPayment = emi;
       } else {
         interestPayment = Math.round((remainingPrincipal * (annualRate / 100) * years) / emiMonths);
         principalPayment = emi - interestPayment;

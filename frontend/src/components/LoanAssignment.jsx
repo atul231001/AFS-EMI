@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { state } from '../state';
-import { showNotification, calculateFinanceNorms, formatINR, hasPermission } from '../utils';
+import { showNotification, calculateFinanceNorms, calculateUpfrontFinancing, formatINR, hasPermission } from '../utils';
 import {
   LayoutGrid,
   List,
@@ -383,8 +383,9 @@ const NewAssignment = ({ machines, customers, user }) => {
 
   const manualChargesTotal = formData.manualCharges.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
   const finalPrice = Math.max(0, formData.machinePrice - formData.discountAmount);
-  const P = Math.max(0, (finalPrice - (parseFloat(formData.downPayment) || 0)) + attachmentTotal + manualChargesTotal);
-  const norms = calculateFinanceNorms(P, parseFloat(formData.interestRate) || 0, parseInt(formData.tenure) || 0);
+  const baseMachinePrice = Math.max(0, finalPrice + attachmentTotal + manualChargesTotal);
+  const norms = calculateUpfrontFinancing(baseMachinePrice, parseFloat(formData.interestRate) || 0, parseInt(formData.tenure) || 0, parseFloat(formData.downPayment) || 0);
+  const P = norms.financedAmount;
 
   const calculateEndDate = () => {
     if (!formData.emiStartDate || !formData.tenure) return 'N/A';
@@ -395,10 +396,10 @@ const NewAssignment = ({ machines, customers, user }) => {
 
   // Generate Schedule on the fly for display
   const schedule = generateSchedule(
-    P + (parseFloat(formData.downPayment) || 0), // generateSchedule expects full principal
+    norms.invoiceValue || 0, // generateSchedule uses principal - downPayment = financedAmount
     parseFloat(formData.interestRate) || 0,
-    (parseInt(formData.tenure) || 0) / 12, // logic/emi expects years, wait, tenure is in months here? "Tenure (Months)"
-    'reducing',
+    (parseInt(formData.tenure) || 0) / 12, // logic/emi expects years
+    'flat_upfront',
     formData.emiStartDate ? new Date(formData.emiStartDate) : new Date(),
     parseFloat(formData.downPayment) || 0,
     parseInt(formData.downPaymentInstallments) || 0
@@ -798,10 +799,27 @@ const NewAssignment = ({ machines, customers, user }) => {
         </h2>
 
         {/* STATS STRIP */}
-        <div className="grid grid-cols-3 gap-4 shrink-0">
-          <StatCard label="Total Interest" value={formatINR(norms.totalInterest)} icon={TrendingUp} />
-          <StatCard label="Total Repayment" value={formatINR(norms.totalPayable)} icon={History} />
-          <StatCard label="Monthly EMI" value={formatINR(norms.emi)} icon={Calculator} accent />
+        <div className="grid grid-cols-2 gap-4 shrink-0">
+          <div className="p-4 rounded-xl border border-border-main bg-bg-card space-y-2">
+            <h3 className="text-[10px] font-bold text-text-dim uppercase tracking-widest border-b border-border-main pb-2">Value Breakdown</h3>
+            <div className="flex justify-between text-[10px]"><span className="text-text-dim">1. Machine Price</span><span className="font-mono text-text-main">{formatINR(norms.machinePrice)}</span></div>
+            <div className="flex justify-between text-[10px]"><span className="text-text-dim">2. Interest (Capitalized) @{norms.r}%</span><span className="font-mono text-[#f0883e]">{formatINR(norms.interestAmount)}</span></div>
+            <div className="flex justify-between text-[10px] font-bold pt-1"><span className="text-text-main">3. Sale Price</span><span className="font-mono text-text-main">{formatINR(norms.salePrice)}</span></div>
+            <div className="flex justify-between text-[10px]"><span className="text-text-dim">4. GST @18%</span><span className="font-mono text-text-main">{formatINR(norms.gst)}</span></div>
+            <div className="flex justify-between text-[10px] font-bold pt-1"><span className="text-text-main">5. Sale Value</span><span className="font-mono text-text-main">{formatINR(norms.saleValue)}</span></div>
+            <div className="flex justify-between text-[10px]"><span className="text-text-dim">6. TCS @0.1%</span><span className="font-mono text-text-main">{formatINR(norms.tcs)}</span></div>
+            <div className="flex justify-between text-[10px] font-black pt-1 border-t border-border-main mt-1 pt-2"><span className="text-text-main">7. Invoice Value</span><span className="font-mono text-text-main">{formatINR(norms.invoiceValue)}</span></div>
+          </div>
+          <div className="p-4 rounded-xl border border-border-main bg-bg-card space-y-2 flex flex-col">
+            <h3 className="text-[10px] font-bold text-text-dim uppercase tracking-widest border-b border-border-main pb-2">Financing Details</h3>
+            <div className="flex justify-between text-[10px]"><span className="text-text-dim">8. Margin Money</span><span className="font-mono text-text-main">{formatINR(norms.marginMoney)}</span></div>
+            <div className="flex justify-between text-[10px] font-black pt-1 border-t border-border-main mt-1 pt-2"><span className="text-[#f0883e]">9. Financed Amount</span><span className="font-mono text-[#f0883e]">{formatINR(norms.financedAmount)}</span></div>
+            <div className="flex-1"></div>
+            <div className="bg-bg-deep p-3 rounded-lg border border-border-main">
+               <p className="text-[8px] font-bold text-text-dim uppercase tracking-widest mb-1">10. Monthly EMI</p>
+               <p className="text-2xl font-mono font-black text-text-main">{formatINR(norms.emi)} <span className="text-[10px] font-normal text-text-dim tracking-normal">x {norms.n}</span></p>
+            </div>
+          </div>
         </div>
 
         {/* REPAYMENT SCHEDULE TABLE */}

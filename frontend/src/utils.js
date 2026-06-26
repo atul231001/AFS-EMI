@@ -70,6 +70,75 @@ export const calculateFinanceNorms = (principal, annualRate, tenureMonths) => {
 };
 
 /**
+ * Custom Upfront Flat-Rate Financing with GST & TCS
+ * This exactly matches the customer's Excel structure.
+ */
+export const calculateUpfrontFinancing = (machinePrice, interestRate, tenureMonths, downPayment) => {
+  if (machinePrice <= 0 || tenureMonths <= 0) {
+    return {
+      machinePrice: 0,
+      interestAmount: 0,
+      salePrice: 0,
+      gst: 0,
+      saleValue: 0,
+      tcs: 0,
+      invoiceValue: 0,
+      marginMoney: 0,
+      financedAmount: 0,
+      emi: 0,
+      n: tenureMonths,
+      r: interestRate
+    };
+  }
+
+  // Calculate Base Financed Amount (assuming 0 interest)
+  const gstRate = 0.18;
+  const tcsRate = 0.001;
+
+  // Invoice without interest = Machine * 1.18 * 1.001
+  const baseGst = Math.round(machinePrice * gstRate * 100) / 100;
+  const baseSaleValue = machinePrice + baseGst;
+  const baseTcs = Math.round(baseSaleValue * tcsRate * 100) / 100;
+  const baseInvoiceValue = baseSaleValue + baseTcs;
+
+  // Rounding exactly like they did or approximate
+  const baseFinancedAmount = Math.max(0, Math.round(baseInvoiceValue) - downPayment);
+
+  // Calculate equivalent Reducing Balance Interest on the Base Financed Amount
+  const rMonthly = (interestRate / 12) / 100;
+  let interestAmount = 0;
+  if (baseFinancedAmount > 0 && interestRate > 0) {
+    const baseEmi = Math.round((baseFinancedAmount * rMonthly * Math.pow(1 + rMonthly, tenureMonths)) / (Math.pow(1 + rMonthly, tenureMonths) - 1));
+    interestAmount = (baseEmi * tenureMonths) - baseFinancedAmount;
+  }
+
+  // Recalculate everything with Capitalized Interest
+  const salePrice = Math.round(machinePrice + interestAmount);
+  const gst = Math.round(salePrice * gstRate);
+  const saleValue = salePrice + gst;
+  const tcs = Math.round(saleValue * tcsRate);
+  const invoiceValue = saleValue + tcs;
+
+  const financedAmount = Math.max(0, invoiceValue - downPayment);
+  const finalEmi = Math.round(financedAmount / tenureMonths);
+
+  return {
+    machinePrice: Math.round(machinePrice),
+    interestAmount: Math.round(interestAmount),
+    salePrice,
+    gst,
+    saleValue,
+    tcs,
+    invoiceValue,
+    marginMoney: downPayment,
+    financedAmount,
+    emi: finalEmi,
+    n: tenureMonths,
+    r: interestRate
+  };
+};
+
+/**
  * Format Currency to INR
  */
 export const formatINR = (amount) => {
@@ -89,7 +158,7 @@ export const hasPermission = (user, module, action = 'read') => {
   // RBAC Split: Customer Side vs OEM Side vs Supervisor Side
   if (user.role === 'CUSTOMER') {
     // Customers have NO RBAC matrix. They have hardcoded protocol access.
-    const customerModules = ['dashboard', 'machines', 'settlements', 'loan-details', 'settings', 'fmc'];
+    const customerModules = ['dashboard', 'machines', 'settlements', 'loan-details', 'settings', 'fmc', 'financing'];
     if (action !== 'read') return false; // Customers are read-only for system nodes
     return customerModules.includes(module);
   }

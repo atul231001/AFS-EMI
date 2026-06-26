@@ -10,15 +10,7 @@ export const getCustomers = async (req, res) => {
       filter._id = req.user.customerId || null;
     }
     const customers = await Customer.find(filter).sort({ createdAt: -1 });
-    res.json(
-      {
-        success: true,
-        statusCode: 200,
-        message: "Data retrieved successfully",
-        data: { customers },
-        error: null
-      }
-    );
+    res.json(customers);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
