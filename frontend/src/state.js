@@ -1,7 +1,6 @@
 // src/state.js
 
-const BASE_URL = import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://afs-emi.onrender.com/api';
-// const BASE_URL = 'https://afs-emi.vercel.app/api';
+const BASE_URL = import.meta.env.DEV ? 'http://localhost:5000/api' : (import.meta.env.VITE_API_URL || 'https://afs-emi.vercel.app/api');
 import { lightenDarkenColor } from './utils';
 
 const INITIAL_STATE = {
@@ -236,7 +235,7 @@ class State {
 
       this.setState({
         customers,
-        machines: [], // Machines are no longer fetched globally on load
+        machines: this.data.machines || [], // Preserve machines if already fetched
         loans,
         payments,
         employees,
@@ -283,9 +282,20 @@ class State {
 
   setState(newData) {
     // Sanitize collections to prevent "Unknown" ghosts
-    if (newData.customers) newData.customers = newData.customers.filter(Boolean);
-    if (newData.employees) newData.employees = newData.employees.filter(Boolean);
-    if (newData.machines) newData.machines = newData.machines.filter(Boolean);
+    const sanitize = (val, key) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val.filter(Boolean);
+      if (val[key] && Array.isArray(val[key])) return val[key].filter(Boolean);
+      if (val.data && Array.isArray(val.data)) return val.data.filter(Boolean);
+      if (val.data && val.data[key] && Array.isArray(val.data[key])) return val.data[key].filter(Boolean);
+      return [];
+    };
+
+    if ('customers' in newData) newData.customers = sanitize(newData.customers, 'customers');
+    if ('employees' in newData) newData.employees = sanitize(newData.employees, 'employees');
+    if ('machines' in newData) newData.machines = sanitize(newData.machines, 'machines');
+    if ('loans' in newData) newData.loans = sanitize(newData.loans, 'loans');
+    if ('payments' in newData) newData.payments = sanitize(newData.payments, 'payments');
 
     if (newData.view && newData.view !== this.data.view && !newData._isBackNavigation) {
       const history = this.data.viewHistory || [];

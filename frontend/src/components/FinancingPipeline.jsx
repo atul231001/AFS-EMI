@@ -400,8 +400,8 @@ const FinancingFormModal = ({ loan, onClose }) => {
             </div>
           </div>
 
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0 overflow-hidden">
-            <div className="lg:col-span-3 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 min-h-0 order-1">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0 overflow-y-auto custom-scrollbar items-start pr-2 pb-8">
+            <div className="lg:col-span-3 flex flex-col gap-6 order-1">
               <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-xl flex flex-col shrink-0">
                 <img src={getMachineImage(machine)} alt={loan.machineName} className="w-full h-32 object-cover border-b border-border-main" />
                 <div className="p-3 space-y-3 bg-bg-deep">
@@ -426,7 +426,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
               </div>
             </div>
 
-            <div className="lg:col-span-6 min-h-0 flex flex-col bg-bg-card border border-border-main rounded-2xl shadow-xl overflow-hidden order-2">
+            <div className="lg:col-span-6 flex flex-col bg-bg-card border border-border-main rounded-2xl shadow-xl overflow-hidden order-2">
               <div className="bg-bg-active border-b border-border-main p-4 flex justify-between items-center shrink-0">
                 <div className="flex gap-2">
                   <button onClick={() => setViewTab('data')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewTab === 'data' ? 'bg-[#f0883e] text-black shadow-lg shadow-[#f0883e]/20' : 'bg-bg-deep text-text-dim border border-border-main hover:text-text-main hover:border-[#f0883e]/50'}`}>Remaining Data</button>
@@ -434,7 +434,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                 </div>
                 {viewTab === 'schedule' && <span className="text-primary font-black text-[10px] uppercase">{loan.schedule?.length || 0} Installments</span>}
               </div>
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div>
                 {viewTab === 'data' ? (
                   <div className="flex flex-col gap-6 p-6">
                     <div className="grid grid-cols-2 gap-4">
@@ -601,7 +601,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
               </div>
             </div>
 
-            <div className="lg:col-span-3 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 min-h-0 order-3">
+            <div className="lg:col-span-3 flex flex-col gap-6 order-3">
               {viewStage === 1 && activeFlow && (
                 <div className="border border-border-main rounded-2xl overflow-hidden animate-fade-in shadow-xl bg-bg-deep">
                   <div className="bg-bg-card p-4 border-b border-border-main">
@@ -714,9 +714,10 @@ const FinancingFormModal = ({ loan, onClose }) => {
                               <button
                                 onClick={handleUploadAgreement}
                                 disabled={!selectedFile}
-                                className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${selectedFile ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20' : 'bg-bg-active text-text-dim cursor-not-allowed border border-border-main'}`}
+                                className={`w-full py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${selectedFile ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20' : 'bg-bg-active text-text-dim cursor-not-allowed border border-border-main'}`}
                               >
-                                <CheckCircle size={16} /> Upload & Confirm Agreement
+                                <CheckCircle size={16} className="shrink-0" />
+                                <span className="truncate">Upload Agreement</span>
                               </button>
                             </div>
                           </div>
@@ -741,20 +742,20 @@ const FinancingFormModal = ({ loan, onClose }) => {
                         <div className="flex flex-col gap-4 ">
                           <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-bold text-text-dim uppercase tracking-wider">Invoice / Serial Number</label>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 items-stretch">
                               <input
                                 type="text"
                                 value={invoiceNumberInput}
                                 onChange={(e) => setInvoiceNumberInput(e.target.value)}
-                                placeholder="Enter Invoice Number"
-                                className="flex-1 bg-bg-card border border-border-main rounded-xl px-4 py-2.5 text-xs text-text-main font-bold focus:border-[#f0883e] outline-none"
+                                placeholder="Enter Invoice No."
+                                className="flex-1 min-w-0 bg-bg-card border border-border-main rounded-xl px-3 py-3 text-[11px] text-text-main font-bold focus:border-[#f0883e] outline-none"
                               />
                               <button
                                 onClick={handleSearchInvoice}
                                 disabled={!invoiceNumberInput.trim() || invoiceSearchLoading}
-                                className="px-4 py-2.5 bg-bg-active hover:bg-bg-card border border-border-main rounded-xl text-[10px] font-black uppercase tracking-widest text-text-main transition-all disabled:opacity-50"
+                                className="px-4 py-3 bg-bg-active hover:bg-bg-card border border-border-main rounded-xl text-[10px] font-black uppercase tracking-widest text-text-main transition-all disabled:opacity-50 shrink-0 flex items-center justify-center"
                               >
-                                {invoiceSearchLoading ? 'Searching...' : 'Search'}
+                                {invoiceSearchLoading ? '...' : 'Search'}
                               </button>
                             </div>
                           </div>
@@ -823,9 +824,10 @@ const FinancingFormModal = ({ loan, onClose }) => {
                           <button
                             onClick={handleApproveInvoice}
                             disabled={!invoiceData}
-                            className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${invoiceData ? 'bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20' : 'bg-bg-active text-text-dim cursor-not-allowed border border-border-main'}`}
+                            className={`w-full py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${invoiceData ? 'bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20' : 'bg-bg-active text-text-dim cursor-not-allowed border border-border-main'}`}
                           >
-                            <FileText size={16} /> Confirm & Approve Invoice
+                            <FileText size={16} className="shrink-0" />
+                            <span className="truncate">Confirm Invoice</span>
                           </button>
                         </div>
                       ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Invoice</p></div></div>}
@@ -891,8 +893,9 @@ const FinancingFormModal = ({ loan, onClose }) => {
                                 <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Enter Serial Number</p>
                                 <input type="text" placeholder="e.g., CLG2000ZKPT881321" value={dispatchSerialNo} onChange={e => setDispatchSerialNo(e.target.value)} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none placeholder-text-dim" />
                               </div>
-                              <button onClick={() => handleDispatch(false)} className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
-                                <Truck size={16} /> Check Dispatch
+                              <button onClick={() => handleDispatch(false)} className="w-full py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
+                                <Truck size={16} className="shrink-0" />
+                                <span className="truncate">Check Dispatch</span>
                               </button>
                             </>
                           )}
@@ -922,8 +925,9 @@ const FinancingFormModal = ({ loan, onClose }) => {
                             <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Select Commission Date</p>
                             <input type="date" value={commissionDate} onChange={e => setCommissionDate(e.target.value)} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none" />
                           </div>
-                          <button onClick={handleCommissionSubmit} className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
-                            <CheckCircle size={16} /> Confirm Commissioning
+                          <button onClick={handleCommissionSubmit} className="w-full py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
+                            <CheckCircle size={16} className="shrink-0" />
+                            <span className="truncate">Confirm Commission</span>
                           </button>
                         </div>
                       ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Commission (Last Approver Required)</p></div></div>}
@@ -1080,7 +1084,7 @@ const FinancingPipeline = () => {
 
           return (
             <div key={st.i} className="flex items-center flex-1 last:flex-none">
-              <div className="relative group/dot flex-shrink-0 flex flex-col items-center">
+              <div className="relative group/dot flex-shrink-0 flex flex-col items-center z-0 hover:z-50">
                 <div className={`w-2.5 h-2.5 rounded-full border transition-all duration-300 cursor-help ${dotColor}`}></div>
                 <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[8px] font-black text-text-dim uppercase tracking-widest text-center w-16 opacity-70">{st.name.substring(0, 3)}</span>
 
@@ -1207,8 +1211,8 @@ const FinancingPipeline = () => {
         </div>
       </div>
 
-      <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-2xl flex-1 flex flex-col min-h-0">
-        <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
+      <div className="bg-bg-card border border-border-main rounded-2xl shadow-2xl flex-1 flex flex-col min-h-0" style={{ overflow: 'visible' }}>
+        <div className="overflow-visible flex-1">
           <table className="w-full text-left relative">
             <thead className="sticky top-0 z-[40] bg-bg-active shadow-sm">
               <tr className="border-b border-border-main">
@@ -1225,7 +1229,7 @@ const FinancingPipeline = () => {
                 const customer = customers.find(c => c._id === l.customerId || c._id === l.customerId?._id);
 
                 return (
-                  <tr key={l._id || i} onClick={() => setSelectedLoan(l)} className="hover:bg-bg-active transition-colors group cursor-pointer">
+                  <tr key={l._id || i} onClick={() => setSelectedLoan(l)} className="hover:bg-bg-active transition-colors group cursor-pointer relative z-0 hover:z-50">
                     <td className="px-5 py-4">
                       <p className="font-black text-text-main text-xs uppercase">{l.machineName}</p>
                       <p className="text-[8px] font-mono text-text-dim/60">{l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-GB') : '—'}</p>
@@ -1239,10 +1243,10 @@ const FinancingPipeline = () => {
                     <td className="px-5 py-4 font-mono font-bold text-text-main text-xs">
                       {formatINR(l.emi)}
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 relative z-0 hover:z-50">
                       {renderStageDots(l, i)}
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 relative z-0 hover:z-50">
                       <div className="relative group inline-block">
                         <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border transition-all ${getLoanStageName(l.approvalStatus) === 'Approval' ? 'cursor-help underline decoration-dashed underline-offset-4' : ''}`}
                           style={{ background: `${getStatusColor(l.approvalStatus)}15`, color: getStatusColor(l.approvalStatus), borderColor: `${getStatusColor(l.approvalStatus)}30`, textDecorationColor: getLoanStageName(l.approvalStatus) === 'Approval' ? `${getStatusColor(l.approvalStatus)}80` : undefined }}>

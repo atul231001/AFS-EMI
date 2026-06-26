@@ -56,6 +56,9 @@ export const generateExcelReport = async (loan) => {
     column.width = 15;
   });
 
+  // Enable advanced filtering for the data table headers
+  worksheet.autoFilter = 'A5:I5';
+
   const buffer = await workbook.xlsx.writeBuffer();
   return buffer;
 };
@@ -724,7 +727,7 @@ export const generatePPTReport = async (loan, allLoans = []) => {
 };
 
 export const generatePDFReport = async (loan) => {
-  const browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox'] });
+  const browser = await puppeteer.launch({ headless: "new", executablePath: "C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe", args: ['--no-sandbox'] });
   const page = await browser.newPage();
   
   const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -918,10 +921,13 @@ export const generateGlobalExcelReport = async (loans, payments, months, viewMod
   // Add Monthly Ledger Table
   sheet.addRow(['MONTHLY RECOVERY PROTOCOL LEDGER']).font = { bold: true, size: 11 };
   const headerRow = ['MONTH', 'OPENING BALANCE', 'DUE AMOUNT', 'RECEIVED', 'OVERDUE', 'CLOSING BALANCE', 'COLLECTION %'];
-  sheet.addRow(headerRow).eachCell(c => {
+  const addedHeaderRow = sheet.addRow(headerRow);
+  addedHeaderRow.eachCell(c => {
     c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
   });
+
+  const filterStartRow = addedHeaderRow.number;
 
   ledgerRows.forEach(r => {
     const row = sheet.addRow([r.month, r.opening, r.due, r.received, r.overdue, r.closing, r.progress === 'NA' ? 'NA' : `${r.progress}%`]);
@@ -931,6 +937,12 @@ export const generateGlobalExcelReport = async (loans, payments, months, viewMod
     row.getCell(5).numFmt = '"₹"#,##,##0';
     row.getCell(6).numFmt = '"₹"#,##,##0';
   });
+
+  const filterEndRow = sheet.rowCount;
+  sheet.autoFilter = {
+    from: { row: filterStartRow, column: 1 },
+    to: { row: filterEndRow, column: headerRow.length }
+  };
 
   sheet.columns.forEach(c => c.width = 20);
   return await workbook.xlsx.writeBuffer();
@@ -1768,7 +1780,7 @@ export const generateGlobalPPTReport = async (loans, payments, months, viewMode 
 };
 
 export const generateGlobalPDFReport = async (loans, payments, months, viewMode = 'machine') => {
-  const browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox'] });
+  const browser = await puppeteer.launch({ headless: "new", executablePath: "C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe", args: ['--no-sandbox'] });
   const page = await browser.newPage();
   const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
 
