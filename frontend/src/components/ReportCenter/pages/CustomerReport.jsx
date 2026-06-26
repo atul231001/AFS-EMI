@@ -83,8 +83,8 @@ const CustomerReport = forwardRef(({ customers = [], loans = [], payments = [], 
     if (globalFilters) {
       if (globalFilters.customer.name && !c.name.toLowerCase().includes(globalFilters.customer.name.toLowerCase())) matchesGlobal = false;
       if (globalFilters.customer.type && c.type !== globalFilters.customer.type) matchesGlobal = false;
-      if (globalFilters.financial.outstanding.min && c.outstanding < Number(globalFilters.financial.outstanding.min)) matchesGlobal = false;
-      if (globalFilters.financial.outstanding.max && c.outstanding > Number(globalFilters.financial.outstanding.max)) matchesGlobal = false;
+      if (globalFilters.financial.outstanding.min !== '' && c.outstanding < Number(globalFilters.financial.outstanding.min)) matchesGlobal = false;
+      if (globalFilters.financial.outstanding.max !== '' && c.outstanding > Number(globalFilters.financial.outstanding.max)) matchesGlobal = false;
     }
 
     return matchesSearch && matchesType && matchesIndustry && matchesLocation && matchesExec && matchesStatus && matchesRev && matchesGlobal;

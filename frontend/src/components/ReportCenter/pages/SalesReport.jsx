@@ -91,11 +91,11 @@ const SalesReport = forwardRef(({ customers = [], loans = [], globalFilters, scr
       // Customer name search
       if (globalFilters.customer.name && !s.customer.toLowerCase().includes(globalFilters.customer.name.toLowerCase())) matchesGlobal = false;
       // Down payment financial range from sidebar
-      if (globalFilters.financial.downPayment.min && s.downPayment < Number(globalFilters.financial.downPayment.min)) matchesGlobal = false;
-      if (globalFilters.financial.downPayment.max && s.downPayment > Number(globalFilters.financial.downPayment.max)) matchesGlobal = false;
+      if (globalFilters.financial.downPayment.min !== '' && s.downPayment < Number(globalFilters.financial.downPayment.min)) matchesGlobal = false;
+      if (globalFilters.financial.downPayment.max !== '' && s.downPayment > Number(globalFilters.financial.downPayment.max)) matchesGlobal = false;
       // EMI amount maps to totalValue here
-      if (globalFilters.financial.emi.min && s.totalValue < Number(globalFilters.financial.emi.min)) matchesGlobal = false;
-      if (globalFilters.financial.emi.max && s.totalValue > Number(globalFilters.financial.emi.max)) matchesGlobal = false;
+      if (globalFilters.financial.emi.min !== '' && s.totalValue < Number(globalFilters.financial.emi.min)) matchesGlobal = false;
+      if (globalFilters.financial.emi.max !== '' && s.totalValue > Number(globalFilters.financial.emi.max)) matchesGlobal = false;
       // Status array filter
       if (globalFilters.status.length > 0 && !globalFilters.status.includes(s.emiStatus)) matchesGlobal = false;
     }

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Filter, Clock, ChevronDown, Download } from "lucide-react";
+import { Filter, Clock, ChevronDown, Download, Printer } from "lucide-react";
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 import { state } from "../../state";
 
@@ -9,11 +11,13 @@ import SalesReport from "./pages/SalesReport";
 import RentalReport from "./pages/RentalReport";
 import ContractReport from "./pages/ContractReport";
 import EMIPaymentReport from "./pages/EMIPaymentReport";
+import AllDataReport from "./pages/AllDataReport";
 import FilterSidebar from "./Filters/FilterSidebar";
 
 const ReportCenter = () => {
-  const [activeReport, setActiveReport] = useState("Machine Reports");
+  const [activeReport, setActiveReport] = useState("All Reports");
   const reportTypes = [
+    "All Reports",
     "Machine Reports",
     "Customer Reports",
     "Sales Reports",
@@ -66,38 +70,47 @@ const ReportCenter = () => {
 
   const { customers = [], loans = [], payments = [], machines = [] } = appData || {};
 
-  // Drag to scroll logic shared across tables
+  // Drag to scroll logic shared across tables (Optimized with useRef to prevent heavy re-renders)
   const scrollContainerRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  const dragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0 });
 
   const handleMouseDown = (e) => {
     if (!scrollContainerRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
-    setScrollLeft(scrollContainerRef.current.scrollLeft);
+    dragState.current.isDragging = true;
+    dragState.current.startX = e.pageX - scrollContainerRef.current.offsetLeft;
+    dragState.current.scrollLeft = scrollContainerRef.current.scrollLeft;
+    
+    // Direct DOM manipulation for CSS classes to avoid React re-renders on large tables
+    scrollContainerRef.current.classList.add('cursor-grabbing', 'select-none');
+    scrollContainerRef.current.classList.remove('cursor-grab');
   };
 
   const handleMouseLeave = () => {
-    setIsDragging(false);
+    dragState.current.isDragging = false;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.classList.remove('cursor-grabbing', 'select-none');
+      scrollContainerRef.current.classList.add('cursor-grab');
+    }
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
+    dragState.current.isDragging = false;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.classList.remove('cursor-grabbing', 'select-none');
+      scrollContainerRef.current.classList.add('cursor-grab');
+    }
   };
 
   const handleMouseMove = (e) => {
-    if (!isDragging || !scrollContainerRef.current) return;
+    if (!dragState.current.isDragging || !scrollContainerRef.current) return;
     e.preventDefault();
     const x = e.pageX - scrollContainerRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5;
-    scrollContainerRef.current.scrollLeft = scrollLeft - walk;
+    const walk = (x - dragState.current.startX) * 1.5;
+    scrollContainerRef.current.scrollLeft = dragState.current.scrollLeft - walk;
   };
 
   const dragHandlers = {
     scrollContainerRef,
-    isDragging,
     handleMouseDown,
     handleMouseLeave,
     handleMouseUp,
@@ -110,11 +123,14 @@ const ReportCenter = () => {
   const rentalReportRef = useRef(null);
   const contractReportRef = useRef(null);
   const emiPaymentReportRef = useRef(null);
+  const allDataReportRef = useRef(null);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     let result = null;
 
-    if (activeReport === "Machine Reports" && machineReportRef.current) {
+    if (activeReport === "All Reports" && allDataReportRef.current) {
+      result = allDataReportRef.current.exportCSV();
+    } else if (activeReport === "Machine Reports" && machineReportRef.current) {
       result = machineReportRef.current.exportCSV();
     } else if (activeReport === "Customer Reports" && customerReportRef.current) {
       result = customerReportRef.current.exportCSV();
@@ -129,19 +145,56 @@ const ReportCenter = () => {
     }
 
     if (result) {
-      const csvContent = [
-        result.headers.join(","),
-        ...result.data.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-      ].join("\n");
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet(result.fileName || 'Report');
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `${result.fileName}_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Grouped Headers
+      if (result.groupedHeaders) {
+        const groupRow = sheet.addRow(result.groupedHeaders);
+        groupRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+        groupRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D3748' } };
+        groupRow.alignment = { horizontal: 'center' };
+        
+        if (result.merges) {
+          result.merges.forEach(m => {
+            sheet.mergeCells(m[0], m[1], m[2], m[3]);
+          });
+        }
+      }
+
+      // Professional styling for Header
+      const headerRow = sheet.addRow(result.headers);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4A5568' }
+      };
+
+      // Auto filter (advanced filter option on header)
+      const filterRow = result.groupedHeaders ? 2 : 1;
+      sheet.autoFilter = {
+        from: { row: filterRow, column: 1 },
+        to: { row: filterRow, column: result.headers.length }
+      };
+
+      // Add Data
+      result.data.forEach(rowData => {
+        sheet.addRow(rowData);
+      });
+
+      // Adjust column widths automatically based on header length
+      sheet.columns.forEach(column => {
+        let maxLen = 0;
+        column.eachCell({ includeEmpty: true }, cell => {
+          maxLen = Math.max(maxLen, cell.value ? cell.value.toString().length : 0);
+        });
+        column.width = maxLen < 15 ? 15 : maxLen + 2;
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `${result.fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
   };
 
@@ -223,9 +276,9 @@ const ReportCenter = () => {
             )}
             <button
               onClick={handleExportCSV}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-deep border border-border-main rounded text-[10px] font-bold text-text-main hover:text-primary transition-colors uppercase shrink-0"
+              className="px-3 py-1.5 bg-primary/10 border border-primary/20 rounded text-[11px] font-bold text-primary hover:bg-primary/20 transition-all flex items-center gap-1.5"
             >
-              <Download size={12} /> Export CSV
+              <Download size={12} /> Export Excel
             </button>
           </div>
         }
@@ -281,6 +334,7 @@ const ReportCenter = () => {
       </div>
 
       <div className="flex-1 flex flex-col min-h-0 min-w-0 h-full">
+        {activeReport === "All Reports" && <AllDataReport ref={allDataReportRef} customers={customers} machines={machines} loans={loans} payments={payments} globalFilters={globalFilters} {...dragHandlers} />}
         {activeReport === "Machine Reports" && <MachineReport ref={machineReportRef} machines={machines} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
         {activeReport === "Customer Reports" && <CustomerReport ref={customerReportRef} customers={customers} loans={loans} payments={payments} globalFilters={globalFilters} {...dragHandlers} />}
         {activeReport === "Sales Reports" && <SalesReport ref={salesReportRef} customers={customers} loans={loans} globalFilters={globalFilters} {...dragHandlers} />}
