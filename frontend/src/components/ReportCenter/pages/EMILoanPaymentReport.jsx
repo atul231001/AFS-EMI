@@ -3,6 +3,8 @@ import React, {
   useMemo,
   forwardRef,
   useImperativeHandle,
+  useRef,
+  useEffect,
 } from "react";
 import { formatINR } from "../../../utils";
 import { StatCard } from "../../ORMDashboard";
@@ -16,15 +18,27 @@ const EMILoanPaymentReport = forwardRef(
       loans = [],
       payments = [],
       globalFilters,
-      scrollContainerRef,
-      isDragging,
-      handleMouseDown,
-      handleMouseLeave,
-      handleMouseUp,
-      handleMouseMove,
+      filterPanel,
     },
     ref,
   ) => {
+    const scrollContainerRef = useRef(null);
+
+    useEffect(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      const handleWheel = (e) => {
+        if (e.deltaY !== 0 && Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+          e.preventDefault();
+          container.scrollLeft += e.deltaY;
+        }
+      };
+
+      container.addEventListener("wheel", handleWheel, { passive: false });
+      return () => container.removeEventListener("wheel", handleWheel);
+    }, []);
+
     const data = useMemo(() => {
       return loans.map((loan) => {
         const c =
@@ -111,12 +125,100 @@ const EMILoanPaymentReport = forwardRef(
     const statuses = ["All Statuses", ...new Set(data.map((e) => e.status))];
 
     const filteredData = data.filter((e) => {
+      // ── local search & status dropdown ──────────────────────────────────────
       const matchesSearch =
         e.customerName.toLowerCase().includes(search.toLowerCase()) ||
         (e.id && e.id.toLowerCase().includes(search.toLowerCase()));
       const matchesStatus =
         filters.status === "All Statuses" || e.status === filters.status;
-      return matchesSearch && matchesStatus;
+
+      // ── sidebar global filters ───────────────────────────────────────────────
+      const gf = globalFilters || {};
+
+      // Status (multi-select checkboxes)
+      const gfStatus = gf.status || [];
+      const matchesGfStatus =
+        gfStatus.length === 0 || gfStatus.includes(e.status);
+
+      // Approval status
+      const gfApproval = gf.approvalStatus || [];
+      const matchesApproval =
+        gfApproval.length === 0 || gfApproval.includes(e.approvalStatus);
+
+      // Customer name / id
+      const gfCustName = (gf.customer?.name || "").toLowerCase();
+      const gfCustId = (gf.customer?.id || "").toLowerCase();
+      const matchesCust =
+        (!gfCustName || e.customerName.toLowerCase().includes(gfCustName)) &&
+        (!gfCustId ||
+          String(e.customerId || "")
+            .toLowerCase()
+            .includes(gfCustId));
+
+      // Machine name / category
+      const gfMachName = (gf.machine?.name || "").toLowerCase();
+      const gfMachCat = (gf.machine?.category || "").toLowerCase();
+      const matchesMach =
+        (!gfMachName || e.machineName.toLowerCase().includes(gfMachName)) &&
+        (!gfMachCat || e.machineCategory.toLowerCase().includes(gfMachCat));
+
+      // Date range (uses emiStartDate or nextEmiDueDate depending on type)
+      const gfDate = gf.date || {};
+      let matchesDate = true;
+      if (gfDate.from || gfDate.to) {
+        const dateField =
+          gfDate.type === "Next EMI Due Date"
+            ? e.nextEmiDueDate
+            : e.emiStartDate;
+        const rowDate =
+          dateField && dateField !== "-" ? new Date(dateField) : null;
+        if (rowDate) {
+          if (gfDate.from && rowDate < new Date(gfDate.from))
+            matchesDate = false;
+          if (gfDate.to && rowDate > new Date(gfDate.to)) matchesDate = false;
+        } else {
+          matchesDate = false;
+        }
+      }
+
+      // Financial ranges
+      const fin = gf.financial || {};
+      const inRange = (val, range) => {
+        const min =
+          range?.min !== "" && range?.min != null ? Number(range.min) : null;
+        const max =
+          range?.max !== "" && range?.max != null ? Number(range.max) : null;
+        if (min !== null && val < min) return false;
+        if (max !== null && val > max) return false;
+        return true;
+      };
+      const matchesFinancial =
+        inRange(e.principal, fin.principal) &&
+        inRange(e.emi, fin.emi) &&
+        inRange(e.interestRate, fin.interestRate) &&
+        inRange(e.tenure, fin.tenure) &&
+        inRange(e.overdueEmiCount, fin.overdueEmiCount);
+
+      // Boolean flags
+      const gfFlags = gf.booleanFlags || {};
+      const matchesAgreement =
+        !gfFlags.agreementGenerated ||
+        (gfFlags.agreementGenerated === "true" &&
+          e.agreementGenerated === "Yes") ||
+        (gfFlags.agreementGenerated === "false" &&
+          e.agreementGenerated === "No");
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesGfStatus &&
+        matchesApproval &&
+        matchesCust &&
+        matchesMach &&
+        matchesDate &&
+        matchesFinancial &&
+        matchesAgreement
+      );
     });
 
     const totalOutstanding = filteredData.reduce(
@@ -219,7 +321,9 @@ const EMILoanPaymentReport = forwardRef(
           />
         </div>
 
-        <div className="flex-1 bg-bg-card border border-border-main rounded-2xl flex flex-col shadow-xl overflow-hidden min-h-[400px]">
+        {filterPanel}
+
+        <div className="bg-bg-card border border-border-main rounded-2xl flex flex-col shadow-xl overflow-hidden shrink min-h-0">
           <div className="px-6 py-4 border-b border-border-main bg-bg-active/50 flex flex-col gap-4 shrink-0">
             <div className="flex items-center justify-between">
               <h3 className="text-[10px] font-black text-text-dim uppercase tracking-[0.2em] flex items-center gap-2">
@@ -259,11 +363,7 @@ const EMILoanPaymentReport = forwardRef(
 
           <div
             ref={scrollContainerRef}
-            className={`flex-1 w-full max-w-full overflow-x-auto overflow-y-auto custom-scrollbar ${isDragging ? "cursor-grabbing select-none" : "cursor-grab"}`}
-            onMouseDown={handleMouseDown}
-            onMouseLeave={handleMouseLeave}
-            onMouseUp={handleMouseUp}
-            onMouseMove={handleMouseMove}
+            className="shrink min-h-0 w-full max-w-full overflow-x-auto overflow-y-auto custom-scrollbar"
           >
             <table className="w-full text-left border-collapse whitespace-nowrap">
               <thead className="sticky top-0 bg-bg-deep z-10">
