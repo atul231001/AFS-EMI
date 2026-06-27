@@ -340,7 +340,7 @@ class State {
   async login(email, password, role) {
     this.setState({ loading: true });
     try {
-      const res = await fetch(`${BASE_URL}/auth/login`, {
+      const res = await fetch(`https://afs-emi.onrender.com/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, role })
