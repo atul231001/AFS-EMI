@@ -58,6 +58,7 @@ app.use('/api/machines', machineRoutes);
 app.use('/api/loans', loanRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/auth', authRoutes);
+
 app.use('/api/users', userRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/roles', roleRoutes);

@@ -99,7 +99,7 @@ router.post('/send-overdue-notice', async (req, res) => {
 
     const isOverdue = overdueAmount > 0;
     const event = isOverdue ? 'overdue_alert' : 'emi_reminder';
-    
+
     const amountToDisplay = isOverdue ? overdueAmount : (upcomingEmi?.emi || 0);
     const dateToDisplay = isOverdue ? overdueSchedule[0].dueDate : (upcomingEmi?.dueDate || 'N/A');
 

@@ -1438,7 +1438,12 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
     { label: 'Cylinders', value: machine?.specs?.cylinders || 'N/A' },
     { label: 'Mfg Year', value: machine?.specs?.year || 'N/A' },
     { label: 'Weight', value: machine?.specs?.unladenWeight ? `${machine.specs.unladenWeight} kg` : 'N/A' },
-    { label: 'Warranty', value: machine?.warranty?.standardMonths ? `${machine.warranty.standardMonths}M / ${machine.warranty.standardHours}hr` : 'N/A' }
+    { label: 'Warranty', value: machine?.warranty?.standardMonths ? `${machine.warranty.standardMonths}M / ${machine.warranty.standardHours}hr` : 'N/A' },
+    ...(machineLoan ? [
+      { label: 'Invoice No', value: machineLoan.invoiceNumber || machineLoan.invoiceData?.invoiceNumber || 'N/A' },
+      { label: 'Serial No', value: machineLoan.serialNumber || machineLoan.invoiceData?.serialNumber || 'N/A' },
+      { label: 'Dispatch Date', value: machineLoan.dispatchDate ? new Date(machineLoan.dispatchDate).toLocaleDateString() : 'N/A' }
+    ] : [])
   ].filter(s => s.value !== 'N/A' && s.value !== 'N/A HP' && s.value !== ' HP');
 
   useEffect(() => {
@@ -1488,7 +1493,13 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
               .map(tab => (
                 <button
                   key={tab}
-                  onClick={() => setActiveDetailTab(tab)}
+                  onClick={() => {
+                    if (tab === 'FINANCIAL PROTOCOL' && machineLoan && machineLoan.schedule && typeof machineLoan.emi !== 'undefined') {
+                      state.setState({ view: 'loan-details', selectedLoanId: machineLoan._id });
+                    } else {
+                      setActiveDetailTab(tab);
+                    }
+                  }}
                   className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest ${activeDetailTab === tab ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-text-dim hover:text-text-main hover:bg-bg-active/10'}`}
                 >
                   {tab}
@@ -1693,7 +1704,7 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
             </div>
           ) : (
             <div className="h-full bg-[#0d1117] flex flex-col overflow-y-auto custom-scrollbar">
-              {machineLoan ? (
+              {machineLoan && machineLoan.schedule && typeof machineLoan.emi !== 'undefined' ? (
                 <div className="flex-1 flex flex-col p-6 space-y-6">
                   {/* FINANCIAL METRICS */}
                   <div className="grid grid-cols-2 md:grid-cols-6 gap-4 shrink-0">
