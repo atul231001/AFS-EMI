@@ -1,6 +1,6 @@
 // src/state.js
 
-const BASE_URL = import.meta.env.DEV ? 'http://localhost:5000/api' : (import.meta.env.VITE_API_URL || 'https://afs-emi.onrender.com/api');
+const BASE_URL = import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://afs-emi.onrender.com/api';
 import { lightenDarkenColor } from './utils';
 
 const INITIAL_STATE = {
@@ -340,7 +340,7 @@ class State {
   async login(email, password, role) {
     this.setState({ loading: true });
     try {
-      const res = await fetch(`https://afs-emi.onrender.com/api/auth/login`, {
+      const res = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, role })
