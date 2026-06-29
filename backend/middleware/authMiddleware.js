@@ -7,7 +7,23 @@ export const protect = async (req, res, next) => {
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      const isAppRoute = req.originalUrl.includes('/api/app/');
+      const secret = isAppRoute 
+        ? (process.env.JWT_SECRET_APP || process.env.JWT_SECRET) 
+        : (process.env.JWT_SECRET_WEB || process.env.JWT_SECRET);
+        
+      const decoded = jwt.verify(token, secret);
+      
+      // Backward compatibility & token source validation
+      if (decoded.source) {
+        if (isAppRoute && decoded.source !== 'app') {
+          return res.status(401).json({ message: 'Not authorized, invalid token source for app' });
+        }
+        if (!isAppRoute && decoded.source !== 'web') {
+          return res.status(401).json({ message: 'Not authorized, invalid token source for web' });
+        }
+      }
       
       req.user = await User.findById(decoded.id).select('-password');
       if (!req.user) {

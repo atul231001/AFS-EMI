@@ -6,7 +6,7 @@ import nodemailer from 'nodemailer';
 import SystemConfig from '../../models/SystemConfig.js';
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+  return jwt.sign({ id, source: 'app' }, process.env.JWT_SECRET_APP || process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 };
