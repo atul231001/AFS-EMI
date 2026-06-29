@@ -8,10 +8,25 @@ import { calculateOverdueInterest } from '../../utils/interestCalculator.js';
 
 export const getLoans = async (req, res) => {
   try {
-    const loans = await Loan.find().populate('customerId').populate('approvalFlowId').sort({ createdAt: -1 });
+    let filter = {};
+    if (req.user && req.user.role === 'CUSTOMER' && req.user.customerId) {
+      filter.customerId = req.user.customerId;
+    }
+
+    const loans = await Loan.find(filter).populate('customerId').populate('approvalFlowId').sort({ createdAt: -1 });
     // Dynamically calculate overdue interest for all loans before sending to frontend
     const updatedLoans = loans.map(loan => calculateOverdueInterest(loan.toObject ? loan.toObject() : loan));
-    res.json(updatedLoans);
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: "Data retrieved successfully",
+      data: {
+        machines: updatedLoans, // change key according to your API
+      },
+      total,
+      page,
+      totalPages,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -82,7 +97,17 @@ export const approveLoan = async (req, res) => {
       });
       await loan.save();
       const updated = await Loan.findById(id).populate('customerId');
-      return res.json(updated);
+      return res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: "Data retrieved successfully",
+        data: {
+          machines: updated, // change key according to your API
+        },
+        total,
+        page,
+        totalPages,
+      });
     }
 
     const flow = loan.approvalFlowId;
@@ -189,7 +214,7 @@ export const approveSchedule = async (req, res) => {
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
     loan.approvalStatus = 'Pending Invoice';
-    
+
     if (req.body.notes) {
       loan.approvalHistory = loan.approvalHistory || [];
       loan.approvalHistory.push({
@@ -199,7 +224,7 @@ export const approveSchedule = async (req, res) => {
         date: new Date()
       });
     }
-    
+
     await loan.save();
     res.json(loan);
   } catch (error) {
@@ -212,15 +237,15 @@ export const approveInvoice = async (req, res) => {
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
     loan.approvalStatus = 'Pending Dispatch';
-    
+
     if (req.body.invoiceNumber) {
       loan.invoiceNumber = req.body.invoiceNumber;
     }
-    
+
     if (req.body.invoiceData) {
       loan.invoiceData = req.body.invoiceData;
     }
-    
+
     if (req.body.notes) {
       loan.approvalHistory = loan.approvalHistory || [];
       loan.approvalHistory.push({
@@ -230,7 +255,7 @@ export const approveInvoice = async (req, res) => {
         date: new Date()
       });
     }
-    
+
     await loan.save();
     res.json(loan);
   } catch (error) {
