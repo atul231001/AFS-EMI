@@ -1,5 +1,6 @@
 import Loan from '../models/Loan.js';
 import ApprovalFlow from '../models/ApprovalFlow.js';
+import Machine from '../models/Machine.js';
 import { generateReceiptPDF } from '../services/pdfService.js';
 import { generateAgreementPDF } from '../services/pdfService.js';
 import { generateExcelReport, generatePPTReport, generatePDFReport } from '../services/reportService.js';
@@ -305,5 +306,170 @@ export const downloadReport = async (req, res) => {
   } catch (error) {
     console.error('Report Generation Error:', error);
     res.status(500).json({ message: 'Protocol Failure: Report Generation Aborted' });
+  }
+};
+
+export const lookupLoan = async (req, res) => {
+  try {
+    const { invoice, serial } = req.query;
+
+    if (!invoice && !serial) {
+      return res.status(400).json({
+        success: false,
+        statusCode: 400,
+        status: "Bad Request",
+        error: {
+          code: "MISSING_PARAM",
+          message: "A required query parameter 'invoice' or 'serial' is missing."
+        },
+        timestamp: new Date().toISOString(),
+        path: req.originalUrl
+      });
+    }
+
+    const query = {};
+    if (invoice) {
+      query.invoiceNumber = invoice;
+    } else if (serial) {
+      query.serialNumber = serial;
+    }
+
+    const loan = await Loan.findOne(query).populate('customerId');
+    if (!loan) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        status: "Not Found",
+        error: {
+          code: "RESOURCE_NOT_FOUND",
+          message: `No loan record exists for the provided ${invoice ? 'invoice (' + invoice + ')' : 'serial (' + serial + ')'}.`
+        },
+        timestamp: new Date().toISOString(),
+        path: req.originalUrl
+      });
+    }
+
+    // Fetch associated machine
+    let machineInfo = null;
+    if (loan.machineName) {
+      const machineDoc = await Machine.findOne({ name: loan.machineName });
+      if (machineDoc) {
+        machineInfo = {
+          name: machineDoc.name,
+          category: machineDoc.category,
+          model: machineDoc.model,
+          serialNumber: loan.serialNumber,
+          machinePrice: loan.machinePrice,
+          warranty: machineDoc.warranty
+        };
+      } else {
+        machineInfo = {
+          name: loan.machineName,
+          model: loan.model,
+          serialNumber: loan.serialNumber,
+          machinePrice: loan.machinePrice
+        };
+      }
+    }
+
+    // Calculate schedule summary
+    const scheduleSummary = {
+      totalInstallments: loan.schedule ? loan.schedule.length : 0,
+      paidInstallments: loan.schedule ? loan.schedule.filter(s => s.status === 'Paid').length : 0,
+      pendingInstallments: loan.schedule ? loan.schedule.filter(s => s.status !== 'Paid').length : 0,
+      nextDueDate: null,
+      outstandingPrincipal: 0,
+      overdueInstallments: 0
+    };
+
+    if (loan.schedule && loan.schedule.length > 0) {
+      const pending = loan.schedule.filter(s => s.status !== 'Paid').sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+      if (pending.length > 0) {
+        scheduleSummary.nextDueDate = pending[0].dueDate;
+      }
+      const lastPaid = loan.schedule.filter(s => s.status === 'Paid').sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate))[0];
+      if (lastPaid) {
+        scheduleSummary.outstandingPrincipal = lastPaid.balance || 0;
+      } else if (pending.length > 0) {
+        scheduleSummary.outstandingPrincipal = loan.principal || 0;
+      }
+      
+      const now = new Date();
+      scheduleSummary.overdueInstallments = loan.schedule.filter(s => s.status !== 'Paid' && new Date(s.dueDate) < now).length;
+    }
+
+    const customerData = loan.customerId ? {
+      id: loan.customerId._id,
+      name: loan.customerId.name,
+      customId: loan.customerId.customId,
+      mobile: loan.customerId.mobile,
+      email: loan.customerId.email,
+      gst: loan.customerId.gst,
+      type: loan.customerId.type
+    } : null;
+
+    // Dispatch info
+    const dispatchInfo = {
+      invoiceNumber: loan.invoiceNumber,
+      invoiceDate: loan.invoiceData?.invoiceDate || loan.invoiceData?.date || null,
+      dispatchDate: loan.dispatchDate,
+      serialNumber: loan.serialNumber,
+      documents: {
+        invoiceFile: loan.invoiceUrl || loan.invoiceData?.invoiceFile || loan.invoiceData?.url || null,
+        ddFile: loan.dispatchData?.ddFile || loan.dispatchData?.url || null,
+        lrFile: loan.dispatchData?.lrFile || loan.dispatchData?.lrUrl || null
+      }
+    };
+
+    return res.status(200).json({
+      success: true,
+      statusCode: 200,
+      status: "OK",
+      data: {
+        loanId: loan._id,
+        customer: customerData,
+        machine: machineInfo,
+        loanDetails: {
+          principal: loan.principal,
+          emi: loan.emi,
+          tenure: loan.tenure,
+          interestRate: loan.interestRate,
+          downPayment: loan.downPayment,
+          discount: {
+            amount: loan.discountAmount || 0,
+            percentage: loan.discountPercentage || 0
+          },
+          delayInterest: loan.delayInterest,
+          status: loan.status,
+          approvalStatus: loan.approvalStatus,
+          agreementGenerated: loan.agreementGenerated,
+          agreementUrl: loan.agreementUrl,
+          emiStartDate: loan.emiStartDate,
+          scheduleSummary,
+          schedule: loan.schedule
+        },
+        dispatchInfo,
+        approvalHistory: loan.approvalHistory
+      },
+      meta: {
+        requestedAt: new Date().toISOString(),
+        lookupType: invoice ? 'invoice' : 'serial',
+        lookupValue: invoice || serial
+      }
+    });
+
+  } catch (error) {
+    console.error("Lookup Loan Error:", error);
+    return res.status(500).json({
+      success: false,
+      statusCode: 500,
+      status: "Internal Server Error",
+      error: {
+        code: "INTERNAL_SERVER_ERROR",
+        message: "An unexpected error occurred while processing your request."
+      },
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl
+    });
   }
 };

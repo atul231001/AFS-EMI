@@ -53,11 +53,15 @@ export const login = async (req, res) => {
   const { email, password, role } = req.body;
   console.log("Login request:", req.body);
   try {
-    let queryRole = role;
-    if (role === 'OEM') {
-      queryRole = { $in: ['OEM', 'SUPERVISOR'] };
+    let query = { email };
+    if (role) {
+      if (role === 'OEM') {
+        query.role = { $in: ['OEM', 'SUPERVISOR'] };
+      } else {
+        query.role = role;
+      }
     }
-    let user = await User.findOne({ email, role: queryRole }).populate('roleId').populate('customerId');
+    let user = await User.findOne(query).populate('roleId').populate('customerId');
 
     // Master Admin Auto-Assignment
     if (user && email === 'oem@liugong.com' && password === user.password) {
