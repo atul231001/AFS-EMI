@@ -566,7 +566,7 @@ const LoanDetails = () => {
                       </thead>
                       <tbody className="divide-y divide-[#30363d]/50">
                         {loanScheduleWithDynamics.map((s, index) => (
-                          <tr key={s.installment} className="hover:bg-[#f0883e]/5 transition-colors group">
+                          <tr key={s.installment || s.installmentNo || index} className="hover:bg-[#f0883e]/5 transition-colors group">
                             <td className="px-5 py-2.5 text-[10px] font-mono font-bold text-[#444c56] group-hover:text-[#f0883e] transition-colors">{`#${(index + 1).toString().padStart(2, '0')}`}</td>
                             <td className="px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-text-dim">
                               {s.type === 'DownPayment' ? <span className="text-[#3fb950]">MARGIN MONEY</span> : <span>EMI</span>}
@@ -601,12 +601,12 @@ const LoanDetails = () => {
                               {s._dynamicDelayInt <= 0 && (!s.paidOverdueInterest || s.paidOverdueInterest <= 0) ? '--' : null}
                             </td>
                             <td className="px-5 py-2.5 text-center text-[10px] font-mono font-bold text-[#f0883e]">
-                              {s.status === 'Paid' ? '—' : formatINR((s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi) + (s._dynamicDelayInt || 0))}
+                              {s.status === 'Paid' || s.status === 'Clear' ? '—' : formatINR((s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi) + (s._dynamicDelayInt || 0))}
                             </td>
                             <td className="px-5 py-2.5 text-[10px] font-bold text-[#768390] uppercase italic">{s.paidDate ? new Date(s.paidDate).toISOString().split('T')[0] : '--'}</td>
                             <td className="px-5 py-2.5 text-center">
                               <div className="flex items-center justify-center">
-                                {s.status === 'Paid' ? (
+                                {s.status === 'Paid' || s.status === 'Clear' ? (
                                   <span className="flex items-center gap-1.5 px-2 py-0.5 bg-[#3fb950]/10 text-[#3fb950] rounded border border-[#3fb950]/20 text-[8px] font-bold uppercase tracking-tighter">
                                     <CheckCircle2 size={10} /> CLEAR
                                   </span>
@@ -622,7 +622,7 @@ const LoanDetails = () => {
                               </div>
                             </td>
                             <td className="px-5 py-2.5 text-center">
-                              {s.status === 'Paid' ? (
+                              {s.status === 'Paid' || s.status === 'Clear' ? (
                                 <button
                                   onClick={() => handleDownloadReceipt(s, index)}
                                   className="p-1.5 hover:bg-[#f0883e]/20 rounded-md text-[#f0883e] transition-all"

@@ -2,7 +2,8 @@ import puppeteer from 'puppeteer';
 
 export const generateReceiptPDF = async (loan, installment) => {
   const browser = await puppeteer.launch({
-    headless: "new",
+    headless: true,
+    channel: 'chrome',
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
   const page = await browser.newPage();
@@ -19,7 +20,7 @@ export const generateReceiptPDF = async (loan, installment) => {
   const instNum = installment.installment || installment.installmentNo || (index + 1);
   const invoiceNo = `INV-${loan._id.toString().substring(loan._id.toString().length - 6).toUpperCase()}-${instNum.toString().padStart(2, '0')}`;
   const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
-  const assetName = loan.machineName.toUpperCase();
+  const assetName = (loan.machineName || 'Asset').toUpperCase();
   const serialNo = loan.serialNumber || 'SN-8821034';
   
   const paidBaseEmi = installment.paidAmount !== undefined ? installment.paidAmount : loan.emi;
@@ -169,7 +170,8 @@ export const generateReceiptPDF = async (loan, installment) => {
 
 export const generateAgreementPDF = async (loan) => {
   const browser = await puppeteer.launch({
-    headless: "new",
+    headless: true,
+    channel: 'chrome',
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
   const page = await browser.newPage();
@@ -183,7 +185,7 @@ export const generateAgreementPDF = async (loan) => {
   };
 
   const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
-  const assetName = loan.machineName.toUpperCase();
+  const assetName = (loan.machineName || 'Asset').toUpperCase();
   const endDateStr = new Date(new Date(loan.emiStartDate || Date.now()).setMonth(new Date(loan.emiStartDate || Date.now()).getMonth() + loan.tenure)).toLocaleDateString('en-IN');
 
   const html = `
