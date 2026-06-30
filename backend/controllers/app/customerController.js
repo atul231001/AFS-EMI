@@ -5,7 +5,11 @@ import { sendNotification } from '../../services/notificationService.js';
 
 export const getCustomers = async (req, res) => {
   try {
-    const customers = await Customer.find().sort({ createdAt: -1 });
+    let filter = {};
+    if (req.user && req.user.role === 'CUSTOMER') {
+      filter._id = req.user.customerId;
+    }
+    const customers = await Customer.find(filter).sort({ createdAt: -1 });
     res.json(
       {
         success: true,

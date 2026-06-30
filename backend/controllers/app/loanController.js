@@ -5,13 +5,38 @@ import { generateAgreementPDF } from '../../services/pdfService.js';
 import { generateExcelReport, generatePPTReport, generatePDFReport } from '../../services/reportService.js';
 
 import { calculateOverdueInterest } from '../../utils/interestCalculator.js';
-
+import Machine from '../../models/Machine.js';
 export const getLoans = async (req, res) => {
   try {
-    const loans = await Loan.find().populate('customerId').populate('approvalFlowId').sort({ createdAt: -1 });
-    // Dynamically calculate overdue interest for all loans before sending to frontend
-    const updatedLoans = loans.map(loan => calculateOverdueInterest(loan.toObject ? loan.toObject() : loan));
-    res.json(updatedLoans);
+    let filter = {};
+    if (req.user && req.user.role === 'CUSTOMER' && req.user.customerId) {
+      filter.customerId = req.user.customerId;
+    }
+
+    const loans = await Loan.find(filter).populate('customerId').populate('approvalFlowId').sort({ createdAt: -1 });
+
+    // Fetch machines to map their details (images, specs, etc.) to the respective loans
+    const machines = await Machine.find().lean();
+
+    // Dynamically calculate overdue interest and attach machine details for all loans
+    const updatedLoans = loans.map(loan => {
+      let loanObj = loan.toObject ? loan.toObject() : loan;
+      loanObj = calculateOverdueInterest(loanObj);
+
+      // Try to find by exact name and model, fallback to just name, fallback to contains name
+      const matchedMachine = machines.find(m => m.name === loanObj.machineName && m.model === loanObj.model)
+        || machines.find(m => m.name === loanObj.machineName)
+        || machines.find(m => loanObj.machineName && m.name && loanObj.machineName.toLowerCase().includes(m.name.toLowerCase()));
+      
+      loanObj.machineDetails = matchedMachine || null;
+      return loanObj;
+    });
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: "Data retrieved successfully",
+      data: updatedLoans,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -82,7 +107,14 @@ export const approveLoan = async (req, res) => {
       });
       await loan.save();
       const updated = await Loan.findById(id).populate('customerId');
-      return res.json(updated);
+      return res.status(200).json({
+        success: true,
+        statusCode: 200,
+        message: "Data retrieved successfully",
+        data: {
+          machines: updated, // change key according to your API
+        }
+      });
     }
 
     const flow = loan.approvalFlowId;
@@ -189,7 +221,7 @@ export const approveSchedule = async (req, res) => {
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
     loan.approvalStatus = 'Pending Invoice';
-    
+
     if (req.body.notes) {
       loan.approvalHistory = loan.approvalHistory || [];
       loan.approvalHistory.push({
@@ -199,7 +231,7 @@ export const approveSchedule = async (req, res) => {
         date: new Date()
       });
     }
-    
+
     await loan.save();
     res.json(loan);
   } catch (error) {
@@ -212,15 +244,15 @@ export const approveInvoice = async (req, res) => {
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
     loan.approvalStatus = 'Pending Dispatch';
-    
+
     if (req.body.invoiceNumber) {
       loan.invoiceNumber = req.body.invoiceNumber;
     }
-    
+
     if (req.body.invoiceData) {
       loan.invoiceData = req.body.invoiceData;
     }
-    
+
     if (req.body.notes) {
       loan.approvalHistory = loan.approvalHistory || [];
       loan.approvalHistory.push({
@@ -230,7 +262,7 @@ export const approveInvoice = async (req, res) => {
         date: new Date()
       });
     }
-    
+
     await loan.save();
     res.json(loan);
   } catch (error) {
