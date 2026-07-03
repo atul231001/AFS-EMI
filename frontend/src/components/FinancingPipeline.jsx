@@ -953,7 +953,7 @@ const FinancingPipeline = () => {
 
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [filterStatus, setFilterStatus] = useState('All');
-  const [financingTypeFilter, setFinancingTypeFilter] = useState('EMI');
+  const [financingTypeFilter, setFinancingTypeFilter] = useState('All');
 
   const getTicketActiveApproverId = (l) => {
     if (!l || ['Approved', 'Rejected'].includes(l.approvalStatus)) return null;
@@ -1141,9 +1141,11 @@ const FinancingPipeline = () => {
   };
 
   const filteredLoans = pendingLoans.filter(l => {
-    const customer = customers.find(c => c._id === l.customerId || c._id === l.customerId?._id);
+    const loanCustId = (l.customerId?._id || l.customerId)?.toString();
+    const customer = customers.find(c => c._id?.toString() === loanCustId);
     const type = customer?.type || 'EMI';
-    if (type !== financingTypeFilter) return false;
+    const hasType = financingTypeFilter === 'All' ? true : (Array.isArray(type) ? type.includes(financingTypeFilter) : type === financingTypeFilter);
+    if (!hasType) return false;
 
     if (filterStatus === 'All') return true;
     if (filterStatus === 'Pending Approval') return l.approvalStatus === 'Pending Approval';
@@ -1179,6 +1181,13 @@ const FinancingPipeline = () => {
 
         <div className="flex items-center gap-6">
           <div className="flex bg-bg-deep rounded-lg p-1 border border-border-main shrink-0">
+            <button
+              type="button"
+              onClick={() => { setFinancingTypeFilter('All'); setCurrentPage(1); }}
+              className={`px-4 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${financingTypeFilter === 'All' ? 'bg-[#f0883e] text-black shadow-md' : 'text-text-dim hover:text-text-main'}`}
+            >
+              All
+            </button>
             <button
               type="button"
               onClick={() => { setFinancingTypeFilter('EMI'); setCurrentPage(1); }}

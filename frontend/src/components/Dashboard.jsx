@@ -35,9 +35,7 @@ const CustomerDashboard = () => {
     const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
     return loanCustId && userCustId && loanCustId === userCustId;
   });
-
   const totalFinanced = clientLoans.reduce((sum, l) => sum + (l.principal || 0), 0);
-
   let totalPaidAmt = 0;
   let totalOutstanding = 0;
   let overdueAmount = 0;
@@ -117,6 +115,27 @@ const CustomerDashboard = () => {
   );
 };
 
+const FMCStatCard = ({ icon: Icon, label, value, subtitle, color }) => (
+  <div className="bg-[#161b22] border border-[#30363d] rounded-2xl p-8 group hover:border-[#8b949e] transition-all relative overflow-hidden flex flex-col justify-between min-h-[160px] shadow-lg">
+    <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/20 z-0" />
+    <div className="absolute top-0 right-0 w-40 h-40 opacity-[0.03] rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-110" style={{ backgroundColor: color }} />
+    <div className="absolute -bottom-4 -right-4 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity duration-500" style={{ color }}>
+      <Icon size={140} />
+    </div>
+    
+    <div className="flex items-center justify-between relative z-10">
+      <span className="text-[12px] font-black text-[#8b949e] tracking-[0.2em] uppercase">{label}</span>
+      <div className="p-3 bg-[#0d1117] border border-[#30363d] rounded-xl group-hover:scale-110 transition-all shadow-sm" style={{ color }}>
+        <Icon size={20} />
+      </div>
+    </div>
+    <div className="relative z-10 mt-6">
+      <div className="text-4xl sm:text-5xl font-black text-white font-mono tracking-tighter drop-shadow-sm">{value}</div>
+      {subtitle && <div className="text-[11px] font-bold text-[#8b949e] uppercase tracking-widest mt-2">{subtitle}</div>}
+    </div>
+  </div>
+);
+
 const FMCCustomerDashboard = () => {
   const { fmcContracts, fmcTickets, fmcDailyHours, fmcInvoices, user, machines } = state.data;
 
@@ -142,67 +161,138 @@ const FMCCustomerDashboard = () => {
   const avgMTTR = resolvedTickets.length > 0 ? (resolvedTickets.reduce((sum, t) => sum + (new Date(t.updatedAt) - new Date(t.createdAt)), 0) / resolvedTickets.length / (1000 * 60 * 60)).toFixed(1) : '0';
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-16">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic flex items-center gap-3"><ShieldCheck className="text-[#3fb950]" size={32} /> FMC Client Terminal</h2>
-          <p className="text-[10px] font-bold text-[#768390] uppercase tracking-[0.3em] mt-1 flex items-center gap-2"><ActivityIcon size={12} className="text-[#3fb950]" /> Real-time Fleet Telemetry & Maintenance Ledger</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <StatCard icon={Construction} label="Fleet Assets" value={myMachines.length} accent="text-[#f0883e]" />
-          <StatCard icon={ActivityIcon} label="Machine Hours" value={`${totalHours.toFixed(0)} hrs`} accent="text-[#58a6ff]" />
-          <StatCard icon={Wrench} label="Breakdown Desk" value={activeTickets} accent="text-[#f85149]" />
-          <StatCard icon={HandCoins} label="Monthly Billing" value={myInvoices.filter(i => i.status === 'Pending').length} accent="text-[#3fb950]" />
-          <StatCard icon={History} label="Payment Ledger" value={myInvoices.filter(i => i.status === 'Paid').length} accent="text-[#adbac7]" />
-          <StatCard icon={ActivityIcon} label="Mean MTTR" value={`${avgMTTR} hrs`} accent="text-[#ffab70]" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <StatCard icon={Construction} label="Fleet Assets" value={myMachines.length} accent="text-primary" />
-          <StatCard icon={ActivityIcon} label="Machine Hours" value={`${totalHours.toFixed(0)} hrs`} accent="text-blue-500" />
-          <StatCard icon={Wrench} label="Breakdown Desk" value={activeTickets} accent="text-red-500" />
-          <StatCard icon={HandCoins} label="Monthly Billing" value={myInvoices.filter(i => i.status === 'Pending').length} accent="text-green-500" />
-          <StatCard icon={History} label="Payment Ledger" value={myInvoices.filter(i => i.status === 'Paid').length} accent="text-text-dim" />
-          <StatCard icon={ActivityIcon} label="Mean MTTR" value={`${avgMTTR} hrs`} accent="text-primary-light" />
+          <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic flex items-center gap-4">
+            <ShieldCheck className="text-[#3fb950]" size={40} /> FMC Client Terminal
+          </h2>
+          <p className="text-[12px] font-bold text-[#8b949e] uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
+            <ActivityIcon size={14} className="text-[#3fb950]" /> Real-time Fleet Telemetry & Maintenance Ledger
+          </p>
         </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <section className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-xl">
-            <div className="px-6 py-4 border-b border-border-main bg-bg-active/50 flex items-center justify-between"><h3 className="text-[10px] font-black text-text-dim uppercase tracking-[0.2em]">Fleet Asset Ledger</h3></div>
-            <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-bg-deep"><tr><th className="px-6 py-4 text-[9px] font-black uppercase text-text-dim">Asset</th><th className="px-6 py-4 text-[9px] font-black uppercase text-text-dim">Hours</th><th className="px-6 py-4 text-[9px] font-black uppercase text-text-dim">Contract</th><th className="px-6 py-4 text-[9px] font-black uppercase text-text-dim">Status</th></tr></thead>
-              <tbody className="divide-y divide-border-main/50">
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <FMCStatCard icon={Construction} label="Fleet Assets" value={myMachines.length} subtitle="Active Machines" color="#f0883e" />
+        <FMCStatCard icon={ActivityIcon} label="Machine Hours" value={`${totalHours.toFixed(0)}`} subtitle="Total Running Hours" color="#58a6ff" />
+        <FMCStatCard icon={Wrench} label="Breakdown Desk" value={activeTickets} subtitle="Open Tickets" color="#f85149" />
+        <FMCStatCard icon={HandCoins} label="Monthly Billing" value={myInvoices.filter(i => i.status === 'Pending').length} subtitle="Pending Invoices" color="#3fb950" />
+        <FMCStatCard icon={History} label="Payment Ledger" value={myInvoices.filter(i => i.status === 'Paid').length} subtitle="Settled Invoices" color="#d2a8ff" />
+        <FMCStatCard icon={ActivityIcon} label="Mean MTTR" value={`${avgMTTR}`} subtitle="Hours Avg Resolution" color="#ffab70" />
+      </div>
+      
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-8">
+        <section className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+          <div className="px-8 py-6 border-b border-[#30363d] bg-[#0d1117]/50 flex items-center justify-between">
+            <div>
+              <h3 className="text-[14px] font-black text-white uppercase tracking-[0.2em]">Fleet Asset Ledger</h3>
+              <p className="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest mt-1">Real-time Telemetry</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-left">
+              <thead className="bg-[#0d1117]">
+                <tr>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase text-[#8b949e] tracking-widest">Asset</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase text-[#8b949e] tracking-widest">Hours</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase text-[#8b949e] tracking-widest">Contract</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase text-[#8b949e] tracking-widest">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#30363d]/50">
                 {myMachines.map(m => (
-                  <tr key={m._id} className="hover:bg-bg-active transition-colors group">
-                    <td className="px-6 py-4"><p className="font-black text-text-main text-xs">{m.name}</p><p className="text-[9px] font-mono text-text-dim uppercase mt-0.5">{m.model}</p></td>
-                    <td className="px-6 py-4 font-mono text-xs text-blue-500 font-bold">{myHours.filter(h => (h.machineName || h.machine) === m.name).reduce((s, h) => s + (h.totalHours || 0), 0).toFixed(0)} hrs</td>
-                    <td className="px-6 py-4 text-[10px] text-text-dim">{myContracts.find(c => (c.machines || []).includes(m._id))?.agreementNumber || '—'}</td>
-                    <td className="px-6 py-4">{myTickets.some(t => t.machineName === m.name && !['Resolved', 'Closed'].includes(t.status)) ? <span className="text-red-500 text-[8px] font-black uppercase tracking-widest">Down</span> : <span className="text-green-500 text-[8px] font-black uppercase tracking-widest">Live</span>}</td>
+                  <tr key={m._id} className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="px-8 py-5">
+                      <p className="font-black text-white text-sm">{m.name}</p>
+                      <p className="text-[10px] font-mono text-[#8b949e] uppercase mt-1">{m.model}</p>
+                    </td>
+                    <td className="px-8 py-5 font-mono text-sm text-[#58a6ff] font-bold">
+                      {myHours.filter(h => (h.machineName || h.machine) === m.name).reduce((s, h) => s + (h.totalHours || 0), 0).toFixed(0)} hrs
+                    </td>
+                    <td className="px-8 py-5 text-[11px] text-[#8b949e]">
+                      {myContracts.find(c => (c.machines || []).includes(m._id))?.agreementNumber || '—'}
+                    </td>
+                    <td className="px-8 py-5">
+                      {myTickets.some(t => t.machineName === m.name && !['Resolved', 'Closed'].includes(t.status)) ? (
+                        <span className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest">Down</span>
+                      ) : (
+                        <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-500 rounded-lg text-[9px] font-black uppercase tracking-widest">Live</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
-              </tbody></table></div>
-          </section>
-          <section className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-xl">
-            <div className="px-6 py-4 border-b border-border-main bg-bg-active/50"><h3 className="text-[10px] font-black text-text-dim uppercase tracking-[0.2em]">Service Desk Activity</h3></div>
-            <div className="p-6 space-y-4">
-              {myTickets.slice(0, 5).map(t => (
-                <div key={t._id} className="p-4 bg-bg-deep border border-border-main rounded-xl flex items-center justify-between group hover:border-primary/30 transition-all shadow-sm">
-                  <div className="flex items-center gap-4"><div className={`w-2 h-2 rounded-full ${t.status === 'Requested' ? 'bg-red-500' : 'bg-primary'} animate-pulse`} /><div><p className="text-[10px] font-black text-text-main uppercase">{t.ticketNumber}</p><p className="text-[9px] text-text-dim mt-1">{t.machineName}</p></div></div>
-                  <span className="text-[9px] font-black text-text-dim uppercase tracking-widest">{t.status}</span>
+                {myMachines.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="px-8 py-12 text-center text-[11px] font-bold text-[#8b949e] uppercase tracking-widest">
+                      No fleet assets registered
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div className="space-y-8 flex flex-col">
+          <section className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden shadow-2xl">
+            <div className="px-8 py-6 border-b border-[#30363d] bg-[#0d1117]/50 flex items-center justify-between">
+              <div>
+                <h3 className="text-[14px] font-black text-white uppercase tracking-[0.2em]">Service Desk</h3>
+                <p className="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest mt-1">Recent Activity</p>
+              </div>
+            </div>
+            <div className="p-8 space-y-4">
+              {myTickets.slice(0, 4).map(t => (
+                <div key={t._id} className="p-5 bg-[#0d1117] border border-[#30363d] rounded-xl flex items-center justify-between group hover:border-[#f0883e]/50 transition-all shadow-sm">
+                  <div className="flex items-center gap-5">
+                    <div className={`w-2.5 h-2.5 rounded-full ${t.status === 'Requested' ? 'bg-red-500' : 'bg-[#3fb950]'} animate-pulse`} />
+                    <div>
+                      <p className="text-[11px] font-black text-white uppercase tracking-wider">{t.ticketNumber}</p>
+                      <p className="text-[10px] text-[#8b949e] mt-1">{t.machineName}</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black text-[#8b949e] uppercase tracking-widest">{t.status}</span>
                 </div>
               ))}
+              {myTickets.length === 0 && (
+                <div className="py-8 text-center text-[11px] font-bold text-[#8b949e] uppercase tracking-widest">
+                  No active service requests
+                </div>
+              )}
             </div>
           </section>
-        </div>
-        <div className="space-y-6">
-          <section className="bg-bg-card border border-border-main rounded-2xl p-6 shadow-xl relative overflow-hidden">
-            <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-6">Settlement Ledger</h3>
-            <div className="space-y-4">
+
+          <section className="bg-[#161b22] border border-[#30363d] rounded-2xl overflow-hidden shadow-2xl">
+            <div className="px-8 py-6 border-b border-[#30363d] bg-[#0d1117]/50 flex items-center justify-between">
+              <div>
+                <h3 className="text-[14px] font-black text-[#3fb950] uppercase tracking-[0.2em]">Settlement Ledger</h3>
+                <p className="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest mt-1">Recent Invoices</p>
+              </div>
+            </div>
+            <div className="p-8 space-y-4">
               {myInvoices.slice(0, 3).map(inv => (
-                <div key={inv._id} className="p-4 bg-bg-deep border border-border-main rounded-xl hover:border-green-500/30 transition-all shadow-sm">
-                  <div className="flex justify-between items-start mb-2"><span className="text-[10px] font-bold text-text-main font-mono">{inv.invoiceNumber}</span><span className="text-[9px] font-black text-green-500 uppercase">Settled</span></div>
-                  <div className="flex justify-between items-end"><div><p className="text-[9px] font-bold text-text-dim uppercase">{inv.billingMonth}</p><p className="text-xl font-black text-text-main font-mono mt-1">{formatINR(inv.totalInvoice)}</p></div><button className="p-2 bg-white/10 rounded-lg text-text-dim hover:text-text-main transition-colors"><Download size={14} /></button></div>
+                <div key={inv._id} className="p-5 bg-[#0d1117] border border-[#30363d] rounded-xl hover:border-[#3fb950]/50 transition-all shadow-sm">
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="text-[11px] font-bold text-white font-mono">{inv.invoiceNumber}</span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${inv.status === 'Paid' ? 'bg-[#3fb950]/10 text-[#3fb950] border-[#3fb950]/20' : 'bg-[#f0883e]/10 text-[#f0883e] border-[#f0883e]/20'}`}>{inv.status}</span>
+                  </div>
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <p className="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest">{inv.billingMonth}</p>
+                      <p className="text-2xl font-black text-white font-mono mt-1">{formatINR(inv.totalInvoice)}</p>
+                    </div>
+                    <button className="p-2.5 bg-white/5 rounded-lg text-[#8b949e] hover:text-white hover:bg-white/10 transition-colors">
+                      <Download size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
+              {myInvoices.length === 0 && (
+                <div className="py-8 text-center text-[11px] font-bold text-[#8b949e] uppercase tracking-widest">
+                  No recent settlements
+                </div>
+              )}
             </div>
           </section>
         </div>
@@ -212,20 +302,28 @@ const FMCCustomerDashboard = () => {
 };
 
 const Dashboard = () => {
-  // const { user, fmcContracts } = state.data;
-  // const isFMC = (Array.isArray(user?.type) ? user.type.includes('FMC') : (Array.isArray(user?.type) ? user.type.includes('FMC') : user?.type?.toUpperCase() === 'FMC')) || fmcContracts.some(c =>
-  //   (c.customerId && user?.customerId && c.customerId.toString() === user.customerId.toString()) ||
-  //   (c.customerName === user?.name)
-  // );
+  const { view, user, fmcContracts } = state.data;
 
-  // if (isFMC) return <FMCCustomerDashboard />;
-  const { user, fmcContracts } = state.data;
-  const isFMC = (Array.isArray(user?.type) ? user.type.includes('FMC') : (Array.isArray(user?.type) ? user.type.includes('FMC') : user?.type?.toUpperCase() === 'FMC')) || fmcContracts.some(c =>
+  if (view === 'fmc-customer-dashboard') return <FMCCustomerDashboard />;
+  if (view === 'emi-dashboard') return <CustomerDashboard />;
+  if (view === 'rental-dashboard') return <CustomerDashboard />; // Render same as EMI portal for now
+
+  // Fallback for default 'customer-dashboard'
+  const userTypes = Array.isArray(user?.type) 
+    ? user.type.map(t => (t || '').toUpperCase()) 
+    : [(user?.type || '').toUpperCase()].filter(Boolean);
+
+  const hasFMCContracts = (fmcContracts || []).some(c =>
     (c.customerId && user?.customerId && c.customerId.toString() === user.customerId.toString()) ||
     (c.customerName === user?.name)
   );
 
-  if (isFMC) return <FMCCustomerDashboard />;
+  const isFMC = userTypes.includes('FMC') || hasFMCContracts;
+
+  if (isFMC && userTypes.length === 1) return <FMCCustomerDashboard />;
+  if (isFMC && userTypes.length === 0) return <FMCCustomerDashboard />;
+  if (isFMC && !userTypes.includes('EMI') && !userTypes.includes('RENTAL')) return <FMCCustomerDashboard />;
+  
   return <CustomerDashboard />;
 };
 

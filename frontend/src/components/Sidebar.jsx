@@ -156,70 +156,90 @@ const Sidebar = () => {
     },
   ].filter((item) => hasPermission(user, item.module, "read"));
 
-  // CUSTOMER FMC CHECK
+  // CUSTOMER FMC/EMI/RENTAL CHECK
   const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
+  const userTypes = Array.isArray(user?.type) 
+    ? user.type.map(t => (t || '').toUpperCase()) 
+    : [(user?.type || '').toUpperCase()].filter(Boolean);
 
-  const isFMC =
-    (Array.isArray(user?.type) ? user.type.includes('FMC') : (Array.isArray(user?.type) ? user.type.includes('FMC') : user?.type?.toUpperCase() === 'FMC')) ||
-    fmcContracts.some(
-      (c) =>
-        (c.customerId &&
-          userCustId &&
-          (c.customerId?._id || c.customerId).toString() === userCustId) ||
-        c.customerName === user?.name,
-    );
+  const hasFMCContracts = fmcContracts.some(
+    (c) =>
+      (c.customerId &&
+        userCustId &&
+        (c.customerId?._id || c.customerId).toString() === userCustId) ||
+      c.customerName === user?.name,
+  );
+
+  const isFMC = userTypes.includes('FMC') || hasFMCContracts;
+  const isEMI = userTypes.includes('EMI') || (!isFMC && userTypes.length === 0);
+  const isRental = userTypes.includes('RENTAL');
 
   // CUSTOMER MENU
-  const customerItems = isFMC
-    ? [
-        {
-          id: "fmc-dashboard",
-          icon: LayoutGrid,
-          label: "FMC Dashboard",
-        },
-        {
-          id: "fmc-hours",
-          icon: ActivityIcon,
-          label: "Machine Hours",
-        },
-        {
-          id: "fmc-tickets",
-          icon: Wrench,
-          label: "Breakdown Desk",
-        },
-        {
-          id: "fmc-billing",
-          icon: HandCoins,
-          label: "Monthly Billing",
-        },
-        {
-          id: "my-machines",
-          icon: Construction,
-          label: "Fleet Assets",
-        },
-        {
-          id: "customer-payments",
-          icon: History,
-          label: "Payment Ledger",
-        },
-      ]
-    : [
-        {
-          id: "customer-dashboard",
-          icon: LayoutDashboard,
-          label: "Financing Hub",
-        },
-        {
-          id: "my-machines",
-          icon: Construction,
-          label: "My Assets",
-        },
-        {
-          id: "customer-payments",
-          icon: History,
-          label: "Payment Ledger",
-        },
-      ];
+  const customerItems = [];
+
+  if (isFMC) {
+    customerItems.push({
+      id: "fmc-customer-dashboard",
+      icon: LayoutDashboard,
+      label: "FMC Dashboard",
+    });
+  }
+
+  if (isEMI) {
+    customerItems.push({
+      id: "emi-dashboard",
+      icon: LayoutDashboard,
+      label: "EMI Dashboard",
+    });
+  }
+
+  if (isRental) {
+    customerItems.push({
+      id: "rental-dashboard",
+      icon: LayoutDashboard,
+      label: "Rental Dashboard",
+    });
+  }
+
+  if (!isFMC && !isEMI && !isRental) {
+    customerItems.push({
+      id: "customer-dashboard",
+      icon: LayoutDashboard,
+      label: "Customer Portal",
+    });
+  }
+
+  if (isFMC) {
+    customerItems.push(
+      {
+        id: "fmc-hours",
+        icon: ActivityIcon,
+        label: "Machine Hours",
+      },
+      {
+        id: "fmc-tickets",
+        icon: Wrench,
+        label: "Breakdown Desk",
+      },
+      {
+        id: "fmc-billing",
+        icon: HandCoins,
+        label: "Monthly Billing",
+      }
+    );
+  }
+
+  customerItems.push({
+    id: "my-machines",
+    icon: Construction,
+    label: (isFMC && !isEMI && !isRental) ? "Fleet Assets" : "My Assets",
+  });
+
+  customerItems.push({
+    id: "customer-payments",
+    icon: History,
+    label: "Payment Ledger",
+  });
 
   // SUPERVISOR MENU
   const supervisorItems = [

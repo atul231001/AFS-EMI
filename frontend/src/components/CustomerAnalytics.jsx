@@ -362,7 +362,11 @@ const CustomerAnalytics = () => {
 
   const customer = customers.find(c => c._id === selectedCustomerId);
 
-  const clientLoans = customer ? loans.filter(l => (l.customerId?._id === customer?._id || l.customerId === customer?._id) && l.approvalStatus === 'Active') : [];
+  const clientLoans = customer ? loans.filter(l => {
+    const loanCustId = (l.customerId?._id || l.customerId)?.toString();
+    const custId = customer?._id?.toString();
+    return loanCustId === custId && l.approvalStatus === 'Active';
+  }) : [];
 
   const machineOptions = [
     'ALL MACHINES',

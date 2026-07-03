@@ -1,0 +1,1 @@
+const mongoose = require('mongoose'); mongoose.connect('mongodb://localhost:27017/emi_db').then(async () => { const loans = await mongoose.connection.collection('loans').find({}, {projection: {approvalStatus:1, agreementGenerated:1, customerId:1, status:1}}).sort({_id:-1}).limit(5).toArray(); console.log(JSON.stringify(loans, null, 2)); process.exit(0); });

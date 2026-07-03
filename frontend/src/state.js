@@ -112,17 +112,17 @@ class State {
     }
     window.addEventListener('popstate', (e) => {
       if (e.state && e.state.view) {
-        this.setState({ 
-          view: e.state.view, 
+        this.setState({
+          view: e.state.view,
           selectedCustomerId: e.state.selectedCustomerId || null,
           selectedLoanId: e.state.selectedLoanId || null,
           selectedCustomerContext: e.state.selectedCustomerContext || null,
-          _isBackNavigation: true 
+          _isBackNavigation: true
         });
       }
     });
     if (this.data.view) {
-      window.history.replaceState({ 
+      window.history.replaceState({
         view: this.data.view,
         selectedCustomerId: this.data.selectedCustomerId || null,
         selectedLoanId: this.data.selectedLoanId || null

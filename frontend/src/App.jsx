@@ -95,6 +95,9 @@ const App = () => {
         if (!hasPermission(user, 'dashboard', 'read')) return <AccessDenied />;
         return <ReportCenter />;
       case 'customer-dashboard':
+      case 'fmc-customer-dashboard':
+      case 'emi-dashboard':
+      case 'rental-dashboard':
         if (!hasPermission(user, 'dashboard', 'read')) return <AccessDenied />;
         return <Dashboard />;
       case 'customers':

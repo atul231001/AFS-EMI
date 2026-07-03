@@ -31,8 +31,8 @@ export const createLoan = async (req, res) => {
       loan.approvalStep = 0;
       loan.agreementGenerated = false;
     } else {
-      loan.approvalStatus = 'Approved';
-      loan.agreementGenerated = true;
+      loan.approvalStatus = 'Pending Scheduling';
+      loan.agreementGenerated = false;
     }
 
     const newLoan = await loan.save();

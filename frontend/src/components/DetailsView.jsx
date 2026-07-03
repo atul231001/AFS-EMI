@@ -351,8 +351,17 @@ const LoanDetails = () => {
   };
 
   const handleClose = () => {
-    state.setState({ selectedLoanId: null });
-    state.goBack();
+    let nextView = state.data.previousView;
+    if (nextView === 'loans') nextView = 'financed-machines';
+    if (nextView === 'dashboard') nextView = state.data.user?.role === 'OEM' ? 'oem-dashboard' : 'customer-dashboard';
+    if (nextView === 'customer-analytics') nextView = 'customer-analytics';
+
+    if (nextView) {
+      state.setState({ view: nextView, selectedLoanId: null, previousView: null });
+    } else {
+      const fallback = state.data.user?.role === 'OEM' ? 'financed-machines' : 'customer-dashboard';
+      state.setState({ view: fallback, selectedLoanId: null });
+    }
   };
 
   return (
@@ -369,7 +378,11 @@ const LoanDetails = () => {
               FINANCING DETAILS
             </span>
             <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-3">
-              {loan.customerId?.name || 'CLIENT PROFILE'}
+              {(() => {
+                const loanCustId = (loan?.customerId?._id || loan?.customerId)?.toString();
+                const cust = state.data.customers.find(c => c._id?.toString() === loanCustId);
+                return cust?.name || loan?.customerId?.name || loan?.customerName || 'CLIENT PROFILE';
+              })()}
               <span className="hidden md:block w-px h-4 bg-[#30363d]" />
               <div className="flex items-center gap-4">
                 {/* 1. AGREEMENT NUMBER */}

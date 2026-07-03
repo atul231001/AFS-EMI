@@ -138,20 +138,36 @@ const MachineManagement = () => {
   if (isCustomer) {
     const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
 
-    // Show ONLY confirmed financed machines (loans with invoice data)
+    // Show financed machines (even if invoice is pending)
     const clientLoans = (state.data.loans || []).filter(l => {
       const loanCustId = (l.customerId?._id || l.customerId)?.toString();
-      return loanCustId && userCustId && loanCustId === userCustId && l.invoiceData;
+      return loanCustId && userCustId && loanCustId === userCustId;
     });
 
     const myMachineIdsStr = clientLoans.map(l => l.machineId?.toString()).filter(Boolean);
     const myMachineNames = clientLoans.map(l => (l.machineName || '').toLowerCase().trim());
 
-    baseMachines = machines.filter(m => {
-      const mName = (m.name || '').toLowerCase().trim();
-      const idMatch = myMachineIdsStr.includes(m._id?.toString());
-      const nameMatch = myMachineNames.some(loanName => loanName && mName && (loanName.includes(mName) || mName.includes(loanName)));
-      return idMatch || nameMatch;
+    // Show FMC contracted machines
+    const myContracts = (state.data.fmcContracts || []).filter(c =>
+      (c.customerId && userCustId && c.customerId.toString() === userCustId) ||
+      (c.customerName === user?.name)
+    );
+
+    baseMachines = [];
+    clientLoans.forEach(l => {
+       const masterMachine = machines.find(m => m._id?.toString() === l.machineId?.toString() || (m.name || '').toLowerCase().trim() === (l.machineName || '').toLowerCase().trim());
+       if (masterMachine) {
+          baseMachines.push({ ...masterMachine, _assetId: l._id, _loan: l });
+       }
+    });
+
+    myContracts.forEach(c => {
+       (c.machines || []).forEach(mId => {
+          const masterMachine = machines.find(m => m._id?.toString() === mId.toString());
+          if (masterMachine) {
+             baseMachines.push({ ...masterMachine, _assetId: c._id + '_' + masterMachine._id, _fmc: c });
+          }
+       });
     });
   }
 
@@ -421,16 +437,27 @@ const MachineManagement = () => {
                     {localColConfig.valuation && (
                       <td className="px-6 py-4">
                         {isCustomer ? (() => {
-                          const machineLoan = state.data.loans?.find(l => l.machineName === m.name || l.machineId === m._id);
-                          const inv = machineLoan?.invoiceData;
-                          if (!inv) return <span className="text-[10px] text-text-dim uppercase font-bold italic">Processing Invoice...</span>;
+                          const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
+                          const machineLoan = m._loan;
+                          const fmcContract = m._fmc;
+
+                          const inv = machineLoan?.invoiceData || {};
+                          const sNum = m.serialNumber || inv.serialNumber || machineLoan?.serialNumber || 'N/A';
+                          const cNum = m.chassisNumber || inv.chassisNumber || 'N/A';
+                          const invNum = m.invoiceNumber || inv.invoiceNumber || machineLoan?.invoiceNumber || inv.order_id || 'N/A';
+                          const engNum = m.engineNumber || inv.engineNumber || m.specs?.engineModel || 'N/A';
+
                           return (
                             <div className="flex flex-col gap-1 text-[8px] font-mono font-bold text-text-dim uppercase tracking-wider">
-                              <div className="flex justify-between"><span>ORD: <span className="text-text-main">{inv.order_id}</span></span> <span>DEL: <span className="text-text-main">{inv.deliveryNote}</span></span></div>
-                              <div className="text-[#f0883e]">CH: {inv.chassisNumber}</div>
-                              <div className="text-[#f0883e]">SN: {inv.serialNumber}</div>
-                              <div>VEH: <span className="text-text-main">{inv.vehicleNumber}</span> <span className="text-border-main mx-1">|</span> ENG: <span className="text-text-main">{inv.engineNumber}</span></div>
-                              <div className="text-emerald-500 mt-1">INV DATE: {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : 'N/A'}</div>
+                              {machineLoan ? (
+                                <div className="text-[#3fb950] mb-0.5">FINANCED ASSET</div>
+                              ) : fmcContract ? (
+                                <div className="text-[#58a6ff] mb-0.5">FMC CONTRACT</div>
+                              ) : null}
+                              <div className="flex justify-between"><span>INV: <span className="text-text-main">{invNum}</span></span></div>
+                              <div className="text-[#f0883e]">CH: {cNum}</div>
+                              <div className="text-[#f0883e]">SN: {sNum}</div>
+                              <div>ENG: <span className="text-text-main">{engNum}</span></div>
                             </div>
                           );
                         })() : (
@@ -560,15 +587,32 @@ const MachineManagement = () => {
           {isCustomer ? (
             <div className="mt-3 p-2 bg-bg-deep border border-border-main rounded-lg relative z-10">
               {(() => {
-                const machineLoan = state.data.loans?.find(l => l.machineName === machine.name || l.machineId === machine._id);
-                const inv = machineLoan?.invoiceData;
-                if (!inv) return <span className="text-[8px] text-text-dim uppercase font-bold italic">Processing Invoice...</span>;
+                const machineLoan = machine._loan;
+                const fmcContract = machine._fmc;
+
+                const inv = machineLoan?.invoiceData || {};
+                const sNum = machine.serialNumber || inv.serialNumber || machineLoan?.serialNumber || 'N/A';
+                const cNum = machine.chassisNumber || inv.chassisNumber || 'N/A';
+                const invNum = machine.invoiceNumber || inv.invoiceNumber || machineLoan?.invoiceNumber || inv.order_id || 'N/A';
+                const engNum = machine.engineNumber || inv.engineNumber || machine.specs?.engineModel || 'N/A';
+
                 return (
                   <div className="flex flex-col gap-1 text-[8px] font-mono font-bold text-text-dim uppercase tracking-wider">
-                    <div className="flex justify-between"><span>ORD: <span className="text-text-main">{inv.order_id}</span></span> <span>DEL: <span className="text-text-main">{inv.deliveryNote}</span></span></div>
-                    <div className="text-[#f0883e]">CH: {inv.chassisNumber}</div>
-                    <div className="text-[#f0883e]">SN: {inv.serialNumber}</div>
-                    <div className="text-emerald-500 mt-1">INV DATE: {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : 'N/A'}</div>
+                    {machineLoan ? (
+                      <div className="flex justify-between mb-1 border-b border-border-main pb-1">
+                        <span className="text-[#3fb950]">FINANCED ASSET</span>
+                        <span className="text-[#f0883e]">₹{((machineLoan.emi || 0)).toLocaleString()}/m</span>
+                      </div>
+                    ) : fmcContract ? (
+                      <div className="flex justify-between mb-1 border-b border-border-main pb-1">
+                        <span className="text-[#58a6ff]">FMC CONTRACTED</span>
+                      </div>
+                    ) : null}
+                    <div className="flex justify-between mt-1"><span>INV: <span className="text-text-main">{invNum}</span></span></div>
+                    <div className="text-[#f0883e]">CH: {cNum}</div>
+                    <div className="text-[#f0883e]">SN: {sNum}</div>
+                    <div>ENG: <span className="text-text-main">{engNum}</span></div>
+                    {inv.invoiceDate && <div className="text-emerald-500 mt-1">INV DATE: {new Date(inv.invoiceDate).toLocaleDateString()}</div>}
                   </div>
                 );
               })()}
@@ -734,6 +778,7 @@ const MachineFormModal = ({ isOpen, onClose, machine }) => {
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     category: '', name: '', model: '', machineType: '',
+    serialNumber: '', chassisNumber: '', engineNumber: '', invoiceNumber: '',
     images: [], pricing: { totalPrice: 0, oemNetSaleValue: 0, commissionA: 0, commissionB: 0, serviceCommission: 0 },
     specs: { fuelType: 'Diesel', horsePower: '', cylinders: '', year: '2024', unladenWeight: '', engineModel: '', ratedPowerKw: '', driveType: '2WD', transmissionType: '' },
     attachments: [], warranty: { standardMonths: 12, standardHours: 2000, extendedMonths: 6, extendedHours: 1600 },
@@ -748,6 +793,7 @@ const MachineFormModal = ({ isOpen, onClose, machine }) => {
         category: (typeof state.data.categories[0] === 'string' ? state.data.categories[0] : state.data.categories[0]?.cat_name) || '',
         name: '', model: '',
         machineType: state.data.dieselTypes[0] || '',
+        serialNumber: '', chassisNumber: '', engineNumber: '', invoiceNumber: '',
         images: [''],
         pricing: { totalPrice: 0, oemNetSaleValue: 0, commissionA: 0, commissionB: 0, serviceCommission: 0 },
         specs: { fuelType: 'Diesel', horsePower: '', cylinders: '', year: '2024', unladenWeight: '', engineModel: '', ratedPowerKw: '', driveType: '2WD', transmissionType: state.data.transmissionTypes[0] || '' },
@@ -941,6 +987,24 @@ const BasicTab = ({ formData, setFormData, fileInputRef }) => {
               selected={formData.category}
               onSelect={(val) => setFormData({ ...formData, category: val })}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-4 mt-2 border-t border-slate-100 dark:border-white/10 pt-4">
+            <div>
+              <p className="text-[10px] font-bold text-[#768390] mb-1.5 uppercase tracking-wider">Serial Number</p>
+              <input type="text" value={formData.serialNumber || ''} onChange={e => setFormData({ ...formData, serialNumber: e.target.value })} placeholder="SN-..." className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-3 text-sm text-white font-mono focus:border-[#f0883e] outline-none" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-[#768390] mb-1.5 uppercase tracking-wider">Chassis Number</p>
+              <input type="text" value={formData.chassisNumber || ''} onChange={e => setFormData({ ...formData, chassisNumber: e.target.value })} placeholder="CH-..." className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-3 text-sm text-white font-mono focus:border-[#f0883e] outline-none" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-[#768390] mb-1.5 uppercase tracking-wider">Engine Number</p>
+              <input type="text" value={formData.engineNumber || ''} onChange={e => setFormData({ ...formData, engineNumber: e.target.value })} placeholder="ENG-..." className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-3 text-sm text-white font-mono focus:border-[#f0883e] outline-none" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-[#768390] mb-1.5 uppercase tracking-wider">Invoice Number</p>
+              <input type="text" value={formData.invoiceNumber || ''} onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })} placeholder="INV-..." className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-3 text-sm text-white font-mono focus:border-[#f0883e] outline-none" />
+            </div>
           </div>
         </div>
       </div>
@@ -1439,9 +1503,11 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
     { label: 'Mfg Year', value: machine?.specs?.year || 'N/A' },
     { label: 'Weight', value: machine?.specs?.unladenWeight ? `${machine.specs.unladenWeight} kg` : 'N/A' },
     { label: 'Warranty', value: machine?.warranty?.standardMonths ? `${machine.warranty.standardMonths}M / ${machine.warranty.standardHours}hr` : 'N/A' },
+    { label: 'Serial No', value: machine?.serialNumber || machineLoan?.invoiceData?.serialNumber || machineLoan?.serialNumber || 'N/A' },
+    { label: 'Chassis No', value: machine?.chassisNumber || machineLoan?.invoiceData?.chassisNumber || 'N/A' },
+    { label: 'Invoice No', value: machine?.invoiceNumber || machineLoan?.invoiceData?.invoiceNumber || machineLoan?.invoiceNumber || 'N/A' },
+    { label: 'Engine No', value: machine?.engineNumber || machineLoan?.invoiceData?.engineNumber || machine?.specs?.engineModel || 'N/A' },
     ...(machineLoan ? [
-      { label: 'Invoice No', value: machineLoan.invoiceNumber || machineLoan.invoiceData?.invoiceNumber || 'N/A' },
-      { label: 'Serial No', value: machineLoan.serialNumber || machineLoan.invoiceData?.serialNumber || 'N/A' },
       { label: 'Dispatch Date', value: machineLoan.dispatchDate ? new Date(machineLoan.dispatchDate).toLocaleDateString() : 'N/A' }
     ] : [])
   ].filter(s => s.value !== 'N/A' && s.value !== 'N/A HP' && s.value !== ' HP');
@@ -1493,13 +1559,7 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
               .map(tab => (
                 <button
                   key={tab}
-                  onClick={() => {
-                    if (tab === 'FINANCIAL PROTOCOL' && machineLoan && machineLoan.schedule && typeof machineLoan.emi !== 'undefined') {
-                      state.setState({ view: 'loan-details', selectedLoanId: machineLoan._id });
-                    } else {
-                      setActiveDetailTab(tab);
-                    }
-                  }}
+                  onClick={() => setActiveDetailTab(tab)}
                   className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest ${activeDetailTab === tab ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-text-dim hover:text-text-main hover:bg-bg-active/10'}`}
                 >
                   {tab}
@@ -1704,21 +1764,22 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
             </div>
           ) : (
             <div className="h-full bg-[#0d1117] flex flex-col overflow-y-auto custom-scrollbar">
-              {machineLoan && machineLoan.schedule && typeof machineLoan.emi !== 'undefined' ? (
+              {machineLoan ? (
+                machineLoan.schedule && machineLoan.schedule.length > 0 && machineLoan.emi != null ? (
                 <div className="flex-1 flex flex-col p-6 space-y-6">
                   {/* FINANCIAL METRICS */}
                   <div className="grid grid-cols-2 md:grid-cols-6 gap-4 shrink-0">
                     <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
                       <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">NEXT EMI <CreditCard size={14} className="text-[#f0883e]" /></p>
-                      <p className="text-xl font-black italic tracking-tighter text-[#f0883e]">₹{machineLoan.emi.toLocaleString()}</p>
+                      <p className="text-xl font-black italic tracking-tighter text-[#f0883e]">₹{(machineLoan.emi || 0).toLocaleString()}</p>
                     </div>
                     <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
                       <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">TOTAL PAID <TrendingUp size={14} className="text-[#3fb950]" /></p>
-                      <p className="text-xl font-black italic tracking-tighter text-[#3fb950]">₹{((machineLoan.schedule.filter(s => s.status === 'Paid').length) * machineLoan.emi).toLocaleString()}</p>
+                      <p className="text-xl font-black italic tracking-tighter text-[#3fb950]">₹{((machineLoan.schedule.filter(s => s.status === 'Paid').length) * (machineLoan.emi || 0)).toLocaleString()}</p>
                     </div>
                     <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
                       <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">OUTSTANDING BAL <AlertCircle size={14} className="text-white" /></p>
-                      <p className="text-xl font-black italic tracking-tighter text-white">₹{(machineLoan.schedule.find(s => s.status === 'Pending') || machineLoan.schedule[machineLoan.schedule.length - 1])?.balance?.toLocaleString()}</p>
+                      <p className="text-xl font-black italic tracking-tighter text-white">₹{((machineLoan.schedule.find(s => s.status === 'Pending') || machineLoan.schedule[machineLoan.schedule.length - 1])?.balance || 0).toLocaleString()}</p>
                     </div>
                     <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl">
                       <p className="text-[9px] font-bold text-[#768390] uppercase tracking-widest mb-1.5 flex justify-between">OVERDUE INTEREST <History size={14} className="text-rose-500" /></p>
@@ -1790,11 +1851,11 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
                             <tbody className="divide-y divide-[#30363d]/50">
                               {machineLoan.schedule.map(s => (
                                 <tr key={s.installment} className="hover:bg-[#f0883e]/5 transition-colors group">
-                                  <td className="px-5 py-2.5 text-[10px] font-mono font-bold text-[#444c56] group-hover:text-[#f0883e] transition-colors">{s.installment.toString().padStart(2, '0')}</td>
+                                  <td className="px-5 py-2.5 text-[10px] font-mono font-bold text-[#444c56] group-hover:text-[#f0883e] transition-colors">{(s.installment || '').toString().padStart(2, '0')}</td>
                                   <td className="px-5 py-2.5 text-[10px] font-bold text-white uppercase italic">{s.dueDate}</td>
-                                  <td className="px-5 py-2.5 text-[10px] font-mono text-[#768390] text-right">₹{s.principal?.toLocaleString() || 0}</td>
-                                  <td className="px-5 py-2.5 text-[10px] font-mono text-rose-400/70 text-right">₹{s.interest?.toLocaleString() || 0}</td>
-                                  <td className="px-5 py-2.5 text-[10px] font-mono font-bold text-white text-right italic">₹{s.balance?.toLocaleString() || 0}</td>
+                                  <td className="px-5 py-2.5 text-[10px] font-mono text-[#768390] text-right">₹{(s.principal || 0).toLocaleString()}</td>
+                                  <td className="px-5 py-2.5 text-[10px] font-mono text-rose-400/70 text-right">₹{(s.interest || 0).toLocaleString()}</td>
+                                  <td className="px-5 py-2.5 text-[10px] font-mono font-bold text-white text-right italic">₹{(s.balance || 0).toLocaleString()}</td>
                                   <td className="px-5 py-2.5 text-center">
                                     <div className="flex items-center justify-center">
                                       {s.status === 'Paid' ? (
@@ -1812,7 +1873,7 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
                                     {s.status === 'Paid' ? s.dueDate : '--'}
                                   </td>
                                   <td className="px-5 py-2.5 text-right text-[10px] font-mono text-red-500 font-bold">
-                                    {s.status === 'Pending' && new Date(s.dueDate) < new Date() ? `₹${machineLoan.emi.toLocaleString()}` : '—'}
+                                    {s.status === 'Pending' && new Date(s.dueDate) < new Date() ? `₹${(machineLoan.emi || 0).toLocaleString()}` : '—'}
                                   </td>
                                   <td className="px-5 py-2.5 text-right text-[10px] font-mono text-rose-500">
                                     {s.status === 'Paid' ? '--' : '--'}
@@ -1860,6 +1921,16 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
                     </div>
                   </div>
                 </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-40 opacity-70">
+                    <div className="w-16 h-16 border-2 border-[#f0883e] border-t-transparent rounded-full animate-spin mb-6 shadow-[0_0_15px_rgba(240,136,62,0.5)]"></div>
+                    <h3 className="text-xl font-black text-[#f0883e] uppercase tracking-widest mb-2">Finance Protocol Pending</h3>
+                    <p className="text-[10px] text-text-dim font-mono uppercase text-center max-w-md leading-relaxed">
+                      The financing schedule and EMI structures for this asset are currently being processed.<br/>
+                      Please check back later once the settlement data is fully generated.
+                    </p>
+                  </div>
+                )
               ) : (
                 <div className="flex flex-col items-center justify-center py-40 opacity-30">
                   <History size={64} className="mb-6" />
