@@ -33,7 +33,7 @@ const CustomerDashboard = () => {
   const clientLoans = loans.filter(l => {
     const loanCustId = (l.customerId?._id || l.customerId)?.toString();
     const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
-    return loanCustId && userCustId && loanCustId === userCustId;
+    return loanCustId && userCustId && loanCustId === userCustId && l.approvalStatus === 'Active';
   });
   const totalFinanced = clientLoans.reduce((sum, l) => sum + (l.principal || 0), 0);
   let totalPaidAmt = 0;

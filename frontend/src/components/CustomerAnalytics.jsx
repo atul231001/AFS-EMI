@@ -365,7 +365,7 @@ const CustomerAnalytics = () => {
   const clientLoans = customer ? loans.filter(l => {
     const loanCustId = (l.customerId?._id || l.customerId)?.toString();
     const custId = customer?._id?.toString();
-    return loanCustId === custId && l.approvalStatus !== 'Rejected';
+    return loanCustId === custId && l.approvalStatus === 'Active';
   }) : [];
 
   const machineOptions = [

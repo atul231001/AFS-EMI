@@ -712,7 +712,7 @@ const CustomerManagement = () => {
                         {formatINR((state.data.loans || []).filter(l => {
                           const lCustId = (l.customerId?._id || l.customerId)?.toString();
                           const targetCustId = c._id?.toString();
-                          return lCustId && targetCustId && lCustId === targetCustId && l.approvalStatus !== 'Rejected';
+                          return lCustId && targetCustId && lCustId === targetCustId && l.approvalStatus === 'Active';
                         }).reduce((sum, l) => {
                           const ovd = (l.schedule || []).filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date());
                           return sum + ovd.reduce((s, inst) => s + inst.emi, 0);

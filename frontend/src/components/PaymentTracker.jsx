@@ -36,13 +36,13 @@ const PaymentTracker = () => {
     transactionId: p.transactionId
   }));
 
-  // 2. Process Pending EMIs from Loans
-  const clientLoans = isCustomer
+  const clientLoans = (isCustomer
     ? loans.filter(l => {
       const lCustId = (l.customerId?._id || l.customerId)?.toString();
       return lCustId && uCustId && lCustId === uCustId;
     })
-    : loans;
+    : loans
+  ).filter(l => l.approvalStatus === 'Active');
 
   const pendingEntries = clientLoans.flatMap(l =>
     (l.schedule || [])
