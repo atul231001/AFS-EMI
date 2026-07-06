@@ -3,8 +3,9 @@ import ApprovalFlow from '../../models/ApprovalFlow.js';
 import { generateReceiptPDF } from '../../services/pdfService.js';
 import { generateAgreementPDF } from '../../services/pdfService.js';
 import { generateExcelReport, generatePPTReport, generatePDFReport } from '../../services/reportService.js';
-
 import Machine from '../../models/Machine.js';
+import mongoose from 'mongoose';
+import { calculateOverdueInterest } from '../../utils/interestCalculator.js';
 export const getLoans = async (req, res) => {
   try {
     let filter = {};
@@ -353,5 +354,151 @@ export const downloadReport = async (req, res) => {
   } catch (error) {
     console.error('Report Generation Error:', error);
     res.status(500).json({ message: 'Protocol Failure: Report Generation Aborted' });
+  }
+};
+
+export const getLoanDetails = async (req, res) => {
+  try {
+    const id = req.query.id || req.params.id;
+    let loan;
+
+    const isValidObjectId = mongoose.Types.ObjectId.isValid(id);
+    
+    if (isValidObjectId) {
+      loan = await Loan.findById(id).populate('customerId').lean();
+      
+      if (!loan) {
+        const machine = await Machine.findById(id).lean();
+        if (machine) {
+          const filter = {
+            $or: [
+              { machineId: machine._id },
+              { machineName: machine.name, model: machine.model },
+              { machineName: machine.name }
+            ]
+          };
+          if (req.user && req.user.role === 'CUSTOMER' && req.user.customerId) {
+            filter.customerId = req.user.customerId;
+          }
+          loan = await Loan.findOne(filter).populate('customerId').lean();
+        }
+      }
+    }
+
+    if (!loan) {
+      return res.status(404).json({
+        success: false,
+        statusCode: 404,
+        message: "Asset or Loan Protocol Not Found"
+      });
+    }
+
+    const updatedLoan = calculateOverdueInterest(loan);
+
+    const machine = await Machine.findOne({
+      $or: [
+        { _id: updatedLoan.machineId },
+        { name: updatedLoan.machineName, model: updatedLoan.model },
+        { name: updatedLoan.machineName }
+      ]
+    }).lean();
+
+    const schedule = (updatedLoan.schedule || []).map((s, index) => {
+      const instNum = s.installment || s.installmentNo || (index + 1);
+      return {
+        installment: instNum,
+        type: s.type || 'EMI',
+        dueDate: s.dueDate,
+        emi: s.emi || 0,
+        principal: s.principal || 0,
+        interest: s.interest || 0,
+        outstandingAmount: s.outstandingAmount || 0,
+        overdueInterest: s.overdueInterest || 0,
+        paidOverdueInterest: s.paidOverdueInterest || 0,
+        paidAmount: s.paidAmount || 0,
+        paidDate: s.paidDate || null,
+        balance: s.balance || 0,
+        status: s.status || 'Pending',
+        receiptUrl: s.status === 'Paid' ? `/api/app/loans/${updatedLoan._id}/receipt/${instNum}` : null
+      };
+    });
+
+    const paidInstallments = schedule.filter(s => s.status === 'Paid');
+    const pendingInstallments = schedule.filter(s => s.status !== 'Paid');
+    const firstPending = pendingInstallments.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
+    const lastPaid = paidInstallments.sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate))[0];
+
+    const nextEmi = updatedLoan.emi || 0;
+    const totalPaid = paidInstallments.length * nextEmi;
+    const outstandingBalance = firstPending ? firstPending.balance : (lastPaid ? lastPaid.balance : (updatedLoan.principal || 0));
+    const totalOverdueInterest = schedule.reduce((sum, s) => sum + (s.overdueInterest || 0), 0);
+
+    const metricsSummary = {
+      nextEmi,
+      totalPaid,
+      outstandingBalance,
+      overdueInterest: totalOverdueInterest,
+      lastPaymentDate: lastPaid ? lastPaid.dueDate : null,
+      nextPaymentDate: firstPending ? firstPending.dueDate : 'DONE',
+      paymentProgressPercentage: Math.round((paidInstallments.length / (schedule.length || 1)) * 100)
+    };
+
+    res.status(200).json({
+      success: true,
+      statusCode: 200,
+      message: "Data retrieved successfully",
+      data: {
+        loanId: updatedLoan._id,
+        machine: machine ? {
+          id: machine._id,
+          name: machine.name,
+          category: machine.category,
+          brand: machine.brand,
+          serialNumber: updatedLoan.serialNumber || machine.serialNumber || 'N/A',
+          chassisNumber: updatedLoan.chassisNumber || machine.chassisNumber || 'N/A',
+          specs: machine.specs,
+          images: machine.images,
+          img: machine.img,
+          pricing: machine.pricing
+        } : {
+          name: updatedLoan.machineName,
+          model: updatedLoan.model,
+          serialNumber: updatedLoan.serialNumber || 'N/A'
+        },
+        customer: updatedLoan.customerId ? {
+          id: updatedLoan.customerId._id,
+          name: updatedLoan.customerId.name,
+          customId: updatedLoan.customerId.customId,
+          mobile: updatedLoan.customerId.mobile,
+          email: updatedLoan.customerId.email,
+          gst: updatedLoan.customerId.gst
+        } : null,
+        loanDetails: {
+          principal: updatedLoan.principal,
+          emi: updatedLoan.emi,
+          tenure: updatedLoan.tenure,
+          interestRate: updatedLoan.interestRate,
+          downPayment: updatedLoan.downPayment,
+          delayInterest: updatedLoan.delayInterest,
+          status: updatedLoan.status,
+          approvalStatus: updatedLoan.approvalStatus,
+          emiStartDate: updatedLoan.emiStartDate,
+          dispatchDate: updatedLoan.dispatchDate,
+          commissionDate: updatedLoan.commissionDate,
+          invoiceNumber: updatedLoan.invoiceNumber,
+          invoiceData: updatedLoan.invoiceData
+        },
+        metricsSummary,
+        repaymentSchedule: schedule
+      }
+    });
+
+  } catch (error) {
+    console.error("getLoanDetails Error:", error);
+    res.status(500).json({
+      success: false,
+      statusCode: 500,
+      message: error.message
+    });
   }
 };

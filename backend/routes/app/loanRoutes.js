@@ -1,9 +1,11 @@
 import express from 'express';
 const router = express.Router();
-import { getLoans, createLoan, updateLoan, approveLoan, approveSchedule, approveInvoice, downloadReceipt, downloadReport, downloadAgreement, sendAgreementEmail, confirmDispatch, confirmCommission } from '../../controllers/app/loanController.js';
+import { getLoans, getLoanDetails, createLoan, updateLoan, approveLoan, approveSchedule, approveInvoice, downloadReceipt, downloadReport, downloadAgreement, sendAgreementEmail, confirmDispatch, confirmCommission } from '../../controllers/app/loanController.js';
 import { protect } from '../../middleware/authMiddleware.js';
 
+router.get('/emidetails', protect, getLoanDetails);
 router.get('/', protect, getLoans);
+router.get('/:id', protect, getLoanDetails);
 router.post('/', protect, createLoan);
 router.put('/:id', protect, updateLoan);
 router.post('/:id/approve', protect, approveLoan);

@@ -35,6 +35,8 @@ import appReportRoutes from './routes/app/reportRoutes.js';
 import appUploadRoutes from './routes/app/uploadRoutes.js';
 import appDispatchRoutes from './routes/app/dispatchRoutes.js';
 import { initScheduler } from './services/schedulerService.js';
+import { getLoanDetails } from './controllers/app/loanController.js';
+import { protect } from './middleware/authMiddleware.js';
 
 dotenv.config({ path: './backend/.env' });
 connectDB();
@@ -69,6 +71,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/dispatch', dispatchRoutes);
 
 // App Independent Routes
+app.get('/api/app/emidetails', protect, getLoanDetails);
 app.use('/api/app/customers', appCustomerRoutes);
 app.use('/api/app/machines', appMachineRoutes);
 app.use('/api/app/loans', appLoanRoutes);
