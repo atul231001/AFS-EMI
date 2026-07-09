@@ -25,20 +25,20 @@ export const updateRole = async (req, res) => {
 
     const { name, permissions } = req.body;
     if (name) role.name = name;
-    
+
     if (permissions) {
       Object.keys(permissions).forEach(modKey => {
         // Ensure module object exists
         if (!role.permissions[modKey]) {
           role.permissions[modKey] = {};
         }
-        
-        // Update specific actions
+
+        // Update specific actions     
         Object.keys(permissions[modKey]).forEach(action => {
           role.permissions[modKey][action] = permissions[modKey][action];
         });
       });
-      
+
       // Force Mongoose to recognize the nested update
       role.markModified('permissions');
     }

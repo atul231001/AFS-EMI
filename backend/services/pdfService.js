@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer';
+import { getAgreementPages } from './agreementText.js';
 
 const launchBrowser = async () => {
   const options = {
@@ -202,172 +203,325 @@ export const generateAgreementPDF = async (loan) => {
     }).format(amount);
   };
 
+  const formatExecutionDate = (dateStr) => {
+    const date = dateStr ? new Date(dateStr) : new Date();
+    if (isNaN(date.getTime())) return '25th day of April, 2026';
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const month = monthNames[date.getMonth()];
+    
+    let suffix = 'th';
+    if (day === 1 || day === 21 || day === 31) suffix = 'st';
+    else if (day === 2 || day === 22) suffix = 'nd';
+    else if (day === 3 || day === 23) suffix = 'rd';
+    
+    return `${day}<sup>${suffix}</sup> day of ${month}, ${year}`;
+  };
+
+  const formatDateGB = (dateStr) => {
+    if (!dateStr) return 'TBD';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const getOrdinal = (n) => {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  };
+
   const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
+  const customerCompany = (loan.customerId?.company || loan.customerId?.name || 'CLIENT').toUpperCase();
+  const customerAddress = loan.customerId?.address || 'ABC';
+  const customerCity = loan.customerId?.city || '';
+  const customerState = loan.customerId?.state || '';
+  const customerPin = loan.customerId?.pin || loan.customerId?.pincode || '';
+  const customerPan = loan.customerId?.pan || 'PAN-TBD';
+  const customerGst = loan.customerId?.gst || 'GST-TBD';
+  const contactPerson = loan.customerId?.contactPerson || 'Mohinderpal Singh Mann';
+
   const assetName = (loan.machineName || 'Asset').toUpperCase();
-  const endDateStr = new Date(new Date(loan.emiStartDate || Date.now()).setMonth(new Date(loan.emiStartDate || Date.now()).getMonth() + loan.tenure)).toLocaleDateString('en-IN');
+  const modelNo = (loan.model || 'Model No').toUpperCase();
+  const tenure = loan.tenure || 36;
+  const executionDate = formatExecutionDate(loan.startDate || loan.createdAt);
+  const overduePenalty = loan.delayInterest !== undefined ? loan.delayInterest : 24;
+
+  const attachmentTotal = (loan.selectedAttachments || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+  const manualChargesTotal = (loan.manualCharges || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+  const baseMachinePrice = (loan.machinePrice || 0) - (loan.discountAmount || 0) + attachmentTotal + manualChargesTotal;
+
+  const gstRate = 0.18;
+  const tcsRate = 0.001;
+
+  const baseGst = Math.round(baseMachinePrice * gstRate * 100) / 100;
+  const baseSaleValue = baseMachinePrice + baseGst;
+  const baseTcs = Math.round(baseSaleValue * tcsRate * 100) / 100;
+  const baseInvoiceValue = baseSaleValue + baseTcs;
+  const baseFinancedAmount = Math.max(0, Math.round(baseInvoiceValue) - (loan.downPayment || 0));
+
+  const rMonthly = ((loan.interestRate || 12) / 12) / 100;
+  let interestAmount = 0;
+  if (baseFinancedAmount > 0 && (loan.interestRate || 12) > 0) {
+    const baseEmi = Math.round((baseFinancedAmount * rMonthly * Math.pow(1 + rMonthly, tenure)) / (Math.pow(1 + rMonthly, tenure) - 1));
+    interestAmount = (baseEmi * tenure) - baseFinancedAmount;
+  }
+
+  const salePrice = Math.round(baseMachinePrice + interestAmount);
+  const gst = Math.round(salePrice * gstRate);
+  const saleValue = salePrice + gst;
+  const tcs = Math.round(saleValue * tcsRate);
+  const invoiceValue = saleValue + tcs;
+  const financedAmount = Math.max(0, invoiceValue - (loan.downPayment || 0));
+  const finalEmi = Math.round(financedAmount / tenure);
+
+  const agreementPages = getAgreementPages({
+    executionDate,
+    customerCompany,
+    customerPan,
+    customerAddress,
+    customerCity,
+    customerState,
+    customerPin,
+    contactPerson,
+    tenure,
+    overduePenalty,
+    formatINR,
+    salePrice,
+    gst,
+    tcs,
+    invoiceValue,
+    financedAmount,
+    finalEmi,
+    downPayment: loan.downPayment || 0
+  });
 
   const html = `
     <html>
     <head>
       <meta charset="utf-8">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
       <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #ffffff; padding: 60px; color: #1e293b; line-height: 1.6; }
-        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #f0883e; padding-bottom: 20px; }
-        h1 { font-size: 28px; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
-        h2 { font-size: 18px; color: #64748b; margin: 5px 0 0; font-weight: 500; }
-        .section { margin-bottom: 30px; }
-        .section h3 { font-size: 16px; color: #f0883e; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
-        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .label { font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold; }
-        .value { font-size: 16px; color: #0f172a; font-weight: 600; margin-top: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background: #f1f5f9; padding: 10px; font-size: 12px; color: #64748b; text-transform: uppercase; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
-        .signatures { margin-top: 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; text-align: center; }
-        .sig-line { border-top: 1px solid #0f172a; margin-top: 60px; padding-top: 10px; font-weight: bold; }
+        body {
+          font-family: 'Inter', sans-serif;
+          color: #1e293b;
+          line-height: 1.35;
+          font-size: 11px;
+          background-color: #ffffff;
+          padding: 0;
+          margin: 0;
+        }
+        .page {
+          padding: 0;
+          page-break-after: always;
+          box-sizing: border-box;
+          position: relative;
+        }
+        .page:last-child {
+          page-break-after: avoid;
+        }
+        p {
+          margin: 0 0 4px 0;
+        }
+        h1, h2, h3, h4 {
+          color: #0f172a;
+          font-weight: 700;
+          margin-top: 0;
+          text-align: center;
+        }
+        h1.title {
+          font-size: 20px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-top: 60px;
+          margin-bottom: 20px;
+        }
+        h2.subtitle {
+          font-size: 14px;
+          text-transform: uppercase;
+          margin-bottom: 30px;
+        }
+        .text-justify {
+          text-align: justify;
+        }
+        .section-title {
+          font-weight: bold;
+          margin-top: 25px;
+          margin-bottom: 8px;
+          text-transform: uppercase;
+          font-size: 14px;
+          border-bottom: 1.5px solid #cbd5e1;
+          padding-bottom: 4px;
+        }
+        .clause-text {
+          margin-bottom: 15px;
+        }
+        .bullet-list {
+          padding-left: 20px;
+          margin-top: 5px;
+          margin-bottom: 10px;
+        }
+        .bullet-list li {
+          margin-bottom: 5px;
+        }
+        .financial-table, .schedule-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 15px;
+          margin-bottom: 15px;
+        }
+        .financial-table th, .schedule-table th {
+          background-color: #f8fafc;
+          border: 1px solid #cbd5e1;
+          padding: 10px;
+          font-weight: bold;
+          text-align: left;
+          font-size: 12px;
+        }
+        .financial-table td, .schedule-table td {
+          border: 1px solid #cbd5e1;
+          padding: 10px;
+          font-size: 12px;
+        }
+        .financial-table tr.total-row td {
+          font-weight: bold;
+          background-color: #f1f5f9;
+        }
+        .signatures-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 50px;
+          margin-top: 60px;
+        }
+        .sig-block {
+          text-align: center;
+        }
+        .sig-line {
+          border-top: 1.5px solid #0f172a;
+          margin-top: 65px;
+          padding-top: 10px;
+          font-weight: bold;
+          font-size: 13px;
+        }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>FINANCING AGREEMENT</h1>
-        <h2>LiuGong Industrial Finance Division</h2>
-      </div>
+      ${agreementPages.map(pageHtml => `
+        <div class="page">
+          ${pageHtml}
+        </div>
+      `).join('')}
 
-      <div class="section">
-        <h3>1. Parties to the Agreement</h3>
-        <p>This agreement is entered into between <strong>LiuGong Machinery Corp.</strong> (hereinafter referred to as the "Financier") and <strong>${customerName}</strong> (hereinafter referred to as the "Client").</p>
-      </div>
-
-      <div class="section">
-        <h3>2. Financed Asset Details</h3>
-        <div class="details-grid">
-          <div>
-            <div class="label">Asset Model</div>
-            <div class="value">${assetName}</div>
-          </div>
-          <div>
-            <div class="label">Agreement ID</div>
-            <div class="value">AGR-${loan._id.toString().toUpperCase()}</div>
-          </div>
+      <!-- SCHEDULE 1 TABLE A -->
+      <div class="page">
+        <div style="text-align: center; font-weight: bold; font-size: 16px; text-transform: uppercase; margin-bottom: 40px; letter-spacing: 1px;">
+          SCHEDULE 1<br/>
+          Table - A<br/>
+          DETAILS OF MACHINERY AND EQUIPMENT
         </div>
         
-        <table style="margin-top: 25px;">
+        <table class="schedule-table">
           <thead>
             <tr>
-              <th>Valuation Component</th>
-              <th style="text-align: right;">Amount (INR)</th>
+              <th>Machine Type</th>
+              <th>Model No</th>
+              <th>No of Machine</th>
+              <th>Number of Instalments</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>Base Asset Value</td>
-              <td style="text-align: right; font-weight: 600;">${formatINR(loan.machinePrice || 0)}</td>
+              <td><strong>${assetName}</strong></td>
+              <td><strong>${modelNo}</strong></td>
+              <td>1</td>
+              <td>${tenure}</td>
             </tr>
-            ${loan.discountAmount > 0 ? `
-            <tr>
-              <td>Approved Discount ${loan.discountPercentage ? `(${loan.discountPercentage.toFixed(1)}%)` : ''}</td>
-              <td style="text-align: right; color: #ef4444; font-weight: 600;">- ${formatINR(loan.discountAmount)}</td>
-            </tr>
-            ` : ''}
-            ${loan.selectedAttachments?.length > 0 ? loan.selectedAttachments.map(att => `
-            <tr>
-              <td>Attachment: ${att.name} ${att.isStandard ? '<span style="font-size: 10px; background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">STD</span>' : ''}</td>
-              <td style="text-align: right; font-weight: 600;">${att.amount === 0 && att.isStandard ? 'INCLUDED' : `+ ${formatINR(att.amount)}`}</td>
-            </tr>
-            `).join('') : ''}
-            ${loan.manualCharges?.length > 0 ? loan.manualCharges.map(charge => `
-            <tr>
-              <td>Additional Charge: ${charge.name}</td>
-              <td style="text-align: right; font-weight: 600;">+ ${formatINR(charge.amount)}</td>
-            </tr>
-            `).join('') : ''}
-            <tr style="background: #f1f5f9;">
-              <td style="color: #f0883e; font-weight: 900; font-size: 14px;">TOTAL FINANCED PRINCIPAL</td>
-              <td style="text-align: right; color: #f0883e; font-weight: 900; font-size: 16px;">${formatINR(loan.principal)}</td>
+            <tr style="font-weight: bold; background-color: #f1f5f9;">
+              <td colspan="2">Total</td>
+              <td>1</td>
+              <td></td>
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <div class="section">
-        <h3>3. Financing Schedule & Terms</h3>
-        <div class="details-grid">
-          <div>
-            <div class="label">Principal Amount</div>
-            <div class="value">${formatINR(loan.principal)}</div>
+        
+        <div style="margin-top: 120px;">
+          <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
+            <span>FOR LIUGONG INDIA PVT. LTD.</span>
+            <span>FOR ${customerCompany}</span>
           </div>
-          <div>
-            <div class="label">Margin Money</div>
-            <div class="value">${formatINR(loan.downPayment || 0)}</div>
-          </div>
-          <div>
-            <div class="label">Total Discount</div>
-            <div class="value">${loan.discountPercentage || 0}% (${formatINR(loan.discountAmount || 0)})</div>
-          </div>
-          <div>
-            <div class="label">Additional Charges</div>
-            <div class="value">${formatINR((loan.manualCharges || []).reduce((sum, c) => sum + c.amount, 0))}</div>
-          </div>
-          <div>
-            <div class="label">Monthly EMI</div>
-            <div class="value">${formatINR(loan.emi)}</div>
-          </div>
-          <div>
-            <div class="label">Tenure (Months)</div>
-            <div class="value">${loan.tenure}</div>
-          </div>
-          <div>
-            <div class="label">Interest Rate</div>
-            <div class="value">${loan.interestRate || 0}% p.a.</div>
-          </div>
-          <div>
-            <div class="label">Overdue Penalty</div>
-            <div class="value">${loan.delayInterest !== undefined ? loan.delayInterest : 24}% P.A.</div>
-          </div>
-          <div>
-            <div class="label">EMI Start Date</div>
-            <div class="value">${loan.emiStartDate ? new Date(loan.emiStartDate).toLocaleDateString('en-GB') : 'TBD'}</div>
-          </div>
-          <div>
-            <div class="label">Estimated End Date</div>
-            <div class="value">${endDateStr}</div>
+          
+          <div class="signatures-grid" style="margin-top: 120px;">
+            <div class="sig-block">
+              <div class="sig-line">Authorised Signatory</div>
+              <div style="font-size: 13px; margin-top: 8px; font-weight: bold;">Name - Nischal Mehrotra</div>
+            </div>
+            <div class="sig-block">
+              <div class="sig-line">Partner / (Authorised Signatory)</div>
+              <div style="font-size: 13px; margin-top: 8px; font-weight: bold;">Name - ${contactPerson}</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="section">
-        <h3>4. Repayment Schedule</h3>
-        <table>
+      <!-- TABLE B PAYMENT SCHEDULE -->
+      <div class="page" style="page-break-after: avoid !important;">
+        <div style="text-align: center; font-weight: bold; font-size: 15px; text-transform: uppercase; margin-bottom: 30px; letter-spacing: 0.5px;">
+          TABLE - B HIRE PURCHASE PAYMENT SCHEDULE<br/>
+          For Machinery and Equipment: One (1) ${assetName} ${modelNo}
+        </div>
+        
+        <table class="schedule-table">
           <thead>
             <tr>
-              <th>Installment #</th>
-              <th>Due Date</th>
-              <th>Principal</th>
-              <th>Interest</th>
-              <th>Total EMI</th>
+              <th>Hire purchase Instalment Number</th>
+              <th style="text-align: right;">Instalment Amount</th>
+              <th style="text-align: center;">Due Date</th>
             </tr>
           </thead>
           <tbody>
-            ${loan.schedule.map(s => `
+            <tr>
+              <td><strong>Initial Deposit</strong></td>
+              <td style="text-align: right; font-weight: bold;">${formatINR(loan.downPayment || 0)}</td>
+              <td style="text-align: center; font-weight: bold;">${formatDateGB(loan.startDate || loan.createdAt)}</td>
+            </tr>
+            ${loan.schedule.map((s, index) => `
               <tr>
-                <td>${s.installment}</td>
-                <td>${s.dueDate}</td>
-                <td>${formatINR(s.principal)}</td>
-                <td>${formatINR(s.interest)}</td>
-                <td>${formatINR(loan.emi)}</td>
+                <td>${getOrdinal(s.installment || (index + 1))}</td>
+                <td style="text-align: right;">${formatINR(s.emi)}</td>
+                <td style="text-align: center;">${formatDateGB(s.dueDate)}</td>
               </tr>
             `).join('')}
+            <tr style="font-weight: bold; background-color: #f1f5f9;">
+              <td>Total</td>
+              <td style="text-align: right; color: #f0883e; font-size: 14px;">${formatINR(invoiceValue)}</td>
+              <td></td>
+            </tr>
           </tbody>
         </table>
-      </div>
-
-      <div class="signatures">
-        <div>
-          <div class="sig-line">Authorized Signatory (LiuGong)</div>
-        </div>
-        <div>
-          <div class="sig-line">Authorized Signatory (Client)</div>
-          <p style="font-size: 10px; color: #64748b; margin-top: 5px;">${customerName}</p>
+        
+        <div style="margin-top: 120px;">
+          <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
+            <span>FOR LIUGONG INDIA PVT. LTD.</span>
+            <span>FOR ${customerCompany}</span>
+          </div>
+          
+          <div class="signatures-grid" style="margin-top: 120px;">
+            <div class="sig-block">
+              <div class="sig-line">Authorised Signatory</div>
+              <div style="font-size: 13px; margin-top: 8px; font-weight: bold;">Name - Nischal Mehrotra</div>
+            </div>
+            <div class="sig-block">
+              <div class="sig-line">Partner / (Authorised Signatory)</div>
+              <div style="font-size: 13px; margin-top: 8px; font-weight: bold;">Name - ${contactPerson}</div>
+            </div>
+          </div>
         </div>
       </div>
     </body>
@@ -375,10 +529,33 @@ export const generateAgreementPDF = async (loan) => {
   `;
 
   await page.setContent(html, { waitUntil: 'networkidle0' });
+  const pageHeights = await page.evaluate(() => {
+    const divs = Array.from(document.querySelectorAll('.page'));
+    return divs.map((div, index) => {
+      const titleEl = div.querySelector('h1, h2, .section-title, strong');
+      return {
+        index: index + 1,
+        height: div.offsetHeight,
+        title: titleEl ? titleEl.innerText.trim().replace(/\n/g, ' ').substring(0, 60) : 'No Title'
+      };
+    });
+  });
+  console.log('--- Page Heights inside Puppeteer ---');
+  pageHeights.forEach(ph => {
+    console.log(`Page ${ph.index} (${ph.title}): ${ph.height}px ${ph.height > 962 ? 'OVERFLOWS (> 962px)' : 'OK'}`);
+  });
   const pdf = await page.pdf({
     format: 'A4',
     printBackground: true,
-    margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+    margin: { top: '65px', right: '50px', bottom: '65px', left: '50px' },
+    displayHeaderFooter: true,
+    headerTemplate: '<div></div>',
+    footerTemplate: `
+      <div style="font-size: 8px; width: 100%; text-align: center; font-family: 'Inter', sans-serif; color: #64748b; padding: 0 50px; box-sizing: border-box; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-bottom: 20px;">
+        <span style="font-weight: bold;">Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+        <span>(Agreement No.- LIPL/HP/26-27/${loan._id.toString().slice(-4).toUpperCase()})</span>
+      </div>
+    `
   });
 
   await browser.close();

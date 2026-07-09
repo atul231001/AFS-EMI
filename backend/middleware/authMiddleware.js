@@ -22,14 +22,14 @@ export const protect = async (req, res, next) => {
     if (isBlacklisted) {
       return res.status(401).json({ message: 'Not authorized, token invalidated' });
     }
-    
+
     const isAppRoute = req.originalUrl.includes('/api/app/');
-    const secret = isAppRoute 
-      ? (process.env.JWT_SECRET_APP || process.env.JWT_SECRET) 
+    const secret = isAppRoute
+      ? (process.env.JWT_SECRET_APP || process.env.JWT_SECRET)
       : (process.env.JWT_SECRET_WEB || process.env.JWT_SECRET);
-      
+
     const decoded = jwt.verify(token, secret);
-    
+
     // Backward compatibility & token source validation
     if (decoded.source) {
       if (isAppRoute && decoded.source !== 'app') {
@@ -39,12 +39,12 @@ export const protect = async (req, res, next) => {
         return res.status(401).json({ message: 'Not authorized, invalid token source for web' });
       }
     }
-    
+
     req.user = await User.findById(decoded.id).select('-password');
     if (!req.user) {
       return res.status(401).json({ message: 'Not authorized, user not found' });
     }
-    
+
     // Block requests if password reset is required, except for the force reset endpoint itself
     if (req.user.mustResetPassword && !req.originalUrl.includes('/force-reset-password')) {
       return res.status(403).json({ message: 'Password reset required' });
