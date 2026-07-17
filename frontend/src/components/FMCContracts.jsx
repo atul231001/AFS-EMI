@@ -15,16 +15,37 @@ const Field = ({ label, children }) => (
     {children}
   </div>
 );
-const Input = ({ value, onChange, placeholder, type = 'text', ...props }) => (
-  <input
-    type={type}
-    value={value}
-    onChange={onChange}
-    placeholder={placeholder}
-    className="w-full bg-bg-deep border border-border-main rounded-lg px-4 py-2.5 text-sm text-text-main font-bold focus:border-[#f0883e] outline-none transition-colors"
-    {...props}
-  />
-);
+const Input = ({ value, onChange, placeholder, type = 'text', ...props }) => {
+  if (type === 'date') {
+    return (
+      <div className="relative w-full h-[42px]">
+        <input
+          type="text"
+          value={value || 'YYYY-MM-DD'}
+          readOnly
+          className="absolute inset-0 w-full h-full bg-bg-deep border border-border-main rounded-lg px-4 py-2.5 text-sm text-text-main font-bold focus:border-[#f0883e] outline-none transition-colors"
+        />
+        <input
+          type="date"
+          value={value}
+          onChange={onChange}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          {...props}
+        />
+      </div>
+    );
+  }
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className="w-full bg-bg-deep border border-border-main rounded-lg px-4 py-2.5 text-sm text-text-main font-bold focus:border-[#f0883e] outline-none transition-colors"
+      {...props}
+    />
+  );
+};
 const Select = ({ value, onChange, children }) => (
   <select
     value={value}
@@ -146,8 +167,8 @@ const ContractFormModal = ({ contract, onClose }) => {
               <Field label="Billing Cycle"><Select value={form.billingCycle} onChange={e => set('billingCycle', e.target.value)}>
                 <option>Monthly</option><option>Quarterly</option><option>Annual</option>
               </Select></Field>
-              <Field label="Start Date"><Input type="date" value={form.startDate} onChange={e => set('startDate', e.target.value)} /></Field>
-              <Field label="End Date"><Input type="date" value={form.endDate} onChange={e => set('endDate', e.target.value)} /></Field>
+              <Field label="Start Date"><Input type="date" lang="en-CA" value={form.startDate} onChange={e => set('startDate', e.target.value)} /></Field>
+              <Field label="End Date"><Input type="date" lang="en-CA" value={form.endDate} onChange={e => set('endDate', e.target.value)} /></Field>
               <Field label="Contract Status"><Select value={form.status} onChange={e => set('status', e.target.value)}>
                 <option>Active</option><option>Draft</option><option>Expired</option><option>Terminated</option>
               </Select></Field>
@@ -319,7 +340,7 @@ const FMCContracts = () => {
     doc.text(`AGREEMENT: ${contract.agreementNumber}`, 20, 55);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 150, 55);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-CA')}`, 150, 55);
     doc.setDrawColor(200, 200, 200);
     doc.line(20, 60, 190, 60);
 

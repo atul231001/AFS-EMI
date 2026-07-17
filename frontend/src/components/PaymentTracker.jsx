@@ -336,7 +336,7 @@ const PaymentTracker = () => {
                         className={`px-6 py-4 text-[0.625rem] font-black font-mono uppercase ${isOverdue ? 'text-red-500' : 'text-text-dim'
                           }`}
                       >
-                        {e?.displayDate ? new Date(e.displayDate).toLocaleDateString('en-GB') : '-'}
+                        {e?.displayDate ? new Date(e.displayDate).toLocaleDateString('en-CA') : '-'}
                       </td>
 
                       {/* System Date (Upload Date) */}
@@ -495,12 +495,12 @@ const PaymentTracker = () => {
 
                   {bulkValidation.errorRows.length > 0 && (
                     <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-xl">
-                      <p className="text-[10px] font-bold text-rose-500 mb-3">Warning: {bulkValidation.errorRows.length} rows failed validation and will be skipped during import.</p>
-                      <div className="max-h-32 overflow-y-auto space-y-2 custom-scrollbar">
+                      <p className="text-sm font-bold text-rose-500 mb-3">Warning: {bulkValidation.errorRows.length} rows failed validation and will be skipped during import.</p>
+                      <div className="max-h-48 overflow-y-auto space-y-2 custom-scrollbar">
                         {bulkValidation.errorRows.map((err, idx) => (
-                          <div key={idx} className="text-[9px] font-mono text-rose-500/80 bg-rose-500/10 p-2 rounded flex gap-2">
-                            <span className="font-bold shrink-0">Row {err.rowNumber}:</span>
-                            <span>{err.errorMessage}</span>
+                          <div key={idx} className="text-xs font-mono text-rose-500 bg-rose-500/10 p-3 rounded-lg flex flex-col sm:flex-row gap-1 sm:gap-2">
+                            <span className="font-bold shrink-0">Row {err.rowNumber} {err.invoiceNumber ? `(INV: ${err.invoiceNumber})` : ''}:</span>
+                            <span className="opacity-90">{err.errorMessage}</span>
                           </div>
                         ))}
                       </div>
@@ -515,7 +515,7 @@ const PaymentTracker = () => {
                     </div>
                   ) : (
                     <div className="text-center py-4">
-                      <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">No valid rows to import.</p>
+                      <p className="text-xs font-bold text-text-dim uppercase tracking-widest">No valid rows to import.</p>
                     </div>
                   )}
                 </div>

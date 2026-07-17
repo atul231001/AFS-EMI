@@ -16,6 +16,7 @@ const loanSchema = new mongoose.Schema({
   machinePrice: Number,
   discountAmount: Number,
   discountPercentage: Number,
+  tcsPercentage: { type: Number, default: 0.1 },
   delayInterest: { type: Number, default: 0 },
   selectedAttachments: [{
     name: String,

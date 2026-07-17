@@ -112,10 +112,12 @@ const FMCDailyHours = () => {
               {[...new Set(fmcContracts.map(c => c.customerName))].map(name => <option key={name} value={name}>{name}</option>)}
             </select>
 
-            <div className="relative">
-              <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim/60" />
+            <div className="relative w-full h-[42px]">
+              <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim/60 z-10" />
+              <input type="text" readOnly value={filterDate || 'YYYY-MM-DD'}
+                className="absolute inset-0 pl-9 pr-4 py-3 w-full h-full bg-bg-deep border border-border-main rounded-xl text-xs text-text-dim font-bold focus:border-[#f0883e] outline-none transition-all" />
               <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
-                className="pl-9 pr-4 py-3 bg-bg-deep border border-border-main rounded-xl text-xs text-text-dim font-bold focus:border-[#f0883e] outline-none" />
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
             </div>
           </div>
         </div>
@@ -241,8 +243,12 @@ const HourEntryModal = ({ onClose, machines }) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Date</p>
-              <input type="date" value={form.date} onChange={e => set('date', e.target.value)}
-                className="w-full bg-bg-deep border border-border-main rounded-lg px-4 py-2.5 text-sm text-text-main font-bold focus:border-[#f0883e] outline-none" />
+              <div className="relative w-full h-[42px]">
+                <input type="text" readOnly value={form.date || 'YYYY-MM-DD'}
+                  className="absolute inset-0 w-full h-full bg-bg-deep border border-border-main rounded-lg px-4 py-2.5 text-sm text-text-main font-bold focus:border-[#f0883e] outline-none" />
+                <input type="date" value={form.date} onChange={e => set('date', e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+              </div>
             </div>
             <div>
               <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Machine</p>

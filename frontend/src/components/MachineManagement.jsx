@@ -541,7 +541,7 @@ const MachineManagement = () => {
                     {localColConfig.dataSync && (
                       <td className="px-6 py-4">
                         <div className="text-[10px] font-mono text-text-dim font-bold">
-                          {new Date(m.updatedAt || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase()}
+                          {new Date(m.updatedAt || Date.now()).toLocaleDateString('en-CA').toUpperCase()}
                         </div>
                         <div className="flex items-center gap-1 mt-1">
                           <div className="w-1 h-1 rounded-full bg-[#3fb950]" />
@@ -671,7 +671,7 @@ const MachineManagement = () => {
                     <div className="text-[#f0883e]">CH: {cNum}</div>
                     <div className="text-[#f0883e]">SN: {sNum}</div>
                     <div>ENG: <span className="text-text-main">{engNum}</span></div>
-                    {inv.invoiceDate && <div className="text-emerald-500 mt-1">INV DATE: {new Date(inv.invoiceDate).toLocaleDateString()}</div>}
+                    {inv.invoiceDate && <div className="text-emerald-500 mt-1">INV DATE: {new Date(inv.invoiceDate).toLocaleDateString('en-CA')}</div>}
                   </div>
                 );
               })()}
@@ -1567,7 +1567,7 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
     { label: 'Invoice No', value: machine?.invoiceNumber || machineLoan?.invoiceData?.invoiceNumber || machineLoan?.invoiceNumber || 'N/A' },
     { label: 'Engine No', value: machine?.engineNumber || machineLoan?.invoiceData?.engineNumber || machine?.specs?.engineModel || 'N/A' },
     ...(machineLoan ? [
-      { label: 'Dispatch Date', value: machineLoan.dispatchDate ? new Date(machineLoan.dispatchDate).toLocaleDateString() : 'N/A' }
+      { label: 'Dispatch Date', value: machineLoan.dispatchDate ? new Date(machineLoan.dispatchDate).toLocaleDateString('en-CA') : 'N/A' }
     ] : [])
   ].filter(s => s.value !== 'N/A' && s.value !== 'N/A HP' && s.value !== ' HP');
 
@@ -1691,7 +1691,7 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
                           { label: 'Chassis No', value: machineLoan.invoiceData.chassisNumber },
                           { label: 'Serial No', value: machineLoan.invoiceData.serialNumber },
                           { label: 'Engine No', value: machineLoan.invoiceData.engineNumber },
-                          { label: 'Invoice Date', value: machineLoan.invoiceData.invoiceDate ? new Date(machineLoan.invoiceData.invoiceDate).toLocaleDateString() : null }
+                          { label: 'Invoice Date', value: machineLoan.invoiceData.invoiceDate ? new Date(machineLoan.invoiceData.invoiceDate).toLocaleDateString('en-CA') : null }
                         ].filter(s => s.value).map((spec, i) => (
                           <div key={i} className={`px-3 py-2 bg-bg-deep border border-border-main rounded-xl flex flex-col justify-center hover:border-emerald-500/40 transition-all group ${spec.label === 'Invoice Date' ? 'col-span-2' : ''}`}>
                             <span className="text-[8px] font-black text-text-dim uppercase tracking-[0.2em] mb-0.5 group-hover:text-emerald-500/70 transition-colors">{spec.label}</span>
@@ -2005,7 +2005,7 @@ const MachineDetailModal = ({ isOpen, onClose, machine }) => {
         <footer className="h-10 px-8 border-t border-border-main flex items-center justify-between bg-bg-deep/80 backdrop-blur-xl text-[9px] font-mono text-text-dim uppercase tracking-widest shrink-0">
           <div className="flex gap-8">
             <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-primary" /> PROTOCOL: PRO-X24</span>
-            <span className="flex items-center gap-2 text-text-dim">LAST SYNC: {new Date().toLocaleDateString('en-GB')}</span>
+            <span className="flex items-center gap-2 text-text-dim">LAST SYNC: {new Date().toLocaleDateString('en-CA')}</span>
           </div>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-[#3fb950] shadow-[0_0_10px_rgba(63,185,80,0.5)]" /> STATUS: OPERATIONAL</span>

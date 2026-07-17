@@ -305,7 +305,7 @@ const FMCCustomerAnalytics = ({ customer }) => {
                   </div>
                   <div className="text-right">
                     <p className="text-[9px] font-black text-[#adbac7] uppercase tracking-widest">{t.status}</p>
-                    <p className="text-[8px] text-[#444c56] mt-1">{new Date(t.createdAt).toLocaleDateString()}</p>
+                    <p className="text-[8px] text-[#444c56] mt-1">{new Date(t.createdAt).toLocaleDateString('en-CA')}</p>
                   </div>
                 </div>
               )) : (
@@ -538,7 +538,7 @@ const CustomerAnalytics = () => {
     .filter(p => filteredLoans.some(l => l._id === p.loanId?._id || l._id === p.loanId))
     .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
-  const lastPaymentDate = lastPayment ? new Date(lastPayment.date).toLocaleDateString('en-GB') : 'NO PAYMENTS';
+  const lastPaymentDate = lastPayment ? new Date(lastPayment.date).toLocaleDateString('en-CA') : 'NO PAYMENTS';
 
   useEffect(() => {
     if (!customer || customer.type === 'FMC') return;
@@ -603,7 +603,7 @@ const CustomerAnalytics = () => {
           .filter(p => filteredLoans.some(l => l._id === p.loanId?._id || l._id === p.loanId))
           .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        const trendLabels = trendData.map(p => new Date(p.date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }));
+        const trendLabels = trendData.map(p => new Date(p.date).toLocaleDateString('en-CA'));
         const trendValues = trendData.map(p => p.amount);
 
         chartRef.current = new Chart(ctx, {

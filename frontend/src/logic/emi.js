@@ -52,7 +52,7 @@ export const generateSchedule = (principal, annualRate, years, type = 'reducing'
       remainingDp -= emiPayment;
       
       const dueDate = new Date(baseDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
+      dueDate.setMonth(dueDate.getMonth() + i - 1);
 
       schedule.push({
         installmentNo: currentInstallment++,
@@ -104,7 +104,7 @@ export const generateSchedule = (principal, annualRate, years, type = 'reducing'
       remainingBalance -= principalPayment;
       
       const dueDate = new Date(baseDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
+      dueDate.setMonth(dueDate.getMonth() + i - 1);
 
       schedule.push({
         installmentNo: currentInstallment++,

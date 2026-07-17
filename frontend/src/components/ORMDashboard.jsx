@@ -453,7 +453,7 @@ const ORMDashboard = () => {
                     </h3>
                   )}
                   <div className="flex items-center gap-4 text-[8px] font-bold text-text-dim uppercase tracking-widest">
-                    <span>SYNCED: {new Date().toLocaleDateString()}</span>
+                    <span>SYNCED: {new Date().toLocaleDateString('en-CA')}</span>
                     <span>UNIT: INR</span>
                   </div>
                 </div>

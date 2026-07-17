@@ -26,15 +26,18 @@ export const calculateOverdueInterest = (loan) => {
     }
 
     const dueDate = new Date(s.dueDate);
-    if (currentDate <= dueDate) {
+    const normCurrent = new Date(currentDate); normCurrent.setHours(0,0,0,0);
+    const normDue = new Date(dueDate); normDue.setHours(0,0,0,0);
+
+    if (normCurrent <= normDue) {
       // Not overdue yet, no additional interest since last settlement
       return; 
     }
 
     // Calculate months overdue
     // Simple rough calculation: (Current Date - Due Date) / 30 days
-    const diffTime = Math.abs(currentDate - dueDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffTime = normCurrent - normDue;
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
     
     // Using simple annual rate applied daily: Rate per day = (delayRate / 100) / 365
     const ratePerDay = (delayRate / 100) / 365;
@@ -75,12 +78,17 @@ export const calculateOverdueInterest = (loan) => {
     }
     
     // For the sake of the requirements, "Overdue interest should be calculated on outstanding from due date till payment date."
-    // Let's use a simple approach:
-    const base = loan.compoundOverdueInterest ? (s.outstandingAmount + s.overdueInterest) : s.outstandingAmount;
+    // We calculate total expected overdue interest from the due date until today.
+    const base = loan.compoundOverdueInterest ? (s.outstandingAmount + (s.overdueInterest || 0)) : s.outstandingAmount;
     const newInterest = Math.round(base * ratePerDay * diffDays);
     
-    // We shouldn't overwrite it directly if we don't know what was paid or waived.
-    // Since this is a simple implementation, let's just set it if it's currently 0, or just calculate it dynamically for display.
+    // The total accrued should be newInterest. Since some might have been paid, the expected remaining is:
+    const expectedRemaining = Math.max(0, newInterest - (s.paidOverdueInterest || 0));
+    
+    // We dynamically update it for display/reports if the newly calculated amount is higher.
+    if (expectedRemaining > (s.overdueInterest || 0)) {
+       s.overdueInterest = expectedRemaining;
+    }
   });
 
   return loan;

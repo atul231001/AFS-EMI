@@ -692,7 +692,7 @@ const FMCTickets = () => {
                 <tr key={t._id || i} onClick={() => { setEditingTicket(t); setShowModal(true); }} className="hover:bg-bg-active transition-colors group cursor-pointer">
                   <td className="px-5 py-4">
                     <span className="font-mono font-black text-[#f0883e] text-xs">{t.ticketNumber}</span>
-                    <p className="text-[8px] font-mono text-text-dim/60 mt-0.5">{t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') : '—'}</p>
+                    <p className="text-[8px] font-mono text-text-dim/60 mt-0.5">{t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-CA') : '—'}</p>
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-xs text-text-main font-bold">{getSupervisorName(t)}</span>

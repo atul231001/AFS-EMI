@@ -366,7 +366,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
           </div>
           <div className="col-span-2">
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Invoice Date</p>
-            <p className="text-xs font-black text-text-main">{new Date(loan.invoiceData.invoiceDate).toLocaleDateString()}</p>
+            <p className="text-xs font-black text-text-main">{new Date(loan.invoiceData.invoiceDate).toLocaleDateString('en-CA')}</p>
           </div>
         </div>
         {loan.invoiceData.invoiceFile && (
@@ -491,7 +491,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                       <div className="bg-bg-deep p-3 rounded-xl border border-border-main">
                         <p className="text-[9px] font-bold text-text-dim uppercase tracking-wider mb-1">{isRental ? 'Rental Start Date' : 'EMI Start Date'}</p>
                         <p className="text-sm font-black text-text-main">
-                          {loan.emiStartDate ? new Date(loan.emiStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                          {loan.emiStartDate ? new Date(loan.emiStartDate).toLocaleDateString('en-CA') : 'N/A'}
                         </p>
                       </div>
                       <div className="bg-bg-deep p-3 rounded-xl border border-border-main">
@@ -504,7 +504,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                           {loan.emiStartDate && loan.tenure ? (() => {
                             const d = new Date(loan.emiStartDate);
                             d.setMonth(d.getMonth() + parseInt(loan.tenure));
-                            return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                            return d.toLocaleDateString('en-CA');
                           })() : 'N/A'}
                         </p>
                       </div>
@@ -825,7 +825,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                               </div>
                               <div className="flex justify-between items-center pb-2 border-b border-border-main">
                                 <span className="text-[10px] font-bold text-text-dim uppercase">Invoice Date</span>
-                                <span className="text-xs font-black text-text-main">{new Date(invoiceData.invoiceDate).toLocaleDateString()}</span>
+                                <span className="text-xs font-black text-text-main">{new Date(invoiceData.invoiceDate).toLocaleDateString('en-CA')}</span>
                               </div>
                               {/* <div className="flex justify-between items-center pb-2 border-b border-border-main">
                                 <span className="text-[10px] font-bold text-text-dim uppercase">Created At</span>
@@ -880,7 +880,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
                             </div>
                             <div>
                               <p className="text-[9px] font-bold text-text-dim uppercase">Dispatch Date</p>
-                              <p className="text-xs text-text-main font-black">{loan.dispatchDate ? new Date(loan.dispatchDate).toLocaleDateString() : 'N/A'}</p>
+                              <p className="text-xs text-text-main font-black">{loan.dispatchDate ? new Date(loan.dispatchDate).toLocaleDateString('en-CA') : 'N/A'}</p>
                             </div>
                             {loan.dispatchData && (
                               <>
@@ -949,7 +949,20 @@ const FinancingFormModal = ({ loan, onClose }) => {
                         <div className="flex flex-col gap-4 mt-2">
                           <div>
                             <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Select Commission Date</p>
-                            <input type="date" value={commissionDate} onChange={e => setCommissionDate(e.target.value)} className="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none" />
+                            <div className="relative w-full h-[42px]">
+                              <input
+                                type="text"
+                                value={commissionDate || 'YYYY-MM-DD'}
+                                readOnly
+                                className="absolute inset-0 w-full h-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+                              <input
+                                type="date"
+                                value={commissionDate}
+                                onChange={e => setCommissionDate(e.target.value)}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                              />
+                            </div>
                           </div>
                           <button onClick={handleCommissionSubmit} className="w-full py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
                             <CheckCircle size={16} className="shrink-0" />
@@ -1055,13 +1068,13 @@ const FinancingPipeline = () => {
     }
 
     details.status = 'Completed';
-    const fallbackDate = l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('en-GB') : null;
+    const fallbackDate = l.updatedAt ? new Date(l.updatedAt).toLocaleDateString('en-CA') : null;
 
     if (stageIndex === 1) {
       const apps = (l.approvalHistory || []).filter(h => h.action === 'Approved' || h.status === 'Approved');
       details.approvers = apps.map(a => a.approverName).filter(Boolean);
       if (apps.length > 0 && apps[apps.length - 1].date) {
-        details.date = new Date(apps[apps.length - 1].date).toLocaleDateString('en-GB');
+        details.date = new Date(apps[apps.length - 1].date).toLocaleDateString('en-CA');
       } else {
         details.date = fallbackDate;
       }
@@ -1070,7 +1083,7 @@ const FinancingPipeline = () => {
       const sch = (l.approvalHistory || []).find(h => h.step === 'Scheduling Phase' || h.status === 'Scheduled');
       if (sch) {
         details.approvers = [sch.approverName || 'System / Admin'];
-        details.date = sch.date ? new Date(sch.date).toLocaleDateString('en-GB') : fallbackDate;
+        details.date = sch.date ? new Date(sch.date).toLocaleDateString('en-CA') : fallbackDate;
       } else {
         details.approvers = ['System / Admin'];
         details.date = fallbackDate;
@@ -1080,10 +1093,10 @@ const FinancingPipeline = () => {
       details.date = fallbackDate;
     } else if (stageIndex === 4) {
       details.approvers = ['System / Admin'];
-      details.date = l.dispatchDate ? new Date(l.dispatchDate).toLocaleDateString('en-GB') : fallbackDate;
+      details.date = l.dispatchDate ? new Date(l.dispatchDate).toLocaleDateString('en-CA') : fallbackDate;
     } else if (stageIndex === 5) {
       details.approvers = ['System / Admin'];
-      details.date = l.commissionDate ? new Date(l.commissionDate).toLocaleDateString('en-GB') : fallbackDate;
+      details.date = l.commissionDate ? new Date(l.commissionDate).toLocaleDateString('en-CA') : fallbackDate;
     }
 
     return details;
@@ -1267,7 +1280,7 @@ const FinancingPipeline = () => {
                   <tr key={l._id || i} onClick={() => setSelectedLoan(l)} className="hover:bg-bg-active transition-colors group cursor-pointer relative z-0 hover:z-50">
                     <td className="px-5 py-4">
                       <p className="font-black text-text-main text-xs uppercase">{l.machineName}</p>
-                      <p className="text-[8px] font-mono text-text-dim/60">{l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-GB') : '—'}</p>
+                      <p className="text-[8px] font-mono text-text-dim/60">{l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-CA') : '—'}</p>
                     </td>
                     <td className="px-5 py-4">
                       <span className="text-xs text-text-main font-bold">{customer?.name || 'Unknown Client'}</span>

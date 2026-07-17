@@ -73,7 +73,7 @@ export const calculateFinanceNorms = (principal, annualRate, tenureMonths) => {
  * Custom Upfront Flat-Rate Financing with GST & TCS
  * This exactly matches the customer's Excel structure.
  */
-export const calculateUpfrontFinancing = (machinePrice, interestRate, tenureMonths, downPayment) => {
+export const calculateUpfrontFinancing = (machinePrice, interestRate, tenureMonths, downPayment, tcsPercentage = 0.1) => {
   if (machinePrice <= 0 || tenureMonths <= 0) {
     return {
       machinePrice: 0,
@@ -93,7 +93,7 @@ export const calculateUpfrontFinancing = (machinePrice, interestRate, tenureMont
 
   // Calculate Base Financed Amount (assuming 0 interest)
   const gstRate = 0.18;
-  const tcsRate = 0.001;
+  const tcsRate = (parseFloat(tcsPercentage) || 0) / 100;
 
   // Invoice without interest = Machine * 1.18 * 1.001
   const baseGst = Math.round(machinePrice * gstRate * 100) / 100;

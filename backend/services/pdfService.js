@@ -1,5 +1,7 @@
 import puppeteer from 'puppeteer';
 import { getAgreementPages } from './agreementText.js';
+import fs from 'fs';
+import path from 'path';
 
 const launchBrowser = async () => {
   const options = {
@@ -27,21 +29,56 @@ const launchBrowser = async () => {
   }
 };
 
+const convertNumberToWords = (amount) => {
+  if (amount === 0) return 'Zero';
+  const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  
+  const numToWords = (num) => {
+    let str = '';
+    if (num > 99) {
+      str += a[Math.floor(num / 100)] + 'Hundred ';
+      num = num % 100;
+    }
+    if (num > 19) {
+      str += b[Math.floor(num / 10)] + ' ';
+      num = num % 10;
+    }
+    if (num > 0) {
+      str += a[num];
+    }
+    return str;
+  };
+
+  let numStr = Math.floor(amount).toString();
+  if (numStr.length > 9) return 'Overflow';
+  
+  const parts = ('000000000' + numStr).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{3})$/);
+  if (!parts) return '';
+  
+  let out = '';
+  if (Number(parts[1]) !== 0) out += numToWords(Number(parts[1])) + 'Crore ';
+  if (Number(parts[2]) !== 0) out += numToWords(Number(parts[2])) + 'Lakh ';
+  if (Number(parts[3]) !== 0) out += numToWords(Number(parts[3])) + 'Thousand ';
+  if (Number(parts[4]) !== 0) out += numToWords(Number(parts[4]));
+  
+  return out.trim();
+};
+
 export const generateReceiptPDF = async (loan, installment) => {
   const browser = await launchBrowser();
   const page = await browser.newPage();
 
-  const formatINR = (amount) => {
+  const formatAmount = (amount) => {
     return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount);
   };
 
   const index = loan.schedule.findIndex(s => s._id === installment._id || s === installment);
   const instNum = installment.installment || installment.installmentNo || (index + 1);
-  const invoiceNo = `INV-${loan._id.toString().substring(loan._id.toString().length - 6).toUpperCase()}-${instNum.toString().padStart(2, '0')}`;
+  const invoiceNo = `AS${940 + instNum}`; // Matches AS940 style
   const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
   const assetName = (loan.machineName || 'Asset').toUpperCase();
   const serialNo = loan.serialNumber || 'SN-8821034';
@@ -49,132 +86,129 @@ export const generateReceiptPDF = async (loan, installment) => {
   const paidBaseEmi = installment.paidAmount !== undefined ? installment.paidAmount : loan.emi;
   const paidOverdue = installment.paidOverdueInterest || 0;
   const totalPaid = paidBaseEmi + paidOverdue;
+  
+  const receiptDate = installment.paidDate 
+    ? new Date(installment.paidDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }) 
+    : new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+  const amountInWords = convertNumberToWords(totalPaid);
+  const bankNarration = installment.remarks || `FT - LIUGONG INDIA PVT LTD Cr - 50200059887830 - ${customerName}`;
+  const ofmNumber = loan.ofmNumber || `OFM/271/Feb/LIPL`;
+
+  const logoPath = path.join(process.cwd(), '../frontend/public/liugong_logo.png');
+  let logoImgTag = '';
+  if (fs.existsSync(logoPath)) {
+    const logoData = fs.readFileSync(logoPath);
+    const logoBase64 = `data:image/png;base64,${logoData.toString('base64')}`;
+    logoImgTag = `<img src="${logoBase64}" class="logo" alt="LiuGong India" />`;
+  } else {
+    logoImgTag = `<div class="logo" style="font-size: 20px; font-weight: 900; color: #1e293b; padding-top: 10px;">LIUGONG</div>`;
+  }
 
   const html = `
+    <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8fafc; padding: 40px; color: #1e293b; line-height: 1.5; }
-        .invoice-card { background: white; max-width: 800px; margin: 0 auto; border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); overflow: hidden; border: 1px solid #e2e8f0; }
-        .header { background: #0f172a; padding: 40px; color: white; display: flex; justify-content: space-between; align-items: center; }
-        .logo-side h1 { margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -1px; }
-        .logo-side p { margin: 5px 0 0; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; }
-        .invoice-side { text-align: right; }
-        .invoice-side h2 { margin: 0; font-size: 32px; font-weight: 900; color: #f0883e; font-style: italic; }
-        .invoice-side p { margin: 5px 0 0; font-size: 12px; font-weight: 600; color: #94a3b8; }
+        @page { size: A4 landscape; margin: 40px; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; color: #000; background: white; }
+        .box { border: 2px solid #000; padding: 30px 40px; box-sizing: border-box; position: relative; height: calc(100vh - 80px); min-height: 600px; }
         
-        .content { padding: 40px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
-        .info-block h3 { margin: 0 0 10px; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-        .info-block p { margin: 0; font-size: 14px; font-weight: 700; color: #1e293b; }
+        .header { display: flex; text-align: center; margin-bottom: 20px; position: relative; }
+        .logo { position: absolute; left: 0; top: -5px; max-height: 80px; max-width: 250px; object-fit: contain; }
+        .company-info { flex: 1; text-align: center; }
+        .company-name { font-size: 24px; font-weight: 900; margin: 0; letter-spacing: 0.5px; }
+        .company-address { font-size: 11px; font-weight: 800; margin: 5px 0 0; line-height: 1.4; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background: #f1f5f9; text-align: left; padding: 15px; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
-        td { padding: 15px; font-size: 14px; border-bottom: 1px solid #f1f5f9; font-weight: 600; }
-        .text-right { text-align: right; }
+        .receipt-title { font-size: 14px; font-weight: 900; text-decoration: underline; text-align: center; margin: 30px 0; }
         
-        .total-section { margin-top: 30px; display: flex; justify-content: flex-end; }
-        .total-box { background: #f8fafc; padding: 20px 40px; border-radius: 16px; border: 1px solid #e2e8f0; }
-        .total-row { display: flex; justify-content: space-between; gap: 40px; margin-bottom: 10px; }
-        .total-row.grand { margin-top: 10px; padding-top: 10px; border-top: 2px dashed #e2e8f0; color: #0f172a; }
-        .total-row span:first-child { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; }
-        .total-row span:last-child { font-size: 16px; font-weight: 900; }
-        .grand span:last-child { color: #f0883e; font-size: 24px; }
+        .table-grid { width: 100%; font-size: 12px; font-weight: 800; line-height: 1.8; margin-bottom: 20px; }
+        .row { display: flex; margin-bottom: 12px; align-items: flex-end; }
+        .col-label { padding-right: 15px; white-space: nowrap; font-size: 11px; }
+        .col-value { flex: 1; border-bottom: 2px dashed #000; font-size: 11px; padding-bottom: 2px; }
         
-        .footer { padding: 40px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; }
-        .footer p { margin: 0; font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-        .stamp { margin-top: 20px; font-size: 12px; font-weight: 900; color: #3fb950; border: 3px solid #3fb950; display: inline-block; padding: 5px 15px; border-radius: 8px; transform: rotate(-5deg); text-transform: uppercase; }
+        .stamp-area { position: absolute; bottom: 40px; left: 40px; }
+        .stamp-container { display: flex; align-items: center; margin-bottom: 40px; margin-top: 10px; }
+        .stamp { width: 70px; height: 70px; border: 2px solid #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #3b82f6; font-weight: 900; text-align: center; transform: rotate(-5deg); position: relative; margin-left: 20px; }
+        .stamp-inner { position: absolute; border: 1px dashed #3b82f6; width: 62px; height: 62px; border-radius: 50%; }
+        
+        .footer-text { position: absolute; bottom: 15px; left: 40px; font-size: 11px; font-weight: 800; }
       </style>
     </head>
     <body>
-      <div class="invoice-card">
+      <div class="box">
         <div class="header">
-          <div class="logo-side">
-            <h1>LIUGONG</h1>
-            <p>Industrial Finance Division</p>
-          </div>
-          <div class="invoice-side">
-            <h2>RECEIPT</h2>
-            <p>NO: ${invoiceNo}</p>
+          ${logoImgTag}
+          <div class="company-info">
+            <div class="company-name">LIUGONG INDIA PVT. LTD</div>
+            <div class="company-address">101, OKHLA INDUSTRIAL ESTATE, PHASE-III<br>NEW DELHI- 110020<br>011 47272200, FAX : 011 47272220</div>
           </div>
         </div>
         
-        <div class="content">
-          <div class="grid">
-            <div class="info-block">
-              <h3>Billed To</h3>
-              <p>${customerName}</p>
-              <p style="font-size: 10px; color: #64748b; margin-top: 5px;">Authorized Client Portal Access</p>
-            </div>
-            <div class="info-block" style="text-align: right;">
-              <h3>Date of Issue</h3>
-              <p>${installment.dueDate}</p>
-              <h3 style="margin-top: 15px;">Status</h3>
-              <p style="color: #3fb950;">FULLY SETTLED</p>
-            </div>
+        <div class="receipt-title">RECEIPT NOTE</div>
+        
+        <div class="table-grid">
+          <div class="row">
+            <div class="col-label" style="width: 150px;">Receipt No.</div>
+            <div class="col-value" style="border: none; font-size: 11px;">${invoiceNo}</div>
+            <div class="col-label" style="margin-left: 20px;">DATE</div>
+            <div class="col-value" style="flex: 0.5; border: none; text-align: right; font-size: 11px;">${receiptDate}</div>
           </div>
           
-          <div class="info-block" style="margin-bottom: 30px;">
-            <h3>Asset Description</h3>
-            <p>${assetName} / ${serialNo}</p>
+          <div class="row">
+            <div class="col-label" style="width: 150px;">Received from M/s.</div>
+            <div class="col-value">${customerName}</div>
           </div>
           
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th class="text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>EMI Installment #${instNum} - ${installment.dueDate}</td>
-                <td class="text-right">${formatINR(paidBaseEmi)}</td>
-              </tr>
-              <tr>
-                <td style="color: #64748b; font-size: 12px;">&nbsp;&nbsp;&bull; Principal Component</td>
-                <td class="text-right" style="color: #64748b; font-size: 12px;">${formatINR(installment.principal)}</td>
-              </tr>
-              <tr>
-                <td style="color: #64748b; font-size: 12px;">&nbsp;&nbsp;&bull; Interest Component</td>
-                <td class="text-right" style="color: #64748b; font-size: 12px;">${formatINR(installment.interest)}</td>
-              </tr>
-              ${paidOverdue > 0 ? `
-              <tr>
-                <td>Overdue / Delay Penalty Paid</td>
-                <td class="text-right" style="color: #ef4444;">${formatINR(paidOverdue)}</td>
-              </tr>
-              ` : ''}
-            </tbody>
-          </table>
+          <div class="row">
+            <div class="col-label" style="width: 150px;">Customer Name</div>
+            <div class="col-value">${customerName}</div>
+          </div>
           
-          <div class="total-section">
-            <div class="total-box">
-              <div class="total-row">
-                <span>Subtotal</span>
-                <span>${formatINR(totalPaid)}</span>
-              </div>
-              <div class="total-row">
-                <span>Tax (Inclusive)</span>
-                <span>₹0</span>
-              </div>
-              <div class="total-row grand">
-                <span>Total Paid</span>
-                <span>${formatINR(totalPaid)}</span>
-              </div>
+          <div class="row" style="margin-top: 20px;">
+            <div class="col-label" style="width: 150px;">A sum of Rs.</div>
+            <div class="col-value" style="display: flex; align-items: baseline;">
+               <span style="font-weight: 900; font-size: 14px;">₹ ${formatAmount(totalPaid)}</span>
+               <span style="margin-left: 20px;">Rupees ${amountInWords} Only</span>
             </div>
           </div>
           
-          <div style="margin-top: 20px; text-align: center;">
-            <div class="stamp">PAID & VERIFIED</div>
+          <div class="row" style="margin-top: 20px;">
+            <div class="col-label" style="width: 150px;">Vide cheque No. / DD No.</div>
+            <div class="col-value">${installment.transactionId || ''}</div>
+          </div>
+          
+          <div class="row">
+            <div class="col-label" style="width: 150px;">Against Sale of/ Advance</div>
+            <div class="col-value">${loan.invoiceNumber || loan.invoiceData?.invoiceNumber || ''}</div>
+          </div>
+          
+          <div class="row">
+            <div class="col-label" style="width: 150px;">Machine Serial Number</div>
+            <div class="col-value" style="flex: 0.5;">${serialNo}</div>
+            <div class="col-label" style="margin-left: 20px;">Ofm Number:</div>
+            <div class="col-value" style="flex: 0.5;">${ofmNumber}</div>
+          </div>
+          
+          <div class="row">
+            <div class="col-label" style="width: 150px;">Bank Narration</div>
+            <div class="col-value">${bankNarration}</div>
           </div>
         </div>
         
-        <div class="footer">
-          <p>This is a computer generated receipt and does not require a physical signature.</p>
-          <p style="margin-top: 0px;">LiuGong Machinery Corp. &copy; 2024 | Finance Node: ${loan._id.toString().toUpperCase()}</p>
+        <div class="stamp-area">
+          <div style="font-size: 11px; font-weight: 800;">For Liugong India Pvt. Ltd. <span style="margin-left: 10px; font-weight: 900; font-size: 10px;">HYP: HDFC BANK LIMITED</span></div>
+          <div class="stamp-container">
+            <div class="stamp">
+               <div class="stamp-inner"></div>
+               <div>LIUGONG<br>INDIA PVT.<br>LTD.<br><span style="font-size: 7px;">(New Delhi)</span></div>
+            </div>
+          </div>
+          <div style="font-size: 11px; font-weight: 800;">Authorised Signatory</div>
         </div>
+        
+        <div class="footer-text">Receipt valid subject to encashment of cheque</div>
       </div>
     </body>
     </html>
@@ -256,7 +290,7 @@ export const generateAgreementHTML = (loan, isForBrowserPrint = false) => {
   const baseMachinePrice = (loan.machinePrice || 0) - (loan.discountAmount || 0) + attachmentTotal + manualChargesTotal;
 
   const gstRate = 0.18;
-  const tcsRate = 0.001;
+  const tcsRate = (loan.tcsPercentage !== undefined ? parseFloat(loan.tcsPercentage) : 0.1) / 100;
 
   const baseGst = Math.round(baseMachinePrice * gstRate * 100) / 100;
   const baseSaleValue = baseMachinePrice + baseGst;

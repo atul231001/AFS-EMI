@@ -356,6 +356,7 @@ const NewAssignment = ({ machines, customers, user }) => {
     downPaymentInstallments: 1,
     interestRate: 12,
     marginInterestRate: 0,
+    tcsPercentage: 0.1,
     delayInterest: 24, // Overdue/Delay interest default
     compoundOverdueInterest: false,
     selectedAttachments: [],
@@ -385,15 +386,8 @@ const NewAssignment = ({ machines, customers, user }) => {
   const manualChargesTotal = formData.manualCharges.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
   const finalPrice = Math.max(0, formData.machinePrice - formData.discountAmount);
   const baseMachinePrice = Math.max(0, finalPrice + attachmentTotal + manualChargesTotal);
-  const norms = calculateUpfrontFinancing(baseMachinePrice, parseFloat(formData.interestRate) || 0, parseInt(formData.tenure) || 0, parseFloat(formData.downPayment) || 0);
+  const norms = calculateUpfrontFinancing(baseMachinePrice, parseFloat(formData.interestRate) || 0, parseInt(formData.tenure) || 0, parseFloat(formData.downPayment) || 0, parseFloat(formData.tcsPercentage) || 0);
   const P = norms.financedAmount;
-
-  const calculateEndDate = () => {
-    if (!formData.emiStartDate || !formData.tenure) return 'N/A';
-    const startDate = new Date(formData.emiStartDate);
-    startDate.setMonth(startDate.getMonth() + parseInt(formData.tenure));
-    return startDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
 
   // Generate Schedule on the fly for display
   const schedule = generateSchedule(
@@ -601,13 +595,21 @@ const NewAssignment = ({ machines, customers, user }) => {
             <div className="grid grid-cols-3 gap-6">
               <div>
                 <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">{formData.financingType === 'Rental' ? 'Rental Start Date' : 'EMI Start Date'}</p>
-                <input
-                  type="date"
-                  disabled={!isMachineSelected}
-                  value={formData.emiStartDate}
-                  onChange={e => setFormData({ ...formData, emiStartDate: e.target.value })}
-                  className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                />
+                <div className="relative w-full h-[34px]">
+                  <input
+                    type="text"
+                    value={formData.emiStartDate || 'YYYY-MM-DD'}
+                    readOnly
+                    className="absolute inset-0 w-full h-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <input
+                    type="date"
+                    disabled={!isMachineSelected}
+                    value={formData.emiStartDate}
+                    onChange={e => setFormData({ ...formData, emiStartDate: e.target.value })}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                  />
+                </div>
               </div>
               <div>
                 <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Tenure (Months)</p>
@@ -622,15 +624,15 @@ const NewAssignment = ({ machines, customers, user }) => {
               <div className="flex flex-col">
                 <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Est. End Date</p>
                 <div className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-main font-bold outline-none cursor-not-allowed opacity-70 flex items-center h-[34px]">
-                  {calculateEndDate()}
+                  {schedule && schedule.length > 0 ? schedule[schedule.length - 1].dueDate : 'N/A'}
                 </div>
               </div>
             </div>
 
-            <div className="bg-bg-deep/50 border border-border-main rounded-xl p-5 grid grid-cols-2 gap-8 shadow-inner">
-              <div>
-                <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Margin Money (₹)</p>
-                <div className="flex items-center gap-4">
+            <div className="bg-bg-deep/50 border border-border-main rounded-xl p-5 flex flex-col gap-6 shadow-inner">
+              <div className="flex flex-wrap md:flex-nowrap gap-6">
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Margin Money (₹)</p>
                   <input
                     type="number"
                     disabled={!isMachineSelected}
@@ -642,22 +644,23 @@ const NewAssignment = ({ machines, customers, user }) => {
                       const maxDownPayment = finalPrice + attachmentTotal + manualChargesTotal;
                       setFormData({ ...formData, downPayment: raw && val > maxDownPayment ? maxDownPayment.toString() : raw });
                     }}
-                    className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-transparent text-3xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
-                  <div className="flex flex-col border-l border-border-main pl-4">
-                    <p className="text-[8px] font-bold text-text-dim uppercase tracking-tighter whitespace-nowrap">DP Installments</p>
-                    <input
-                      type="number"
-                      min="1"
-                      disabled={!isMachineSelected || formData.downPayment <= 0}
-                      value={formData.downPaymentInstallments}
-                      onChange={e => setFormData({ ...formData, downPaymentInstallments: e.target.value.replace(/^0+(?=\d)/, '') })}
-                      className="w-16 bg-transparent text-sm font-mono font-bold text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                  </div>
+                </div>
+                <div className="w-full md:w-auto border-t md:border-t-0 md:border-l border-border-main pt-4 md:pt-0 md:pl-6 flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">DP Installments</p>
+                  <input
+                    type="number"
+                    min="1"
+                    disabled={!isMachineSelected || formData.downPayment <= 0}
+                    value={formData.downPaymentInstallments}
+                    onChange={e => setFormData({ ...formData, downPaymentInstallments: e.target.value.replace(/^0+(?=\d)/, '') })}
+                    className="w-20 bg-transparent text-xl font-mono font-bold text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 border-l border-border-main pl-8">
+              
+              <div className="grid grid-cols-3 gap-6 border-t border-border-main pt-6">
                 <div>
                   <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Finance Interest (% p.a.)</p>
                   <input
@@ -669,7 +672,7 @@ const NewAssignment = ({ machines, customers, user }) => {
                     className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
-                <div className="border-l border-border-main pl-4">
+                <div className="border-l border-border-main pl-6">
                   <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Margin Interest (% p.a.)</p>
                   <input
                     type="number"
@@ -677,6 +680,17 @@ const NewAssignment = ({ machines, customers, user }) => {
                     disabled={!isMachineSelected}
                     value={formData.marginInterestRate}
                     onChange={e => setFormData({ ...formData, marginInterestRate: e.target.value.replace(/^0+(?=\d)/, '') })}
+                    className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div className="border-l border-border-main pl-6">
+                  <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">TCS (%)</p>
+                  <input
+                    type="number"
+                    step="0.01"
+                    disabled={!isMachineSelected}
+                    value={formData.tcsPercentage}
+                    onChange={e => setFormData({ ...formData, tcsPercentage: e.target.value.replace(/^0+(?=\d)/, '') })}
                     className="w-full bg-transparent text-xl font-mono font-black text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
@@ -822,7 +836,7 @@ const NewAssignment = ({ machines, customers, user }) => {
             <div className="flex justify-between text-[10px] font-bold pt-1"><span className="text-text-main">3. Sale Price</span><span className="font-mono text-text-main">{formatINR(norms.salePrice)}</span></div>
             <div className="flex justify-between text-[10px]"><span className="text-text-dim">4. GST @18%</span><span className="font-mono text-text-main">{formatINR(norms.gst)}</span></div>
             <div className="flex justify-between text-[10px] font-bold pt-1"><span className="text-text-main">5. Sale Value</span><span className="font-mono text-text-main">{formatINR(norms.saleValue)}</span></div>
-            <div className="flex justify-between text-[10px]"><span className="text-text-dim">6. TCS @0.1%</span><span className="font-mono text-text-main">{formatINR(norms.tcs)}</span></div>
+            <div className="flex justify-between text-[10px]"><span className="text-text-dim">6. TCS @{formData.tcsPercentage || 0}%</span><span className="font-mono text-text-main">{formatINR(norms.tcs)}</span></div>
             <div className="flex justify-between text-[10px] font-black pt-1 border-t border-border-main mt-1 pt-2"><span className="text-text-main">7. Invoice Value</span><span className="font-mono text-text-main">{formatINR(norms.invoiceValue)}</span></div>
           </div>
           <div className="p-4 rounded-xl border border-border-main bg-bg-card space-y-2 flex flex-col">

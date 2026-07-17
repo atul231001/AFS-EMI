@@ -10,6 +10,7 @@ import {
 
 const LoanDetails = () => {
   const [activeTab, setActiveTab] = useState('schedule');
+  const [downloadingReceiptIndex, setDownloadingReceiptIndex] = useState(null);
   const { loans, machines, selectedLoanId, payments = [] } = state.data;
 
   React.useEffect(() => {
@@ -38,52 +39,31 @@ const LoanDetails = () => {
 
   const progress = (actualTotalPaidAmt / (actualTotalValue || 1)) * 100;
 
-  let carryForwardOutstanding = 0;
-  let carryForwardOverdueInt = 0;
-
   const loanScheduleWithDynamics = loan.schedule.map((s, i) => {
-    let currentOutstanding = (s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi) + carryForwardOutstanding;
-    let dynamicDelayInt = (s.overdueInterest || 0) + carryForwardOverdueInt;
-
-    carryForwardOutstanding = 0;
-    carryForwardOverdueInt = 0;
+    let currentOutstanding = s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi;
+    let dynamicDelayInt = s.overdueInterest || 0;
 
     let status = s.status;
     let paidAmount = s.paidAmount || 0;
-    let displayOverdue = 0;
 
-    // "previus emi is mark to paid no matter how mach money paid you can fix to over due amount is add next emi"
-    if (status === 'Partial' && i < loan.schedule.length - 1) {
-      displayOverdue = currentOutstanding;
+    let overdueAmt = 0;
+    if (status !== 'Paid' && status !== 'Clear') {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const due = new Date(s.dueDate);
+      due.setHours(0, 0, 0, 0);
 
-      carryForwardOutstanding = currentOutstanding;
-      carryForwardOverdueInt = dynamicDelayInt;
-
-      status = 'Paid';
-      paidAmount = s.paidAmount || (s.emi - (s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi));
-      currentOutstanding = 0;
-      dynamicDelayInt = 0;
-    }
-
-    let overdueAmt = displayOverdue;
-    if (status !== 'Paid') {
-      if (new Date(s.dueDate) < new Date()) {
+      if (due < now) {
         overdueAmt = currentOutstanding;
-      } else {
-        // Do not show carried-forward amount as overdue if this EMI isn't past due yet
-        overdueAmt = 0;
       }
     }
 
-    if (overdueAmt > 0 && status !== 'Paid') {
-      let diffDays = 0;
-      if (new Date(s.dueDate) < new Date()) {
-        diffDays = Math.ceil(Math.max(0, new Date() - new Date(s.dueDate)) / (1000 * 60 * 60 * 24));
-      } else {
-        const prevDate = new Date(s.dueDate);
-        prevDate.setMonth(prevDate.getMonth() - 1);
-        diffDays = Math.ceil(Math.max(0, new Date() - prevDate) / (1000 * 60 * 60 * 24));
-      }
+    if (overdueAmt > 0 && status !== 'Paid' && status !== 'Clear') {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const due = new Date(s.dueDate);
+      due.setHours(0, 0, 0, 0);
+      let diffDays = Math.max(0, Math.round((now - due) / (1000 * 60 * 60 * 24)));
       const calc = Math.round(overdueAmt * ((loan.delayInterest || 24) / 100) / 365 * diffDays);
       if (calc > dynamicDelayInt) dynamicDelayInt = calc;
     }
@@ -109,7 +89,7 @@ const LoanDetails = () => {
     .reduce((sum, s) => sum + (s._dynamicDelayInt || 0) + (s.paidOverdueInterest || 0), 0);
 
   const handleSettleEMI = async () => {
-    const pendingInstallments = loan.schedule.filter(s => s.status === 'Pending' || s.status === 'Partial');
+    const pendingInstallments = loanScheduleWithDynamics.filter(s => s.status === 'Pending' || s.status === 'Partial');
     const maxToSettle = pendingInstallments.length;
     const initialSliderValue = pendingInstallments[0]?.status === 'Partial' && maxToSettle > 1 ? 2 : 1;
 
@@ -146,7 +126,7 @@ const LoanDetails = () => {
                    <span id="lbl-prev-emi" class="text-xs font-black text-rose-500 italic">₹0</span>
                 </div>
              </div>
-             <p id="emi-overdue-display" class="text-xs font-black text-rose-500 tracking-tighter italic mt-2">Includes ${formatINR(pendingInstallments[0]?.overdueInterest || 0)} Overdue</p>
+             <p id="emi-overdue-display" class="text-xs font-black text-rose-500 tracking-tighter italic mt-2">Includes ${formatINR(pendingInstallments[0]?._dynamicDelayInt || 0)} Overdue</p>
              <input type="text" id="waiver-reason" placeholder="Reason for waiver..." class="w-full mt-3 px-3 py-2 bg-[#0d1117] border border-border-main rounded-md text-xs text-white hidden outline-none focus:border-[#f0883e]" />
              <div class="flex items-center gap-2 mt-4">
                 <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -190,8 +170,8 @@ const LoanDetails = () => {
 
           for (let i = 0; i < val; i++) {
             const s = pendingInstallments[i];
-            totalOutstanding += (s?.outstandingAmount || 0);
-            totalOverdue += (s?.overdueInterest || 0);
+            totalOutstanding += (s?.outstandingAmount !== undefined ? s?.outstandingAmount : s?.emi) || 0;
+            totalOverdue += (s?._dynamicDelayInt || 0);
 
             const isPartial = s?.status === 'Partial';
             const dueDate = new Date(s?.dueDate);
@@ -236,7 +216,7 @@ const LoanDetails = () => {
         let totalAmount = 0;
         let totalOverdue = 0;
         for (let i = 0; i < rangeVal; i++) {
-          totalOverdue += (pendingInstallments[i]?.overdueInterest || 0);
+          totalOverdue += (pendingInstallments[i]?._dynamicDelayInt || 0);
         }
 
         const finalAmount = parseFloat(document.getElementById('emi-total').value) || 0;
@@ -267,6 +247,7 @@ const LoanDetails = () => {
   };
 
   const [showReportFormats, setShowReportFormats] = useState(false);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
   const reportRef = useRef(null);
 
   useEffect(() => {
@@ -284,6 +265,7 @@ const LoanDetails = () => {
   const handleExecuteReport = async (format) => {
     setShowReportFormats(false);
     showNotification(`Generating ${format.toUpperCase()} Report...`, 'info');
+    setIsDownloadingReport(true);
 
     try {
       const response = await fetch(`${state.apiUrl}/loans/${loan._id}/report/${format}`, {
@@ -312,11 +294,14 @@ const LoanDetails = () => {
     } catch (error) {
       console.error('Report error:', error);
       showNotification('Failed to generate report', 'error');
+    } finally {
+      setIsDownloadingReport(false);
     }
   };
 
   const handleDownloadReceipt = async (s, index) => {
     const instNum = s.installment || s.installmentNo || (index + 1);
+    setDownloadingReceiptIndex(index);
     showNotification(`Downloading PDF receipt for Installment #${instNum}...`, 'info');
 
     try {
@@ -347,6 +332,8 @@ const LoanDetails = () => {
     } catch (error) {
       console.error('Download error:', error);
       showNotification('Failed to download receipt', 'error');
+    } finally {
+      setDownloadingReceiptIndex(null);
     }
   };
 
@@ -442,10 +429,16 @@ const LoanDetails = () => {
           <div className="flex items-center gap-3">
             <div className="relative" ref={reportRef}>
               <button
-                onClick={() => setShowReportFormats(!showReportFormats)}
-                className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[#f0883e] border border-[#f0883e]/30 rounded-lg hover:bg-[#f0883e]/10 transition-all"
+                onClick={() => !isDownloadingReport && setShowReportFormats(!showReportFormats)}
+                disabled={isDownloadingReport}
+                className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[#f0883e] border border-[#f0883e]/30 rounded-lg hover:bg-[#f0883e]/10 transition-all disabled:opacity-50"
               >
-                <Download size={14} /> DOWNLOAD REPORT
+                {isDownloadingReport ? (
+                  <div className="w-3.5 h-3.5 border-2 border-[#f0883e] border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Download size={14} />
+                )}
+                {isDownloadingReport ? 'DOWNLOADING...' : 'DOWNLOAD REPORT'}
               </button>
 
               {showReportFormats && (
@@ -499,7 +492,12 @@ const LoanDetails = () => {
                 <TermRow label="Tenure" value={`${loan.tenure} Years`} />
                 <TermRow label="Total Value" value={formatINR(actualTotalValue)} />
                 <div className="h-px bg-[#30363d] my-2" />
-                <TermRow label="Last Payment" value={loan.schedule.filter(s => s.status === 'Paid').pop()?.dueDate || '--'} />
+                <TermRow label="Last Payment" value={(() => {
+                  const paidEmios = loan.schedule.filter(s => s.paidDate);
+                  if (paidEmios.length === 0) return '--';
+                  const latest = paidEmios.sort((a,b) => new Date(a.paidDate) - new Date(b.paidDate)).pop();
+                  return new Date(latest.paidDate).toISOString().split('T')[0];
+                })()} />
                 <TermRow label="Next Payment" value={loan.schedule.find(s => s.status === 'Pending')?.dueDate || 'COMPLETED'} />
               </div>
             </section>
@@ -508,14 +506,12 @@ const LoanDetails = () => {
 
           {/* COLUMN 2: FINANCIAL METRICS & LEDGER */}
           <div className="lg:col-span-9 bg-[#161b22] flex flex-col overflow-visible lg:overflow-hidden">
-            <div className="p-5 grid grid-cols-1 md:grid-cols-4 xl:grid-cols-7 gap-5 bg-[#0d1117]/50 border-b border-[#30363d] shrink-0">
+            <div className="p-5 grid grid-cols-1 md:grid-cols-4 xl:grid-cols-5 gap-5 bg-[#0d1117]/50 border-b border-[#30363d] shrink-0">
               <StatBox label="TOTAL AMOUNT" value={formatINR(actualTotalValue)} icon={PieChart} color="text-emerald-400" />
               <StatBox label="NEXT EMI" value={formatINR(nextInstallment ? ((nextInstallment.outstandingAmount !== undefined ? nextInstallment.outstandingAmount : nextInstallment.emi) + (loanScheduleWithDynamics.find(s => s.installment === nextInstallment.installment || s.installmentNo === nextInstallment.installmentNo)?._dynamicDelayInt || 0)) : 0)} icon={CreditCard} color="text-[#f0883e]" />
               <StatBox label="RECEIVED AMOUNT" value={formatINR(actualTotalPaidAmt)} icon={TrendingUp} color="text-[#3fb950]" />
               <StatBox label="OUTSTANDING BALANCE" value={formatINR(totalOutstandingBalance)} icon={AlertCircle} color="text-white" />
               <StatBox label="OVERDUE INTEREST" value={formatINR(totalOverdueInterest)} icon={History} color="text-rose-500" />
-              <StatBox label="LAST PAYMENT" value={loanScheduleWithDynamics.filter(s => s.status === 'Paid' || s.status === 'Clear').pop()?.dueDate || '--'} icon={Calendar} color="text-[#768390]" />
-              <StatBox label="NEXT PAYMENT" value={loanScheduleWithDynamics.find(s => s.status === 'Pending' || s.status === 'Partial')?.dueDate || 'DONE'} icon={Clock} color="text-[#58a6ff]" />
             </div>
 
             <div className="flex-1 p-5 flex flex-col overflow-visible lg:overflow-hidden">
@@ -592,7 +588,7 @@ const LoanDetails = () => {
                                   return (
                                     <div className="flex flex-col items-center">
                                       <span className="text-[#3fb950] font-bold">Paid: {formatINR(s.paidAmount || s.emi)}</span>
-                                      {s._overdueAmt > 0 && <span className="text-red-500 font-bold mt-0.5 text-[8px]">OD: {formatINR(s._overdueAmt)}</span>}
+                                      {s._overdueAmt > 0 && <span className="text-red-500 font-bold mt-0.5 text-[8px]">Overdue: {formatINR(s._overdueAmt)}</span>}
                                     </div>
                                   );
                                 }
@@ -601,11 +597,11 @@ const LoanDetails = () => {
                                   return (
                                     <div className="flex flex-col items-center">
                                       <span className="text-[#3fb950] font-bold text-[8px]">Paid: {formatINR(paidAmt)}</span>
-                                      <span className="text-red-500 font-bold mt-0.5">{s._overdueAmt > 0 ? `OD: ${formatINR(s._overdueAmt)}` : '₹0'}</span>
+                                      <span className="text-red-500 font-bold mt-0.5 text-[8px]">Overdue: {formatINR(s._overdueAmt)}</span>
                                     </div>
                                   );
                                 }
-                                return <span className={s._overdueAmt > 0 ? "text-red-500 font-bold" : "text-[#768390]"}>{s._overdueAmt > 0 ? formatINR(s._overdueAmt) : '₹0'}</span>;
+                                return <span className={s._overdueAmt > 0 ? "text-red-500 font-bold text-[10px]" : "text-[#768390] text-[10px]"}>Overdue: {formatINR(s._overdueAmt)}</span>;
                               })()}
                             </td>
                             <td className="px-5 py-2.5 text-center text-[10px] font-mono text-rose-500">
@@ -638,10 +634,15 @@ const LoanDetails = () => {
                               {s.status === 'Paid' || s.status === 'Clear' ? (
                                 <button
                                   onClick={() => handleDownloadReceipt(s, index)}
-                                  className="p-1.5 hover:bg-[#f0883e]/20 rounded-md text-[#f0883e] transition-all"
+                                  disabled={downloadingReceiptIndex === index}
+                                  className="p-1.5 hover:bg-[#f0883e]/20 rounded-md text-[#f0883e] transition-all disabled:opacity-50 disabled:cursor-wait"
                                   title="Download Receipt"
                                 >
-                                  <Download size={14} />
+                                  {downloadingReceiptIndex === index ? (
+                                    <div className="w-3.5 h-3.5 border-2 border-[#f0883e] border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Download size={14} />
+                                  )}
                                 </button>
                               ) : (
                                 <span className="text-[#444c56] opacity-30 cursor-not-allowed">

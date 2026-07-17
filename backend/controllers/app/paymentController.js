@@ -49,9 +49,12 @@ export const createPayment = async (req, res) => {
       const dueDate = new Date(s.dueDate);
       let newOverdue = 0;
 
-      if (currentDate > dueDate && delayRate > 0) {
-        const diffTime = Math.abs(currentDate - dueDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const normCurrent = new Date(currentDate); normCurrent.setHours(0,0,0,0);
+      const normDue = new Date(dueDate); normDue.setHours(0,0,0,0);
+
+      if (normCurrent > normDue && delayRate > 0) {
+        const diffTime = normCurrent - normDue;
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
         const ratePerDay = (delayRate / 100) / 365;
 
         let baseAmount = s.outstandingAmount;
@@ -109,23 +112,8 @@ export const createPayment = async (req, res) => {
         s.outstandingAmount = 0;
         s.paidDate = currentDate;
       } else if (paymentMadeToThis) {
-        if (i + 1 < loan.schedule.length) {
-          s.status = 'Paid';
-          s.paidDate = currentDate;
-
-          let nextS = loan.schedule[i + 1];
-          if (nextS.outstandingAmount === undefined || nextS.outstandingAmount === null) {
-            nextS.outstandingAmount = nextS.emi;
-          }
-          nextS.outstandingAmount += s.outstandingAmount;
-          nextS.overdueInterest = (nextS.overdueInterest || 0) + s.overdueInterest;
-
-          s.outstandingAmount = 0;
-          s.overdueInterest = 0;
-        } else {
-          s.status = 'Partial';
-          s.paidDate = currentDate;
-        }
+        s.status = 'Partial';
+        s.paidDate = currentDate;
       }
 
       if (remainingPayment <= 0) break;
@@ -186,19 +174,19 @@ const processExcelRows = async (buffer) => {
     }
 
     if (rawDateVal instanceof Date) {
-      formattedDate = rawDateVal;
+      formattedDate = new Date(Date.UTC(rawDateVal.getFullYear(), rawDateVal.getMonth(), rawDateVal.getDate()));
     } else if (rawDateVal !== null && rawDateVal !== undefined && rawDateVal !== '') {
       const dateStr = rawDateVal.toString().trim();
-      const dmyMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-      if (dmyMatch) {
-        const day = parseInt(dmyMatch[1], 10);
-        const month = parseInt(dmyMatch[2], 10) - 1;
-        const year = parseInt(dmyMatch[3], 10);
-        const parsed = new Date(year, month, day);
+      const ymdMatch = dateStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+      if (ymdMatch) {
+        const year = parseInt(ymdMatch[1], 10);
+        const month = parseInt(ymdMatch[2], 10) - 1;
+        const day = parseInt(ymdMatch[3], 10);
+        const parsed = new Date(Date.UTC(year, month, day));
         if (!isNaN(parsed.getTime())) formattedDate = parsed;
-      } else {
-        const parsed = new Date(dateStr);
-        if (!isNaN(parsed.getTime())) formattedDate = parsed;
+      } else if (!isNaN(dateStr) && Number(dateStr) > 10000 && Number(dateStr) < 100000) {
+        const excelDays = Number(dateStr);
+        formattedDate = new Date(Math.round((excelDays - 25569) * 86400 * 1000));
       }
     }
     const uploadedDateStr = formattedDate ? formattedDate.toISOString().split('T')[0] : '';
@@ -228,7 +216,7 @@ const processExcelRows = async (buffer) => {
 
     if (!errorMessage) {
       if (!paymentDateVal) errorMessage = 'Payment Date is mandatory.';
-      else if (!formattedDate) errorMessage = 'Invalid Payment Date format (use DD/MM/YYYY or YYYY-MM-DD).';
+      else if (!formattedDate) errorMessage = `Invalid Payment Date '${rawDateVal}'. Please use strict YYYY-MM-DD format (e.g., 2026-08-08).`;
       else if (paidAmount <= 0) errorMessage = 'Paid Amount must be greater than zero.';
       else if (!transactionId) errorMessage = 'Transaction ID is mandatory.';
     }
@@ -303,9 +291,12 @@ export const importBulkUpload = async (req, res) => {
         const dueDate = new Date(s.dueDate);
         let newOverdue = 0;
 
-        if (currentDate > dueDate && delayRate > 0) {
-          const diffTime = Math.abs(currentDate - dueDate);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const normCurrent = new Date(currentDate); normCurrent.setHours(0,0,0,0);
+        const normDue = new Date(dueDate); normDue.setHours(0,0,0,0);
+
+        if (normCurrent > normDue && delayRate > 0) {
+          const diffTime = normCurrent - normDue;
+          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
           const ratePerDay = (delayRate / 100) / 365;
 
           let baseAmount = s.outstandingAmount;
@@ -346,23 +337,8 @@ export const importBulkUpload = async (req, res) => {
           s.outstandingAmount = 0;
           s.paidDate = validRow.paymentDate;
         } else if (paymentMadeToThis) {
-          if (i + 1 < loan.schedule.length) {
-            s.status = 'Paid';
-            s.paidDate = validRow.paymentDate;
-
-            let nextS = loan.schedule[i + 1];
-            if (nextS.outstandingAmount === undefined || nextS.outstandingAmount === null) {
-              nextS.outstandingAmount = nextS.emi;
-            }
-            nextS.outstandingAmount += s.outstandingAmount;
-            nextS.overdueInterest = (nextS.overdueInterest || 0) + s.overdueInterest;
-
-            s.outstandingAmount = 0;
-            s.overdueInterest = 0;
-          } else {
-            s.status = 'Partial';
-            s.paidDate = validRow.paymentDate;
-          }
+          s.status = 'Partial';
+          s.paidDate = validRow.paymentDate;
         }
 
         if (remainingPayment <= 0) break;
