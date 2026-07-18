@@ -727,7 +727,37 @@ export const generatePPTReport = async (loan, allLoans = []) => {
 };
 
 export const generatePDFReport = async (loan) => {
-  const browser = await puppeteer.launch({ headless: "new", executablePath: "C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe", args: ['--no-sandbox'] });
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+  let browser;
+  
+  if (isProduction) {
+    try {
+      const sparticuzChromium = (await import('@sparticuz/chromium')).default;
+      const puppeteerCore = (await import('puppeteer-core')).default;
+      browser = await puppeteerCore.launch({
+        args: sparticuzChromium.args,
+        defaultViewport: sparticuzChromium.defaultViewport,
+        executablePath: await sparticuzChromium.executablePath(),
+        headless: sparticuzChromium.headless,
+      });
+    } catch (err) {
+      console.error("Sparticuz Chromium launch failed in reportService:", err);
+      browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox'] });
+    }
+  } else {
+    // Localhost fallback
+    const options = { headless: "new", args: ['--no-sandbox'] };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+       options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    // Trying the hardcoded path if standard launch fails would be complex here, so we will just try a standard launch.
+    try {
+      browser = await puppeteer.launch(options);
+    } catch (e) {
+      // Just fallback to the hardcoded path for the developer's localhost
+      browser = await puppeteer.launch({ headless: "new", executablePath: "C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe", args: ['--no-sandbox'] });
+    }
+  }
   const page = await browser.newPage();
   
   const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
@@ -1780,7 +1810,34 @@ export const generateGlobalPPTReport = async (loans, payments, months, viewMode 
 };
 
 export const generateGlobalPDFReport = async (loans, payments, months, viewMode = 'machine') => {
-  const browser = await puppeteer.launch({ headless: "new", executablePath: "C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe", args: ['--no-sandbox'] });
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+  let browser;
+  
+  if (isProduction) {
+    try {
+      const sparticuzChromium = (await import('@sparticuz/chromium')).default;
+      const puppeteerCore = (await import('puppeteer-core')).default;
+      browser = await puppeteerCore.launch({
+        args: sparticuzChromium.args,
+        defaultViewport: sparticuzChromium.defaultViewport,
+        executablePath: await sparticuzChromium.executablePath(),
+        headless: sparticuzChromium.headless,
+      });
+    } catch (err) {
+      console.error("Sparticuz Chromium launch failed in reportService:", err);
+      browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox'] });
+    }
+  } else {
+    const options = { headless: "new", args: ['--no-sandbox'] };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+       options.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    try {
+      browser = await puppeteer.launch(options);
+    } catch (e) {
+      browser = await puppeteer.launch({ headless: "new", executablePath: "C:\\\\Program Files\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe", args: ['--no-sandbox'] });
+    }
+  }
   const page = await browser.newPage();
   const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
 

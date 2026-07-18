@@ -4,6 +4,25 @@ import fs from 'fs';
 import path from 'path';
 
 const launchBrowser = async () => {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+
+  if (isProduction) {
+    console.log("Launching browser using @sparticuz/chromium...");
+    try {
+      const sparticuzChromium = (await import('@sparticuz/chromium')).default;
+      const puppeteerCore = (await import('puppeteer-core')).default;
+      
+      return await puppeteerCore.launch({
+        args: sparticuzChromium.args,
+        defaultViewport: sparticuzChromium.defaultViewport,
+        executablePath: await sparticuzChromium.executablePath(),
+        headless: sparticuzChromium.headless,
+      });
+    } catch (err) {
+      console.error("Sparticuz Chromium launch failed, falling back to standard puppeteer:", err);
+    }
+  }
+
   const options = {
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
