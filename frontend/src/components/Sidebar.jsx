@@ -286,9 +286,18 @@ const Sidebar = () => {
   return (
     <aside className="w-64 border-r border-[#30363d] bg-[#0d1117] flex flex-col sticky top-0 h-screen shrink-0 z-50">
       {/* Logo */}
-      <div className="p-8 flex flex-col items-start gap-2">
-        <div className="h-16 w-40 object-contain brightness-0 invert opacity-90 transition-all duration-300">
-          <img src="/logo.png" alt="LiuGong Logo" className="logo-image" />
+      <div className="pt-8 pb-4 flex flex-col items-center justify-center gap-2">
+        {/* Logo Icon (Colored to Primary Orange #f0883e) */}
+        <div 
+          className="relative overflow-hidden w-12 h-12 transition-all duration-300" 
+          style={{ filter: 'brightness(0) saturate(100%) invert(64%) sepia(80%) saturate(1518%) hue-rotate(338deg) brightness(96%) contrast(93%)' }}
+        >
+           <img src="/logo.png" alt="LiuGong Icon" className="absolute top-0 left-0 h-12 w-[262px] max-w-none" />
+        </div>
+        
+        {/* Logo Text (White) */}
+        <div className="relative overflow-hidden w-[145px] h-8 brightness-0 invert opacity-90 transition-all duration-300">
+           <img src="/logo.png" alt="LiuGong Text" className="absolute top-0 left-[-35px] h-8 w-[175px] max-w-none" />
         </div>
       </div>
 

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { background: #0d1117; display: flex; flex-direction: column; align-items: center; padding: 50px; }
+  
+  .filter-orange {
+    /* Filter to convert black to #f0883e */
+    filter: brightness(0) saturate(100%) invert(64%) sepia(80%) saturate(1518%) hue-rotate(338deg) brightness(96%) contrast(93%);
+  }
+
+  .filter-white {
+    filter: brightness(0) invert(1);
+  }
+
+  .icon-container {
+    width: 48px;
+    height: 48px;
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 12px;
+  }
+  
+  .icon-img {
+    height: 48px;
+    width: 262px;
+    max-width: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .text-container {
+    width: 120px;
+    height: 24px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .text-img {
+    height: 24px;
+    width: 131px;
+    max-width: none;
+    position: absolute;
+    left: -32px; /* shift left to hide icon and spacing */
+    top: 0;
+  }
+
+  /* Version 2 with different shifts */
+  .text-img-2 {
+    height: 24px;
+    width: 131px;
+    max-width: none;
+    position: absolute;
+    left: -28px;
+    top: 0;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Version 1 -->
+  <div style="display: flex; flex-direction: column; align-items: center;">
+    <div class="icon-container filter-orange">
+      <img src="../frontend/public/logo.png" class="icon-img" />
+    </div>
+    <div class="text-container filter-white">
+      <img src="../frontend/public/logo.png" class="text-img" />
+    </div>
+  </div>
+
+  <br/><br/>
+
+  <!-- Version 2 -->
+  <div style="display: flex; flex-direction: column; align-items: center;">
+    <div class="icon-container filter-orange">
+      <img src="../frontend/public/logo.png" class="icon-img" />
+    </div>
+    <div class="text-container filter-white" style="width: 100px;">
+      <img src="../frontend/public/logo.png" class="text-img-2" />
+    </div>
+  </div>
+
+</body>
+</html>
