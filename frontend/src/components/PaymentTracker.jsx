@@ -216,13 +216,7 @@ const PaymentTracker = () => {
             BULK EMI UPLOAD
           </button>
 
-          <button
-            onClick={handleExport}
-            className="btn-primary flex items-center"
-          >
-            <Download size={16} className="mr-2" />
-            EXPORT PROTOCOL
-          </button>
+
         </div>
 
       </div>
