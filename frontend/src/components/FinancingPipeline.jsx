@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { state } from '../state';
 import { showNotification, formatINR, hasPermission } from '../utils';
 import Pagination from './Pagination.jsx';
-import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye, ChevronLeft, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react';
+import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Calendar } from 'lucide-react';
 
 const getMachineImage = (m) => {
   if (!m) return 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=300';
@@ -993,6 +993,9 @@ const FinancingFormModal = ({ loan, onClose }) => {
                                 readOnly
                                 className="absolute inset-0 w-full h-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               />
+                              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-dim">
+                                <Calendar size={16} />
+                              </div>
                               <input
                                 type="date"
                                 value={commissionDate}

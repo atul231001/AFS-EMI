@@ -15,7 +15,8 @@ import {
   ShieldCheck,
   Plus,
   Check,
-  X
+  X,
+  Calendar
 } from 'lucide-react';
 import { generateSchedule } from '../logic/emi';
 
@@ -604,6 +605,9 @@ const NewAssignment = ({ machines, customers, user, financing }) => {
                     readOnly
                     className="absolute inset-0 w-full h-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-dim">
+                    <Calendar size={14} />
+                  </div>
                   <input
                     type="date"
                     disabled={!isMachineSelected}
