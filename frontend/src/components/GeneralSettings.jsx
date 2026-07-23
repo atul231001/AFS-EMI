@@ -9,7 +9,7 @@ import { showNotification } from '../utils';
 import NotificationSettings from './NotificationSettings.jsx';
 
 const GeneralSettings = () => {
-  const { user, theme, settings, numbering, security, smtp, notifications } = state.data;
+  const { user, theme, settings, numbering, security, smtp, notifications, financing } = state.data;
   const [activeTab, setActiveTab] = useState('ui');
   const [localNumbering, setLocalNumbering] = useState(numbering);
   const [isSaving, setIsSaving] = useState(false);
@@ -47,6 +47,10 @@ const GeneralSettings = () => {
     state.updateConfig({ security: { captcha: updated } });
   };
 
+  const handleFinancingChange = (field, value) => {
+    state.updateConfig({ financing: { ...(financing || {}), [field]: value } });
+  };
+
   const handleThemeToggle = (newTheme) => {
     state.setState({ theme: newTheme });
     if (user) {
@@ -67,6 +71,7 @@ const GeneralSettings = () => {
     ...(isOEM ? [
       { id: 'identity', label: 'ID Numbers', icon: Fingerprint, desc: 'ID Setup & Formats' },
       { id: 'security', label: 'Security Settings', icon: ShieldCheck, desc: 'Login & Verification' },
+      { id: 'financing', label: 'Financing', icon: Layout, desc: 'Financing Rules' },
       { id: 'notifications', label: 'Emails & Notifications', icon: Mail, desc: 'Email Server & Alerts' }
     ] : [])
   ];
@@ -380,6 +385,41 @@ const GeneralSettings = () => {
                         </div>
                       ))}
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'financing' && isOEM && (
+          <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-white uppercase tracking-tight italic">Financing Settings</h2>
+              <p className="text-[10px] text-slate-500 font-mono tracking-[0.3em] uppercase">Configure Financing Workflows</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="glass-card p-8 space-y-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-[#f0883e]/10 text-[#f0883e] rounded-xl flex items-center justify-center border border-[#f0883e]/20">
+                    <Layout size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-white uppercase tracking-widest">Financing Details</h3>
+                    <p className="text-[9px] text-slate-500 font-mono uppercase mt-1">Pricing & Discounts</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-black/20 border border-white/5 rounded-xl hover:border-white/10 transition-all">
+                    <span className="text-[10px] font-bold text-white uppercase tracking-widest">Enable Discounts in Financing</span>
+                    <button
+                      onClick={() => handleFinancingChange('enableDiscount', !(financing?.enableDiscount ?? true))}
+                      className={`w-12 h-6 rounded-full transition-all relative ${financing?.enableDiscount ?? true ? 'bg-[#3fb950]' : 'bg-[#30363d]'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${financing?.enableDiscount ?? true ? 'left-7' : 'left-1'}`} />
+                    </button>
                   </div>
                 </div>
               </div>

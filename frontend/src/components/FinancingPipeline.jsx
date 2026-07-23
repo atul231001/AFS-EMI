@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { state } from '../state';
 import { showNotification, formatINR, hasPermission } from '../utils';
 import Pagination from './Pagination.jsx';
-import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye, ChevronLeft, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react';
 
 const getMachineImage = (m) => {
   if (!m) return 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=300';
@@ -21,6 +21,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
   const [approvalNotes, setApprovalNotes] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [viewTab, setViewTab] = useState('data'); // 'data' or 'schedule'
+  const [isDownloadingAgreement, setIsDownloadingAgreement] = useState(false);
   const [dispatchSerialNo, setDispatchSerialNo] = useState(loan?.invoiceData?.serialNumber || loan?.serialNumber || '');
   const [dispatchCheckFailed, setDispatchCheckFailed] = useState(false);
   const [hasAutoCheckedDispatch, setHasAutoCheckedDispatch] = useState(false);
@@ -84,8 +85,8 @@ const FinancingFormModal = ({ loan, onClose }) => {
   };
 
   const handleDownload = async () => {
+    setIsDownloadingAgreement(true);
     try {
-      showNotification('Generating agreement...', 'info');
       const res = await fetch(`${state.apiUrl}/loans/${loan._id}/agreement/download`, {
         headers: { Authorization: `Bearer ${state.token}` }
       });
@@ -102,6 +103,8 @@ const FinancingFormModal = ({ loan, onClose }) => {
       }
     } catch (e) {
       await fallbackToHtmlPrint();
+    } finally {
+      setIsDownloadingAgreement(false);
     }
   };
 
@@ -364,9 +367,13 @@ const FinancingFormModal = ({ loan, onClose }) => {
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Engine No</p>
             <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.engineNumber}>{loan.invoiceData.engineNumber}</p>
           </div>
-          <div className="col-span-2">
+          <div>
+            <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Invoice No</p>
+            <p className="text-xs font-black text-text-main">{loan.invoiceNumber || loan.invoiceData.invoiceNumber || 'N/A'}</p>
+          </div>
+          <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Invoice Date</p>
-            <p className="text-xs font-black text-text-main">{new Date(loan.invoiceData.invoiceDate).toLocaleDateString('en-CA')}</p>
+            <p className="text-xs font-black text-text-main">{new Date(loan.invoiceData.invoiceDate || loan.invoiceData.date).toLocaleDateString('en-CA')}</p>
           </div>
         </div>
         {loan.invoiceData.invoiceFile && (
@@ -678,6 +685,32 @@ const FinancingFormModal = ({ loan, onClose }) => {
                 </div>
               )}
 
+              {viewStage === 1 && !activeFlow && (
+                <div className="border border-border-main rounded-2xl overflow-hidden animate-fade-in shadow-xl bg-bg-deep flex flex-col justify-center items-center p-8 text-center min-h-[300px]">
+                  <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mb-4">
+                    <CheckCircle size={32} />
+                  </div>
+                  <h4 className="text-sm font-black text-text-main uppercase tracking-wider mb-2">
+                    Auto-Approved
+                  </h4>
+                  <p className="text-[10px] text-text-dim max-w-[250px] mx-auto mb-8">
+                    No approval flow is configured for this asset. It has been automatically approved.
+                  </p>
+                  <button 
+                    onClick={() => {
+                      if (currentStage >= 2) {
+                        setViewStage(2);
+                      } else {
+                        handleApproveAction('Approved');
+                      }
+                    }} 
+                    className="w-full py-3 bg-[#f0883e] hover:bg-[#d97736] text-black rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-[#f0883e]/20 flex items-center justify-center gap-2"
+                  >
+                    Proceed to Next Stage <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
+
               {viewStage === 2 && (
                 <div className="border border-border-main rounded-2xl overflow-hidden animate-fade-in shadow-xl bg-bg-deep">
                   <div className="bg-bg-card p-4 border-b border-border-main flex items-center justify-between">
@@ -714,9 +747,13 @@ const FinancingFormModal = ({ loan, onClose }) => {
                     })() : (
                       <>
                         <div className="flex flex-col gap-3">
-                          <button onClick={handleDownload} className="w-full py-3 px-4 bg-bg-card hover:bg-bg-active border border-border-main rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-wider text-text-main transition-colors shadow-sm">
-                            <Download size={16} className="text-primary shrink-0" />
-                            <span>Download Agreement</span>
+                          <button onClick={handleDownload} disabled={isDownloadingAgreement} className="w-full py-3 px-4 bg-bg-card hover:bg-bg-active border border-border-main rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-wider text-text-main transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                            {isDownloadingAgreement ? (
+                              <RefreshCw size={16} className="text-primary shrink-0 animate-spin" />
+                            ) : (
+                              <Download size={16} className="text-primary shrink-0" />
+                            )}
+                            <span>{isDownloadingAgreement ? 'Generating...' : 'Download Agreement'}</span>
                           </button>
                           <button onClick={handleSendEmail} className="w-full py-3 px-4 bg-bg-card hover:bg-bg-active border border-border-main rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-wider text-text-main transition-colors shadow-sm">
                             <Mail size={16} className="text-primary shrink-0" />

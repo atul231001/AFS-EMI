@@ -68,13 +68,18 @@ const LoanDetails = () => {
       if (calc > dynamicDelayInt) dynamicDelayInt = calc;
     }
 
+    if (s.interestWaived) {
+      dynamicDelayInt = 0;
+    }
+
     return {
       ...s,
       status,
       paidAmount,
       outstandingAmount: currentOutstanding,
       _overdueAmt: overdueAmt,
-      _dynamicDelayInt: dynamicDelayInt
+      _dynamicDelayInt: dynamicDelayInt,
+      _index: i + 1
     };
   });
 
@@ -88,161 +93,71 @@ const LoanDetails = () => {
   const totalOverdueInterest = loanScheduleWithDynamics
     .reduce((sum, s) => sum + (s._dynamicDelayInt || 0) + (s.paidOverdueInterest || 0), 0);
 
-  const handleSettleEMI = async () => {
-    const pendingInstallments = loanScheduleWithDynamics.filter(s => s.status === 'Pending' || s.status === 'Partial');
-    const maxToSettle = pendingInstallments.length;
-    const initialSliderValue = pendingInstallments[0]?.status === 'Partial' && maxToSettle > 1 ? 2 : 1;
+  const handleWaiveInterest = async () => {
+    const overdueInstallments = loanScheduleWithDynamics.filter(s => (s._dynamicDelayInt || 0) > 0);
+    
+    if (overdueInstallments.length === 0) {
+      showNotification('No overdue interest to waive off.', 'info');
+      return;
+    }
+
+    let optionsHtml = overdueInstallments.map(s => 
+      `<option value="${s.installment || s._index}">Installment #${s.installment || s._index} (${formatINR(s._dynamicDelayInt)})</option>`
+    ).join('');
+
+    const totalOverdue = overdueInstallments.reduce((sum, s) => sum + (s._dynamicDelayInt || 0), 0);
 
     const result = await Swal.fire({
-      title: 'EMI PAYMENT',
+      title: 'Waive Overdue Interest',
       html: `
-        <div class="flex flex-col items-center gap-4 py-4 text-left">
-          <p class="text-[0.625rem] font-black text-text-dim uppercase tracking-[0.2em] w-full mb-1">Select Installments</p>
-          <input type="range" id="emi-range" class="swal2-range w-full !m-0" min="1" max="${maxToSettle}" value="${initialSliderValue}" style="accent-color: #f0883e;">
-          <div class="flex justify-between w-full text-[0.5rem] font-black text-text-dim uppercase tracking-widest mt-1">
-            <span>Min: 1</span>
-            <span>Max: ${maxToSettle}</span>
+        <div class="flex flex-col gap-4 text-left">
+          <div>
+            <label class="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2 block">Select Installment</label>
+            <select id="waive-installment" class="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs font-bold text-text-main focus:border-[#f0883e] outline-none cursor-pointer">
+              <option value="ALL">Waive ALL Overdue (${formatINR(totalOverdue)})</option>
+              ${optionsHtml}
+            </select>
           </div>
-          
-          <div id="emi-calc" class="mt-6 p-6 bg-bg-deep border border-border-main rounded-[2rem] w-full">
-             <div class="flex justify-between items-center mb-2">
-                <p class="text-[0.5625rem] font-black text-primary uppercase tracking-[0.3em]">Total Amount</p>
-                <div class="flex items-center gap-2">
-                   <input type="checkbox" id="waive-interest" class="accent-[#f0883e]" />
-                   <label for="waive-interest" class="text-[0.5625rem] font-black text-text-dim uppercase tracking-[0.2em] cursor-pointer">Waive Overdue</label>
-                </div>
-             </div>
-             <div class="flex items-center gap-1">
-                <span class="text-4xl font-black text-text-main tracking-tighter italic">₹</span>
-                <input type="number" id="emi-total" class="w-full bg-transparent text-4xl font-black text-text-main tracking-tighter italic outline-none" value="${pendingInstallments[0]?.outstandingAmount || 0}" />
-             </div>
-             <div id="emi-breakdown" class="flex items-center gap-4 mt-2">
-                <div class="flex flex-col">
-                   <span class="text-[0.5rem] font-black text-text-dim uppercase tracking-widest">Current EMI</span>
-                   <span id="lbl-current-emi" class="text-xs font-black text-text-main italic">₹0</span>
-                </div>
-                <div class="flex flex-col">
-                   <span class="text-[0.5rem] font-black text-text-dim uppercase tracking-widest">Prev. Outstanding</span>
-                   <span id="lbl-prev-emi" class="text-xs font-black text-rose-500 italic">₹0</span>
-                </div>
-             </div>
-             <p id="emi-overdue-display" class="text-xs font-black text-rose-500 tracking-tighter italic mt-2">Includes ${formatINR(pendingInstallments[0]?._dynamicDelayInt || 0)} Overdue</p>
-             <input type="text" id="waiver-reason" placeholder="Reason for waiver..." class="w-full mt-3 px-3 py-2 bg-[#0d1117] border border-border-main rounded-md text-xs text-white hidden outline-none focus:border-[#f0883e]" />
-             <div class="flex items-center gap-2 mt-4">
-                <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                <p id="emi-desc" class="text-[0.625rem] font-black text-text-dim uppercase tracking-tight">Installment #${pendingInstallments[0]?.installment || pendingInstallments[0]?.installmentNo} Payment</p>
-             </div>
+          <div>
+            <label class="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2 block">Remark / Reason</label>
+            <input type="text" id="waive-reason" class="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs font-bold text-text-main focus:border-[#f0883e] outline-none" placeholder="Enter reason..." />
           </div>
         </div>
       `,
       showCancelButton: true,
-      confirmButtonText: 'Pay Now',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: 'Waive Off',
       confirmButtonColor: '#f0883e',
-      cancelButtonColor: '#64748b',
       background: document.documentElement.classList.contains('dark') ? '#0d1117' : '#ffffff',
       color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#0f172a',
-      customClass: {
-        popup: 'rounded-[2.5rem] border border-border-main shadow-2xl',
-        title: 'text-2xl font-black uppercase tracking-tighter italic pt-8 text-text-main',
-        confirmButton: 'px-10 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[0.625rem] !bg-primary !text-black',
-        cancelButton: 'px-10 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[0.625rem]'
-      },
-      didOpen: () => {
-        const range = document.getElementById('emi-range');
-        const totalEl = document.getElementById('emi-total');
-        const descEl = document.getElementById('emi-desc');
-        const overdueDisplay = document.getElementById('emi-overdue-display');
-        const waiveCheck = document.getElementById('waive-interest');
-        const waiverReason = document.getElementById('waiver-reason');
-
-        const startNum = pendingInstallments[0]?.installment || pendingInstallments[0]?.installmentNo || 1;
-
-        const updateCalc = () => {
-          const val = parseInt(range.value);
-          const endNum = pendingInstallments[val - 1]?.installment || pendingInstallments[val - 1]?.installmentNo;
-
-          let totalOutstanding = 0;
-          let totalOverdue = 0;
-          let currentEmiSum = 0;
-          let prevOutstandingSum = 0;
-          const now = new Date();
-
-          for (let i = 0; i < val; i++) {
-            const s = pendingInstallments[i];
-            totalOutstanding += (s?.outstandingAmount !== undefined ? s?.outstandingAmount : s?.emi) || 0;
-            totalOverdue += (s?._dynamicDelayInt || 0);
-
-            const isPartial = s?.status === 'Partial';
-            const dueDate = new Date(s?.dueDate);
-
-            // It is 'previous outstanding' if it was partially paid or if its due date has already passed.
-            if (isPartial || dueDate < now) {
-              prevOutstandingSum += (s?.outstandingAmount || 0);
-            } else {
-              currentEmiSum += (s?.outstandingAmount || 0);
-            }
-          }
-
-          const isWaived = waiveCheck.checked;
-          const finalTotal = totalOutstanding + (isWaived ? 0 : totalOverdue);
-
-          totalEl.value = finalTotal;
-          document.getElementById('lbl-current-emi').innerText = formatINR(currentEmiSum);
-          document.getElementById('lbl-prev-emi').innerText = formatINR(prevOutstandingSum);
-
-          overdueDisplay.innerText = totalOverdue > 0 ? (isWaived ? 'Waived ' + formatINR(totalOverdue) + ' Overdue' : 'Includes ' + formatINR(totalOverdue) + ' Overdue') : '';
-
-          if (isWaived && totalOverdue > 0) {
-            waiverReason.classList.remove('hidden');
-          } else {
-            waiverReason.classList.add('hidden');
-          }
-
-          descEl.innerText = val === 1
-            ? 'Installment #' + startNum + ' Payment'
-            : 'Installments #' + startNum + ' - #' + endNum + ' Payment';
-        };
-
-        range.addEventListener('input', updateCalc);
-        waiveCheck.addEventListener('change', updateCalc);
-        updateCalc();
-      },
       preConfirm: () => {
-        const rangeVal = parseInt(document.getElementById('emi-range').value);
-        const waive = document.getElementById('waive-interest').checked;
-        const reason = document.getElementById('waiver-reason').value;
-
-        let totalAmount = 0;
-        let totalOverdue = 0;
-        for (let i = 0; i < rangeVal; i++) {
-          totalOverdue += (pendingInstallments[i]?._dynamicDelayInt || 0);
-        }
-
-        const finalAmount = parseFloat(document.getElementById('emi-total').value) || 0;
-
-        if (waive && totalOverdue > 0 && !reason.trim()) {
-          Swal.showValidationMessage('Please provide a reason for waiving interest.');
+        const installmentNo = document.getElementById('waive-installment').value;
+        const reason = document.getElementById('waive-reason').value;
+        if (!reason.trim()) {
+          Swal.showValidationMessage('Please provide a reason!');
           return false;
         }
-
-        return { count: rangeVal, waiveInterest: waive, waiverReason: reason, amount: finalAmount };
+        return { installmentNo, reason };
       }
     });
 
-    if (result.isConfirmed) {
-      const { count, waiveInterest, waiverReason, amount } = result.value;
-      await state.addPayment({
+    if (result.isConfirmed && result.value) {
+      const payload = {
         loanId: loan._id,
-        amount: amount,
-        count: count,
-        waiveInterest,
-        waiverReason,
+        amount: 0,
+        waiveInterest: true,
+        waiverReason: result.value.reason,
         date: new Date().toISOString(),
-        method: 'Digital Settlement',
-        transactionId: `TXN${Math.floor(100000 + Math.random() * 899999)}`
-      });
-      showNotification(`${count} Installment Payment(s) Completed`);
+        paymentMethod: 'Waiver',
+        referenceNumber: 'WAIVER-INT',
+        transactionId: `WV${Math.floor(100000 + Math.random() * 899999)}`
+      };
+      
+      if (result.value.installmentNo !== 'ALL') {
+        payload.waiveInstallmentNo = result.value.installmentNo;
+      }
+
+      await state.addPayment(payload);
+      showNotification('Overdue interest waived successfully', 'success');
     }
   };
 
@@ -457,8 +372,8 @@ const LoanDetails = () => {
               )}
             </div>
             {nextInstallment && (
-              <button onClick={handleSettleEMI} className="btn-primary flex items-center gap-2 !py-1.5 !px-4 !text-[10px]">
-                <Zap size={14} /> SETTLE EMI
+              <button onClick={handleWaiveInterest} className="btn-primary flex items-center gap-2 !py-1.5 !px-4 !text-[10px] bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20 border-rose-500/50">
+                <Zap size={14} /> WAIVE OFF - INTEREST
               </button>
             )}
             <button onClick={handleClose} className="p-1.5 hover:bg-rose-500/10 rounded-md transition-colors text-[#768390] hover:text-rose-500">
@@ -489,7 +404,7 @@ const LoanDetails = () => {
               <div className="space-y-3">
                 <TermRow label="Principal" value={`₹${(loan.principal / 100000).toFixed(1)}L`} />
                 <TermRow label="Annual Rate" value={`${loan.interestRate}%`} />
-                <TermRow label="Tenure" value={`${loan.tenure} Years`} />
+                <TermRow label="Tenure" value={`${loan.tenure} Months`} />
                 <TermRow label="Total Value" value={formatINR(actualTotalValue)} />
                 <div className="h-px bg-[#30363d] my-2" />
                 <TermRow label="Last Payment" value={(() => {
@@ -605,9 +520,9 @@ const LoanDetails = () => {
                               })()}
                             </td>
                             <td className="px-5 py-2.5 text-center text-[10px] font-mono text-rose-500">
-                              {s._dynamicDelayInt > 0 ? <div>{formatINR(s._dynamicDelayInt)}</div> : null}
-                              {s.paidOverdueInterest > 0 ? <div className="text-green-500">Paid: {formatINR(s.paidOverdueInterest)}</div> : null}
-                              {s._dynamicDelayInt <= 0 && (!s.paidOverdueInterest || s.paidOverdueInterest <= 0) ? '--' : null}
+                              {s.interestWaived ? <div className="text-[#3fb950] font-bold uppercase tracking-widest text-[8px] flex justify-center items-center gap-1"><CheckCircle2 size={10} /> Waived</div> : (s._dynamicDelayInt > 0 ? <div>{formatINR(s._dynamicDelayInt)}</div> : null)}
+                              {s.paidOverdueInterest > 0 ? <div className="text-[#3fb950]">Paid: {formatINR(s.paidOverdueInterest)}</div> : null}
+                              {s._dynamicDelayInt <= 0 && (!s.paidOverdueInterest || s.paidOverdueInterest <= 0) && !s.interestWaived ? '--' : null}
                             </td>
                             <td className="px-5 py-2.5 text-center text-[10px] font-mono font-bold text-[#f0883e]">
                               {s.status === 'Paid' || s.status === 'Clear' ? '—' : formatINR((s.outstandingAmount !== undefined ? s.outstandingAmount : s.emi) + (s._dynamicDelayInt || 0))}
@@ -680,23 +595,27 @@ const LoanDetails = () => {
                             <tr key={i} className="hover:bg-[#3fb950]/5 transition-colors group">
                               <td className="px-5 py-3 text-[10px] font-mono font-bold text-[#444c56]">{p.transactionId || '--'}</td>
                               <td className="px-5 py-3 text-[10px] font-bold text-white uppercase italic">{new Date(p.date).toISOString().split('T')[0]}</td>
-                              <td className="px-5 py-3 text-[10px] font-mono font-bold text-[#3fb950] italic">{formatINR(p.amount)}</td>
+                              <td className="px-5 py-3 text-[10px] font-mono font-bold text-[#3fb950] italic">{p.waiveInterest ? <span className="text-rose-500">{formatINR(p.allocations?.reduce((sum, a) => sum + a.amount, 0) || 0)}</span> : formatINR(p.amount)}</td>
                               <td className="px-5 py-3">
                                 <div className="flex flex-col gap-1">
                                   {p.allocations && p.allocations.length > 0 ? p.allocations.map((a, j) => (
                                     <span key={j} className="text-[8px] font-mono text-[#768390]">
                                       Inst #{a.installmentNo} • {a.type}: <span className="text-white">{formatINR(a.amount)}</span>
                                     </span>
-                                  )) : <span className="text-[8px] font-mono text-[#768390]">No specific allocations</span>}
+                                  )) : (p.waiveInterest ? <span className="text-[8px] font-mono text-[#768390] italic">Interest Waiver</span> : <span className="text-[8px] font-mono text-[#768390]">No specific allocations</span>)}
                                 </div>
                               </td>
-                              <td className="px-5 py-3 text-[10px] font-mono text-rose-500">
+                              <td className="px-5 py-3 text-center">
                                 {p.waiveInterest ? (
-                                  <span className="flex items-center gap-1"><CheckCircle2 size={10} /> WAIVED</span>
-                                ) : '--'}
+                                  <div className="flex flex-col gap-1 items-center justify-center">
+                                    <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-rose-500"><CheckCircle2 size={10} /> WAIVED</span>
+                                    {p.waiveInstallmentNo && <span className="text-[8px] font-bold text-text-dim uppercase">Inst #{p.waiveInstallmentNo}</span>}
+                                    {p.waiverReason && <span className="text-[8px] font-mono text-text-dim max-w-[120px] truncate" title={p.waiverReason}>"{p.waiverReason}"</span>}
+                                  </div>
+                                ) : <span className="text-[10px] font-mono text-rose-500">--</span>}
                               </td>
                               <td className="px-5 py-3 text-[10px] font-bold text-[#768390] uppercase tracking-widest">{p.method || 'Digital'}</td>
-                              <td className="px-5 py-3 text-[10px] font-bold text-white italic">{p.uploadedBy?.name || 'System'}</td>
+                              <td className="px-5 py-3 text-[10px] font-bold text-white italic">{p.waiveInterest ? <span className="text-[#768390]">Waived by: </span> : ''}{p.uploadedBy?.name || 'System'}{p.uploadedBy?.customId ? ` (${p.uploadedBy.customId})` : ''}</td>
                             </tr>
                           ))
                         )}

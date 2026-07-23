@@ -48,6 +48,9 @@ const INITIAL_STATE = {
       onboardSupervisor: false
     }
   },
+  financing: {
+    enableDiscount: true
+  },
   notifications: [
     { id: 1, title: 'Asset Authorized', body: 'New HEx-Loder registered to Yuvraj Singh', time: '2m ago', type: 'success', targetView: 'loans' },
     { id: 2, title: 'EMI Settlement', body: '₹96,488 received from John Construction', time: '1h ago', type: 'info', targetView: 'payments' },
@@ -183,6 +186,7 @@ class State {
           attachmentTypes: savedConfig.attachmentTypes,
           numbering: savedConfig.numbering,
           security: savedConfig.security,
+          financing: savedConfig.financing,
           customerColumns: savedConfig.customerColumns,
           employeeColumns: savedConfig.employeeColumns,
           machineColumns: savedConfig.machineColumns,

@@ -70,7 +70,8 @@ const loanSchema = new mongoose.Schema({
     paidAmount: { type: Number, default: 0 },
     paidDate: Date,
     balance: Number,
-    status: { type: String, enum: ['Pending', 'Partial', 'Paid'], default: 'Pending' }
+    status: { type: String, enum: ['Pending', 'Partial', 'Paid'], default: 'Pending' },
+    interestWaived: { type: Boolean, default: false }
   }]
 }, { timestamps: true });
 

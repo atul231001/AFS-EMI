@@ -10,7 +10,7 @@ export const getPayments = async (req, res) => {
         path: 'loanId',
         populate: { path: 'customerId' }
       })
-      .populate('uploadedBy', 'name email')
+      .populate('uploadedBy', 'name email customId')
       .sort({ createdAt: -1 });
     res.json(payments);
   } catch (error) {
@@ -30,12 +30,12 @@ export const createPayment = async (req, res) => {
     let remainingPayment = req.body.amount || 0;
     const waiveInterest = req.body.waiveInterest || false;
     const waiverReason = req.body.waiverReason || '';
-    const delayRate = loan.delayInterest || 0;
+    const delayRate = loan.delayInterest || 24;
     const currentDate = new Date(req.body.date || new Date());
     const allocations = [];
 
-    // Sort schedule by installment number
-    loan.schedule.sort((a, b) => a.installment - b.installment);
+    // Sort schedule by dueDate to ensure consistent chronological order
+    loan.schedule.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
     for (let i = 0; i < loan.schedule.length; i++) {
       let s = loan.schedule[i];
@@ -72,16 +72,20 @@ export const createPayment = async (req, res) => {
       }
 
       // 2. Waive Interest if requested
-      if (waiveInterest && s.overdueInterest > 0) {
+      if (waiveInterest && s.overdueInterest > 0 && (!req.body.waiveInstallmentNo || (s.installment || (i + 1)) === Number(req.body.waiveInstallmentNo))) {
         loan.interestWaiverLogs.push({
           user: req.user ? req.user.name : 'System',
           date: new Date(),
           amountWaived: s.overdueInterest,
           reason: waiverReason,
-          installmentNo: s.installment
+          installmentNo: s.installment || (i + 1)
         });
+        allocations.push({ installmentNo: s.installment || (i + 1), type: 'Waived Interest', amount: s.overdueInterest });
         s.overdueInterest = 0;
+        s.interestWaived = true;
       }
+
+      if (req.body.paymentMethod === 'Waiver') continue;
 
       if (remainingPayment <= 0) break;
 
@@ -127,6 +131,7 @@ export const createPayment = async (req, res) => {
     payment.allocations = allocations;
     const newPayment = await payment.save();
 
+    loan.markModified('schedule');
     await loan.save();
 
     res.status(201).json(newPayment);
@@ -419,6 +424,58 @@ export const getBulkUploadErrorReport = async (req, res) => {
 
     await workbook.xlsx.write(res);
     res.end();
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const revokePayment = async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id);
+    if (!payment) return res.status(404).json({ message: 'Payment not found' });
+    if (payment.status === 'Revoked') return res.status(400).json({ message: 'Payment already revoked' });
+
+    const loan = await Loan.findById(payment.loanId);
+    if (!loan) return res.status(404).json({ message: 'Loan not found' });
+
+    loan.schedule.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+    for (const alloc of payment.allocations) {
+      const s = loan.schedule.find((x, i) => (x.installment || (i + 1)) === alloc.installmentNo);
+      if (!s) continue;
+
+      if (alloc.type === 'Principal') {
+        s.paidAmount = (s.paidAmount || 0) - alloc.amount;
+        s.outstandingAmount = (s.outstandingAmount || 0) + alloc.amount;
+      } else if (alloc.type === 'OverdueInterest') {
+        s.paidOverdueInterest = (s.paidOverdueInterest || 0) - alloc.amount;
+        s.overdueInterest = (s.overdueInterest || 0) + alloc.amount;
+      } else if (alloc.type === 'Waived Interest') {
+        s.interestWaived = false;
+        s.overdueInterest = (s.overdueInterest || 0) + alloc.amount;
+        loan.interestWaiverLogs = loan.interestWaiverLogs.filter(log => 
+          !(log.installmentNo === alloc.installmentNo)
+        );
+      }
+
+      if ((s.paidAmount || 0) === 0) {
+        s.status = 'Pending';
+      } else if (s.paidAmount < s.emi) {
+        s.status = 'Partial';
+      } else {
+        s.status = 'Paid';
+      }
+    }
+
+    loan.paidAmount = loan.schedule.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+    loan.balance = loan.principal - loan.paidAmount;
+    payment.status = 'Revoked';
+    if (req.body.revokeRemark) payment.revokeRemark = req.body.revokeRemark;
+
+    await loan.save();
+    await payment.save();
+
+    res.json({ message: 'Payment revoked successfully', payment });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

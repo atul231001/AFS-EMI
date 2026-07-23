@@ -19,9 +19,9 @@ const PaymentTracker = () => {
   const settledEntries = (isCustomer
     ? payments.filter(p => {
       const pCustId = (p.loanId?.customerId?._id || p.loanId?.customerId)?.toString();
-      return pCustId && uCustId && pCustId === uCustId;
+      return pCustId && uCustId && pCustId === uCustId && !p.waiveInterest && p.method !== 'Waiver';
     })
-    : payments
+    : payments.filter(p => !p.waiveInterest && p.method !== 'Waiver')
   ).map(p => ({
     ...p,
     entryType: 'SETTLED',
@@ -33,7 +33,9 @@ const PaymentTracker = () => {
     customerName: p.loanId?.customerId?.name,
     processedBy: p.uploadedBy?.email || 'System',
     allocations: p.allocations,
-    transactionId: p.transactionId
+    transactionId: p.transactionId,
+    paymentStatus: p.status,
+    revokeRemark: p.revokeRemark
   }));
 
   const clientLoans = (isCustomer
@@ -66,7 +68,7 @@ const PaymentTracker = () => {
     return dateB - dateA;
   });
 
-  const totalCollected = settledEntries.reduce((acc, p) => acc + p.displayAmount, 0);
+  const totalCollected = settledEntries.reduce((acc, p) => acc + (p.paymentStatus === 'Revoked' ? 0 : p.displayAmount), 0);
   const totalPending = pendingEntries.reduce((acc, p) => acc + p.displayAmount, 0);
 
   const handleExport = async () => {
@@ -87,7 +89,7 @@ const PaymentTracker = () => {
         customer: e.customerName || 'Unknown',
         asset: e.assetName || 'Asset',
         amount: e.displayAmount,
-        status: e.entryType === 'SETTLED' ? 'Settled' : (e.isOverdue ? 'Overdue' : 'Pending')
+        status: e.entryType === 'SETTLED' ? (e.paymentStatus === 'Revoked' ? 'Revoked' : 'Settled') : (e.isOverdue ? 'Overdue' : 'Pending')
       });
     });
 
@@ -122,6 +124,9 @@ const PaymentTracker = () => {
   const [bulkValidation, setBulkValidation] = useState(null);
   const [bulkLogId, setBulkLogId] = useState(null);
   const [bulkStatus, setBulkStatus] = useState('idle'); // idle, validating, validated, importing, imported, error
+
+  const [revokeRemarkModal, setRevokeRemarkModal] = useState({ show: false, payment: null });
+  const [revokeRemarkText, setRevokeRemarkText] = useState('');
 
   const handleBulkFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -188,6 +193,36 @@ const PaymentTracker = () => {
     setBulkValidation(null);
     setBulkLogId(null);
     setBulkStatus('idle');
+  };
+
+  const handleRevokePayment = async () => {
+    if (!revokeRemarkModal.payment || revokeRemarkModal.payment.paymentStatus === 'Revoked') return;
+    
+    if (!revokeRemarkText.trim()) {
+      showNotification('Remark is required', 'error');
+      return;
+    }
+    
+    try {
+      const res = await fetch(`${state.apiUrl}/payments/${revokeRemarkModal.payment._id}/revoke`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${user?.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ revokeRemark: revokeRemarkText.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Revocation failed');
+
+      showNotification('Payment revoked successfully', 'success');
+      setRevokeRemarkModal({ show: false, payment: null });
+      setSelectedPayment(null);
+      setTimeout(() => state.fetchData(), 500);
+    } catch (err) {
+      console.error(err);
+      showNotification(err.message, 'error');
+    }
   };
 
 
@@ -383,9 +418,15 @@ const PaymentTracker = () => {
                       <td className="px-6 py-4 text-right">
 
                         {isSettled ? (
-                          <span className="px-2.5 py-1 bg-green-500/10 border border-green-500/20 rounded-md text-[8px] font-black text-green-500 uppercase tracking-widest">
-                            Settled
-                          </span>
+                          e.paymentStatus === 'Revoked' ? (
+                            <span className="px-2.5 py-1 bg-red-500/10 border border-red-500/20 rounded-md text-[8px] font-black text-red-500 uppercase tracking-widest">
+                              Revoked
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 bg-green-500/10 border border-green-500/20 rounded-md text-[8px] font-black text-green-500 uppercase tracking-widest">
+                              Settled
+                            </span>
+                          )
                         ) : e?.entryType === 'PARTIAL' ? (
                           <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-md text-[8px] font-black text-amber-500 uppercase tracking-widest">
                             {isOverdue ? 'Partial (Overdue)' : 'Partial'}
@@ -604,6 +645,13 @@ const PaymentTracker = () => {
                   <p className="text-sm font-black text-white">{new Date(selectedPayment.uploadDate).toLocaleString()}</p>
                 </div>
               </div>
+              
+              {selectedPayment.paymentStatus === 'Revoked' && selectedPayment.revokeRemark && (
+                <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl mb-6">
+                  <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">Revocation Remark</p>
+                  <p className="text-sm font-bold text-white">{selectedPayment.revokeRemark}</p>
+                </div>
+              )}
 
               <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div> Total Payment Breakdown
@@ -649,12 +697,69 @@ const PaymentTracker = () => {
               </div>
             </div>
 
-            <div className="p-4 border-t border-border-main bg-bg-deep text-right">
+            <div className="p-4 border-t border-border-main bg-bg-deep flex justify-end gap-4">
+              {selectedPayment.paymentStatus !== 'Revoked' && (
+                <button
+                  onClick={() => {
+                    setRevokeRemarkText('');
+                    setRevokeRemarkModal({ show: true, payment: selectedPayment });
+                  }}
+                  className="px-6 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-500 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
+                >
+                  Revoke Payment
+                </button>
+              )}
               <button
                 onClick={() => setSelectedPayment(null)}
                 className="px-6 py-2 bg-bg-active hover:bg-[#30363d] border border-border-main text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
               >
                 Close View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revoke Remark Modal */}
+      {revokeRemarkModal.show && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-bg-card border border-border-main rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col animate-slide-up">
+            <div className="flex justify-between items-center p-6 border-b border-border-main bg-bg-deep">
+              <h2 className="text-sm font-black text-rose-500 uppercase tracking-widest flex items-center gap-2">
+                <X size={16} /> Revoke Payment
+              </h2>
+              <button
+                onClick={() => setRevokeRemarkModal({ show: false, payment: null })}
+                className="p-2 hover:bg-bg-active rounded-lg transition-colors text-text-dim hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-[10px] font-black text-text-dim uppercase tracking-widest mb-4 leading-relaxed">
+                Please enter a remark for revoking this payment. This action cannot be undone and will be permanently recorded in the ledger.
+              </p>
+              <textarea
+                value={revokeRemarkText}
+                onChange={(e) => setRevokeRemarkText(e.target.value)}
+                placeholder="Enter revocation remark..."
+                className="w-full bg-bg-deep border border-border-main rounded-xl p-4 text-sm font-bold text-white placeholder:text-text-dim/50 focus:outline-none focus:border-rose-500/50 resize-none h-24 transition-colors"
+                autoFocus
+              ></textarea>
+            </div>
+            <div className="p-4 border-t border-border-main bg-bg-deep flex justify-end gap-4">
+              <button
+                onClick={() => setRevokeRemarkModal({ show: false, payment: null })}
+                className="px-6 py-2 bg-bg-active hover:bg-[#30363d] border border-border-main text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRevokePayment}
+                disabled={!revokeRemarkText.trim()}
+                className="px-6 py-2 bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all shadow-[0_0_15px_rgba(244,63,94,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirm Revoke
               </button>
             </div>
           </div>

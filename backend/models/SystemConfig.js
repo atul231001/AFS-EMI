@@ -30,6 +30,9 @@ const systemConfigSchema = new mongoose.Schema({
       onboardSupervisor: { type: Boolean, default: false }
     }
   },
+  financing: {
+    enableDiscount: { type: Boolean, default: true }
+  },
   customerColumns: {
     name: { type: Boolean, default: true },
     customId: { type: Boolean, default: true },

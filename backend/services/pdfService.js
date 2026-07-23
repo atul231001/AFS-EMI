@@ -624,17 +624,28 @@ export const generateAgreementHTML = (loan, isForBrowserPrint = false) => {
           </thead>
           <tbody>
             <tr>
-              <td><strong>Initial Deposit</strong></td>
+              <td><strong>Margin Money (Total)</strong></td>
               <td style="text-align: right; font-weight: bold;">${formatINR(loan.downPayment || 0)}</td>
               <td style="text-align: center; font-weight: bold;">${formatDateGB(loan.startDate || loan.createdAt)}</td>
             </tr>
-            ${loan.schedule.map((s, index) => `
-              <tr>
-                <td>${getOrdinal(s.installment || (index + 1))}</td>
-                <td style="text-align: right;">${formatINR(s.emi)}</td>
-                <td style="text-align: center;">${formatDateGB(s.dueDate)}</td>
-              </tr>
-            `).join('')}
+            ${(() => {
+              const dpCount = loan.schedule.filter(x => x.type === 'DownPayment').length;
+              return loan.schedule.map((s, index) => {
+                let label = getOrdinal(s.installment || (index + 1));
+                if (s.type === 'DownPayment') {
+                  label = 'Margin Money ' + label;
+                } else if (s.type === 'EMI' && dpCount > 0) {
+                  label = getOrdinal((s.installment || (index + 1)) - dpCount);
+                }
+                return `
+                <tr>
+                  <td>${label}</td>
+                  <td style="text-align: right;">${formatINR(s.emi)}</td>
+                  <td style="text-align: center;">${formatDateGB(s.dueDate)}</td>
+                </tr>
+                `;
+              }).join('');
+            })()}
             <tr style="font-weight: bold; background-color: #f1f5f9;">
               <td>Total</td>
               <td style="text-align: right; color: #f0883e; font-size: 14px;">${formatINR(invoiceValue)}</td>

@@ -25,7 +25,7 @@ const getMachineImage = (m) => {
 };
 
 const LoanAssignment = () => {
-  const { loans, machines, customers, view, loanListView, user } = state.data;
+  const { loans, machines, customers, view, loanListView, user, financing } = state.data;
 
   React.useEffect(() => {
     if (state?.data?.machines?.length === 0 && state.ensureMachinesLight) {
@@ -78,7 +78,7 @@ const LoanAssignment = () => {
       {activeTab === 'portfolio' ? (
         (loanListView || 'card') === 'card' ? <PortfolioCardView loans={loans} machines={machines} user={user} /> : <PortfolioListView loans={loans} machines={machines} user={user} />
       ) : (
-        <NewAssignment machines={machines} customers={customers} user={user} />
+        <NewAssignment machines={machines} customers={customers} user={user} financing={financing} />
       )}
     </div>
   );
@@ -342,7 +342,7 @@ const PortfolioListView = ({ loans, machines, user }) => {
   );
 };
 
-const NewAssignment = ({ machines, customers, user }) => {
+const NewAssignment = ({ machines, customers, user, financing }) => {
   const [formData, setFormData] = useState({
     financingType: 'EMI',
     customerId: '',
@@ -555,41 +555,43 @@ const NewAssignment = ({ machines, customers, user }) => {
                   className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Discount (%)</p>
-                  <input
-                    type="number"
-                    step="0.1"
-                    disabled={!isMachineSelected}
-                    value={formData.discountPercentage}
-                    onChange={e => {
-                      const raw = e.target.value.replace(/^0+(?=\d)/, '');
-                      let perc = parseFloat(raw) || 0;
-                      if (perc > 100) perc = 100;
-                      const amount = (formData.machinePrice * perc) / 100;
-                      setFormData({ ...formData, discountPercentage: raw && parseFloat(raw) > 100 ? '100' : raw, discountAmount: amount });
-                    }}
-                    className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
+              {(financing?.enableDiscount ?? true) && (
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Discount (%)</p>
+                    <input
+                      type="number"
+                      step="0.1"
+                      disabled={!isMachineSelected}
+                      value={formData.discountPercentage}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/^0+(?=\d)/, '');
+                        let perc = parseFloat(raw) || 0;
+                        if (perc > 100) perc = 100;
+                        const amount = (formData.machinePrice * perc) / 100;
+                        setFormData({ ...formData, discountPercentage: raw && parseFloat(raw) > 100 ? '100' : raw, discountAmount: amount });
+                      }}
+                      className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Discount (₹)</p>
+                    <input
+                      type="number"
+                      disabled={!isMachineSelected}
+                      value={formData.discountAmount}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/^0+(?=\d)/, '');
+                        let amount = parseFloat(raw) || 0;
+                        if (amount > formData.machinePrice) amount = formData.machinePrice;
+                        const perc = formData.machinePrice ? (amount / formData.machinePrice) * 100 : 0;
+                        setFormData({ ...formData, discountAmount: raw && parseFloat(raw) > formData.machinePrice ? formData.machinePrice.toString() : raw, discountPercentage: perc });
+                      }}
+                      className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-[10px] font-bold text-text-dim mb-1.5 uppercase tracking-wider">Discount (₹)</p>
-                  <input
-                    type="number"
-                    disabled={!isMachineSelected}
-                    value={formData.discountAmount}
-                    onChange={e => {
-                      const raw = e.target.value.replace(/^0+(?=\d)/, '');
-                      let amount = parseFloat(raw) || 0;
-                      if (amount > formData.machinePrice) amount = formData.machinePrice;
-                      const perc = formData.machinePrice ? (amount / formData.machinePrice) * 100 : 0;
-                      setFormData({ ...formData, discountAmount: raw && parseFloat(raw) > formData.machinePrice ? formData.machinePrice.toString() : raw, discountPercentage: perc });
-                    }}
-                    className="w-full bg-bg-deep border border-border-main rounded-md px-3 py-2 text-xs font-mono font-bold text-text-main focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-6">

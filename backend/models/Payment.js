@@ -8,10 +8,15 @@ const paymentSchema = new mongoose.Schema({
   transactionId: String,
   allocations: [{
     installmentNo: Number,
-    type: { type: String, enum: ['Principal', 'OverdueInterest'] },
+    type: { type: String, enum: ['Principal', 'OverdueInterest', 'Waived Interest'] },
     amount: Number
   }],
-  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  waiveInterest: Boolean,
+  waiverReason: String,
+  waiveInstallmentNo: Number,
+  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  status: { type: String, enum: ['Settled', 'Revoked'], default: 'Settled' },
+  revokeRemark: String
 }, { timestamps: true });
 
 export default mongoose.model('Payment', paymentSchema);
