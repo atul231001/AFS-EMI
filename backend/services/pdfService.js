@@ -11,7 +11,7 @@ const launchBrowser = async () => {
     try {
       const sparticuzChromium = (await import('@sparticuz/chromium')).default;
       const puppeteerCore = (await import('puppeteer-core')).default;
-      
+
       return await puppeteerCore.launch({
         args: sparticuzChromium.args,
         defaultViewport: sparticuzChromium.defaultViewport,
@@ -52,7 +52,7 @@ const convertNumberToWords = (amount) => {
   if (amount === 0) return 'Zero';
   const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
   const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-  
+
   const numToWords = (num) => {
     let str = '';
     if (num > 99) {
@@ -71,16 +71,16 @@ const convertNumberToWords = (amount) => {
 
   let numStr = Math.floor(amount).toString();
   if (numStr.length > 9) return 'Overflow';
-  
+
   const parts = ('000000000' + numStr).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{3})$/);
   if (!parts) return '';
-  
+
   let out = '';
   if (Number(parts[1]) !== 0) out += numToWords(Number(parts[1])) + 'Crore ';
   if (Number(parts[2]) !== 0) out += numToWords(Number(parts[2])) + 'Lakh ';
   if (Number(parts[3]) !== 0) out += numToWords(Number(parts[3])) + 'Thousand ';
   if (Number(parts[4]) !== 0) out += numToWords(Number(parts[4]));
-  
+
   return out.trim();
 };
 
@@ -101,20 +101,20 @@ export const generateReceiptPDF = async (loan, installment) => {
   const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
   const assetName = (loan.machineName || 'Asset').toUpperCase();
   const serialNo = loan.serialNumber || 'SN-8821034';
-  
+
   const paidBaseEmi = installment.paidAmount !== undefined ? installment.paidAmount : loan.emi;
   const paidOverdue = installment.paidOverdueInterest || 0;
   const totalPaid = paidBaseEmi + paidOverdue;
-  
-  const receiptDate = installment.paidDate 
-    ? new Date(installment.paidDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }) 
+
+  const receiptDate = installment.paidDate
+    ? new Date(installment.paidDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
     : new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 
   const amountInWords = convertNumberToWords(totalPaid);
   const bankNarration = installment.remarks || `FT - LIUGONG INDIA PVT LTD Cr - 50200059887830 - ${customerName}`;
   const ofmNumber = loan.ofmNumber || `OFM/271/Feb/LIPL`;
 
-  const logoPath = path.join(process.cwd(), '../frontend/public/liugong_logo.png');
+  const logoPath = path.join(process.cwd(), '../frontend/src/assets/image.png');
   let logoImgTag = '';
   if (fs.existsSync(logoPath)) {
     const logoData = fs.readFileSync(logoPath);
@@ -130,104 +130,93 @@ export const generateReceiptPDF = async (loan, installment) => {
     <head>
       <meta charset="utf-8">
       <style>
-        @page { size: A4 landscape; margin: 40px; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; color: #000; background: white; }
-        .box { border: 2px solid #000; padding: 30px 40px; box-sizing: border-box; position: relative; height: calc(100vh - 80px); min-height: 600px; }
+        @page { size: A4 portrait; margin: 40px; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; color: #000; background: white; }
         
-        .header { display: flex; text-align: center; margin-bottom: 20px; position: relative; }
-        .logo { position: absolute; left: 0; top: -5px; max-height: 80px; max-width: 250px; object-fit: contain; }
-        .company-info { flex: 1; text-align: center; }
-        .company-name { font-size: 24px; font-weight: 900; margin: 0; letter-spacing: 0.5px; }
-        .company-address { font-size: 11px; font-weight: 800; margin: 5px 0 0; line-height: 1.4; }
+        .header { text-align: center; margin-bottom: 20px; position: relative; padding-top: 10px; }
+        .logo-container { position: absolute; left: 0; top: 0; height: 100%; display: flex; align-items: flex-start; padding-top: 10px; }
+        .logo { max-height: 70px; max-width: 200px; object-fit: contain; }
         
-        .receipt-title { font-size: 14px; font-weight: 900; text-decoration: underline; text-align: center; margin: 30px 0; }
+        .company-address { font-size: 13px; margin: 0 0 5px; color: #333; }
+        .company-contact { font-size: 13px; margin: 0 0 15px; color: #333; }
+        .company-name { font-size: 24px; font-weight: 900; margin: 0 0 10px; letter-spacing: 0.5px; text-transform: uppercase; color: #000; }
+        .receipt-title { font-size: 18px; font-weight: 900; text-decoration: underline; text-align: center; margin: 0 0 30px; }
         
-        .table-grid { width: 100%; font-size: 12px; font-weight: 800; line-height: 1.8; margin-bottom: 20px; }
-        .row { display: flex; margin-bottom: 12px; align-items: flex-end; }
-        .col-label { padding-right: 15px; white-space: nowrap; font-size: 11px; }
-        .col-value { flex: 1; border-bottom: 2px dashed #000; font-size: 11px; padding-bottom: 2px; }
+        .receipt-table { width: 100%; border-collapse: collapse; font-size: 14px; border: 1px solid #777; }
+        .receipt-table td { border-bottom: 1px solid #777; padding: 14px 18px; }
+        .receipt-table tr:last-child td { border-bottom: none; }
+        .col-label { width: 35%; font-weight: bold; border-right: 1px solid #777; color: #000; background-color: #e6f0fa; }
+        .col-value { width: 65%; color: #222; }
         
-        .stamp-area { position: absolute; bottom: 40px; left: 40px; }
-        .stamp-container { display: flex; align-items: center; margin-bottom: 40px; margin-top: 10px; }
-        .stamp { width: 70px; height: 70px; border: 2px solid #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #3b82f6; font-weight: 900; text-align: center; transform: rotate(-5deg); position: relative; margin-left: 20px; }
-        .stamp-inner { position: absolute; border: 1px dashed #3b82f6; width: 62px; height: 62px; border-radius: 50%; }
+        .footer { margin-top: 60px; position: relative; height: 120px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .note { font-size: 11px; font-style: italic; color: #000; }
+        .note-realisation { text-decoration: underline; color: #d6335a; }
         
-        .footer-text { position: absolute; bottom: 15px; left: 40px; font-size: 11px; font-weight: 800; }
+        .signatory-box { text-align: center; font-size: 13px; width: 300px; position: absolute; right: 0; bottom: 0; }
+        .signatory-box .company-name-sig { font-weight: bold; margin-bottom: 60px; text-align: right; }
+        .signatory-box .auth-line { border-top: 1px dashed #777; margin-bottom: 10px; }
+        .signatory-box .auth-sig { font-weight: bold; }
       </style>
     </head>
     <body>
-      <div class="box">
-        <div class="header">
+      <div class="header">
+        <div class="logo-container">
           ${logoImgTag}
-          <div class="company-info">
-            <div class="company-name">LIUGONG INDIA PVT. LTD</div>
-            <div class="company-address">101, OKHLA INDUSTRIAL ESTATE, PHASE-III<br>NEW DELHI- 110020<br>011 47272200, FAX : 011 47272220</div>
-          </div>
         </div>
-        
-        <div class="receipt-title">RECEIPT NOTE</div>
-        
-        <div class="table-grid">
-          <div class="row">
-            <div class="col-label" style="width: 150px;">Receipt No.</div>
-            <div class="col-value" style="border: none; font-size: 11px;">${invoiceNo}</div>
-            <div class="col-label" style="margin-left: 20px;">DATE</div>
-            <div class="col-value" style="flex: 0.5; border: none; text-align: right; font-size: 11px;">${receiptDate}</div>
-          </div>
-          
-          <div class="row">
-            <div class="col-label" style="width: 150px;">Received from M/s.</div>
-            <div class="col-value">${customerName}</div>
-          </div>
-          
-          <div class="row">
-            <div class="col-label" style="width: 150px;">Customer Name</div>
-            <div class="col-value">${customerName}</div>
-          </div>
-          
-          <div class="row" style="margin-top: 20px;">
-            <div class="col-label" style="width: 150px;">A sum of Rs.</div>
-            <div class="col-value" style="display: flex; align-items: baseline;">
-               <span style="font-weight: 900; font-size: 14px;">₹ ${formatAmount(totalPaid)}</span>
-               <span style="margin-left: 20px;">Rupees ${amountInWords} Only</span>
-            </div>
-          </div>
-          
-          <div class="row" style="margin-top: 20px;">
-            <div class="col-label" style="width: 150px;">Vide cheque No. / DD No.</div>
-            <div class="col-value">${installment.transactionId || ''}</div>
-          </div>
-          
-          <div class="row">
-            <div class="col-label" style="width: 150px;">Against Sale of/ Advance</div>
-            <div class="col-value">${loan.invoiceNumber || loan.invoiceData?.invoiceNumber || ''}</div>
-          </div>
-          
-          <div class="row">
-            <div class="col-label" style="width: 150px;">Machine Serial Number</div>
-            <div class="col-value" style="flex: 0.5;">${serialNo}</div>
-            <div class="col-label" style="margin-left: 20px;">Ofm Number:</div>
-            <div class="col-value" style="flex: 0.5;">${ofmNumber}</div>
-          </div>
-          
-          <div class="row">
-            <div class="col-label" style="width: 150px;">Bank Narration</div>
-            <div class="col-value">${bankNarration}</div>
-          </div>
+        <div class="company-address">101, OKHLA INDUSTRIAL ESTATE, PHASE-III, NEW DELHI- 110020</div>
+        <div class="company-contact">Phone: 011 47272200 | Fax: 011 47272220</div>
+        <div class="company-name">LIUGONG INDIA PRIVATE LIMITED</div>
+        <div class="receipt-title">RECEIPT</div>
+      </div>
+      
+      <table class="receipt-table">
+        <tr>
+          <td class="col-label">Receipt No.</td>
+          <td class="col-value">${invoiceNo}</td>
+        </tr>
+        <tr>
+          <td class="col-label">Date</td>
+          <td class="col-value">${receiptDate}</td>
+        </tr>
+        <tr>
+          <td class="col-label">Received From</td>
+          <td class="col-value">${customerName}</td>
+        </tr>
+        <tr>
+          <td class="col-label">Amount (₹)</td>
+          <td class="col-value" style="font-weight: bold;">₹ ${formatAmount(totalPaid)}</td>
+        </tr>
+        <tr>
+          <td class="col-label">Amount in Words</td>
+          <td class="col-value">Rupees ${amountInWords} Only</td>
+        </tr>
+        <tr>
+          <td class="col-label">Payment Mode</td>
+          <td class="col-value">${installment.paymentMethod || 'Online Transfer'}</td>
+        </tr>
+        <tr>
+          <td class="col-label">Cheque / Ref. No.</td>
+          <td class="col-value">${installment.transactionId || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="col-label">Towards</td>
+          <td class="col-value">Monthly EMI against Loan AGR: ${loan._id ? loan._id.toString().toUpperCase() : ''}</td>
+        </tr>
+        <tr>
+          <td class="col-label">Remarks</td>
+          <td class="col-value">${installment.remarks || 'Monthly Installment Payment'}</td>
+        </tr>
+      </table>
+      
+      <div class="footer">
+        <div class="note">
+          Note: This receipt is subject to <span class="note-realisation">realisation</span> of cheque/payment.
         </div>
-        
-        <div class="stamp-area">
-          <div style="font-size: 11px; font-weight: 800;">For Liugong India Pvt. Ltd. <span style="margin-left: 10px; font-weight: 900; font-size: 10px;">HYP: HDFC BANK LIMITED</span></div>
-          <div class="stamp-container">
-            <div class="stamp">
-               <div class="stamp-inner"></div>
-               <div>LIUGONG<br>INDIA PVT.<br>LTD.<br><span style="font-size: 7px;">(New Delhi)</span></div>
-            </div>
-          </div>
-          <div style="font-size: 11px; font-weight: 800;">Authorised Signatory</div>
+        <div class="signatory-box">
+          <div class="company-name-sig">For LIUGONG INDIA PVT. LTD.</div>
+          <div class="auth-line"></div>
+          <div class="auth-sig">Authorised Signatory</div>
         </div>
-        
-        <div class="footer-text">Receipt valid subject to encashment of cheque</div>
       </div>
     </body>
     </html>
@@ -263,12 +252,12 @@ export const generateAgreementHTML = (loan, isForBrowserPrint = false) => {
       "July", "August", "September", "October", "November", "December"
     ];
     const month = monthNames[date.getMonth()];
-    
+
     let suffix = 'th';
     if (day === 1 || day === 21 || day === 31) suffix = 'st';
     else if (day === 2 || day === 22) suffix = 'nd';
     else if (day === 3 || day === 23) suffix = 'rd';
-    
+
     return `${day}<sup>${suffix}</sup> day of ${month}, ${year}`;
   };
 
@@ -387,6 +376,7 @@ export const generateAgreementHTML = (loan, isForBrowserPrint = false) => {
         }
         .page {
           padding: 0;
+          page-break-before: always;
           page-break-after: always;
           box-sizing: border-box;
           position: relative;
@@ -539,6 +529,7 @@ export const generateAgreementHTML = (loan, isForBrowserPrint = false) => {
             print-color-adjust: exact;
           }
           .page {
+            page-break-before: always;
             page-break-after: always;
             page-break-inside: avoid;
             margin: 0;
@@ -550,11 +541,9 @@ export const generateAgreementHTML = (loan, isForBrowserPrint = false) => {
     <body>
       ${printStylesAndMenu}
 
-      ${agreementPages.map(pageHtml => `
-        <div class="page">
-          ${pageHtml}
-        </div>
-      `).join('')}
+      <div class="agreement-content">
+        ${agreementPages.join('')}
+      </div>
 
       <!-- SCHEDULE 1 TABLE A -->
       <div class="page">
@@ -629,23 +618,23 @@ export const generateAgreementHTML = (loan, isForBrowserPrint = false) => {
               <td style="text-align: center; font-weight: bold;">${formatDateGB(loan.startDate || loan.createdAt)}</td>
             </tr>
             ${(() => {
-              const dpCount = loan.schedule.filter(x => x.type === 'DownPayment').length;
-              return loan.schedule.map((s, index) => {
-                let label = getOrdinal(s.installment || (index + 1));
-                if (s.type === 'DownPayment') {
-                  label = 'Margin Money ' + label;
-                } else if (s.type === 'EMI' && dpCount > 0) {
-                  label = getOrdinal((s.installment || (index + 1)) - dpCount);
-                }
-                return `
+      const dpCount = loan.schedule.filter(x => x.type === 'DownPayment').length;
+      return loan.schedule.map((s, index) => {
+        let label = getOrdinal(s.installment || (index + 1));
+        if (s.type === 'DownPayment') {
+          label = 'Margin Money ' + label;
+        } else if (s.type === 'EMI' && dpCount > 0) {
+          label = getOrdinal((s.installment || (index + 1)) - dpCount);
+        }
+        return `
                 <tr>
                   <td>${label}</td>
                   <td style="text-align: right;">${formatINR(s.emi)}</td>
                   <td style="text-align: center;">${formatDateGB(s.dueDate)}</td>
                 </tr>
                 `;
-              }).join('');
-            })()}
+      }).join('');
+    })()}
             <tr style="font-weight: bold; background-color: #f1f5f9;">
               <td>Total</td>
               <td style="text-align: right; color: #f0883e; font-size: 14px;">${formatINR(invoiceValue)}</td>

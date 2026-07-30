@@ -355,6 +355,7 @@ const NewAssignment = ({ machines, customers, user, financing }) => {
     discountAmount: 0,
     downPayment: 0,
     downPaymentInstallments: 1,
+    moratoriumDays: 0,
     interestRate: 12,
     marginInterestRate: 0,
     tcsPercentage: 0.1,
@@ -399,7 +400,8 @@ const NewAssignment = ({ machines, customers, user, financing }) => {
     formData.emiStartDate ? new Date(formData.emiStartDate) : new Date(),
     parseFloat(formData.downPayment) || 0,
     parseInt(formData.downPaymentInstallments) || 0,
-    parseFloat(formData.marginInterestRate) || 0
+    parseFloat(formData.marginInterestRate) || 0,
+    parseInt(formData.moratoriumDays) || 0
   );
   
   // Actually logic/emi.js calculates years. Let's adjust it. 
@@ -661,6 +663,17 @@ const NewAssignment = ({ machines, customers, user, financing }) => {
                     disabled={!isMachineSelected || formData.downPayment <= 0}
                     value={formData.downPaymentInstallments}
                     onChange={e => setFormData({ ...formData, downPaymentInstallments: e.target.value.replace(/^0+(?=\d)/, '') })}
+                    className="w-20 bg-transparent text-xl font-mono font-bold text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div className="w-full md:w-auto border-t md:border-t-0 md:border-l border-border-main pt-4 md:pt-0 md:pl-6 flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Moratorium Days</p>
+                  <input
+                    type="number"
+                    min="0"
+                    disabled={!isMachineSelected}
+                    value={formData.moratoriumDays}
+                    onChange={e => setFormData({ ...formData, moratoriumDays: e.target.value.replace(/^0+(?=\d)/, '') })}
                     className="w-20 bg-transparent text-xl font-mono font-bold text-text-main focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>

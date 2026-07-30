@@ -322,13 +322,12 @@ const FinancingFormModal = ({ loan, onClose }) => {
     if (['Rejected'].includes(loan.approvalStatus)) return -1;
     if (['Pending Scheduling'].includes(loan.approvalStatus)) return 2;
     if (['Pending Invoice', 'Invoice Uploaded'].includes(loan.approvalStatus)) return 3;
-    if (['Pending Dispatch'].includes(loan.approvalStatus)) return 4;
-    if (['Pending Commissioning'].includes(loan.approvalStatus)) return 5;
-    if (['Active'].includes(loan.approvalStatus)) return 6;
+    if (['Pending Dispatch', 'Pending Commissioning'].includes(loan.approvalStatus)) return 4;
+    if (['Active'].includes(loan.approvalStatus)) return 5;
     return 1; // Default to Stage 1: Approval Stage
   };
   const currentStage = getStageStatus();
-  const [viewStage, setViewStage] = useState(currentStage);
+  const [viewStage, setViewStage] = useState(1);
 
   useEffect(() => {
     if (viewStage === 4 && currentStage === 4 && !hasAutoCheckedDispatch && isFinalApprover()) {
@@ -345,27 +344,27 @@ const FinancingFormModal = ({ loan, onClose }) => {
         <div className="grid grid-cols-2 gap-x-2 gap-y-3">
           <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Order ID</p>
-            <p className="text-xs font-black text-text-main">{loan.invoiceData.order_id}</p>
+            <p className="text-xs font-black text-text-main">{loan.invoiceData.order_id || 'N/A'}</p>
           </div>
           <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Delivery Note</p>
-            <p className="text-xs font-black text-text-main">{loan.invoiceData.deliveryNote}</p>
+            <p className="text-xs font-black text-text-main">{loan.invoiceData.deliveryNote || 'N/A'}</p>
           </div>
           <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Vehicle No</p>
-            <p className="text-xs font-black text-text-main">{loan.invoiceData.vehicleNumber}</p>
+            <p className="text-xs font-black text-text-main">{loan.invoiceData.vehicleNumber || 'N/A'}</p>
           </div>
           <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Chassis No</p>
-            <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.chassisNumber}>{loan.invoiceData.chassisNumber}</p>
+            <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.chassisNumber}>{loan.invoiceData.chassisNumber || 'N/A'}</p>
           </div>
           <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Serial No</p>
-            <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.serialNumber}>{loan.invoiceData.serialNumber}</p>
+            <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.serialNumber}>{loan.invoiceData.serialNumber || 'N/A'}</p>
           </div>
           <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Engine No</p>
-            <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.engineNumber}>{loan.invoiceData.engineNumber}</p>
+            <p className="text-xs font-black text-text-main truncate" title={loan.invoiceData.engineNumber}>{loan.invoiceData.engineNumber || 'N/A'}</p>
           </div>
           <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Invoice No</p>
@@ -373,7 +372,11 @@ const FinancingFormModal = ({ loan, onClose }) => {
           </div>
           <div>
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Invoice Date</p>
-            <p className="text-xs font-black text-text-main">{new Date(loan.invoiceData.invoiceDate || loan.invoiceData.date).toLocaleDateString('en-CA')}</p>
+            <p className="text-xs font-black text-text-main">{loan.invoiceData.invoiceDate || loan.invoiceData.date ? new Date(loan.invoiceData.invoiceDate || loan.invoiceData.date).toLocaleDateString('en-CA') : 'N/A'}</p>
+          </div>
+          <div className="col-span-2">
+            <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">SODS No</p>
+            <p className="text-xs font-black text-text-main">{loan.sodsNo || loan.invoiceData.sodsNo || loan.invoiceData.sods_no || loan.invoiceData.sodsNumber || 'N/A'}</p>
           </div>
         </div>
         {loan.invoiceData.invoiceFile && (
@@ -405,7 +408,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
 
           <div className="flex items-center justify-between mb-10 relative px-10">
             <div className="absolute left-10 right-10 top-1/2 -translate-y-1/2 h-1 bg-bg-active -z-10 rounded-full"></div>
-            <div className="absolute left-10 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 transition-all duration-500 rounded-full" style={{ width: `calc(${(Math.max((currentStage - 1) / 4, 0) * 100)}% - 40px)` }}></div>
+            <div className="absolute left-10 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 transition-all duration-500 rounded-full" style={{ width: `calc(${(Math.max((currentStage - 1) / 3, 0) * 100)}% - 40px)` }}></div>
 
             <div onClick={() => currentStage >= 1 && setViewStage(1)} className={`flex flex-col items-center gap-2 ${currentStage >= 1 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 1 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 1 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 1 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>1</div>
@@ -424,12 +427,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
 
             <div onClick={() => currentStage >= 4 && setViewStage(4)} className={`flex flex-col items-center gap-2 ${currentStage >= 4 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 4 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 4 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 4 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>4</div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Dispatch</span>
-            </div>
-
-            <div onClick={() => currentStage >= 5 && setViewStage(5)} className={`flex flex-col items-center gap-2 ${currentStage >= 5 ? 'opacity-100 cursor-pointer hover:scale-105' : 'opacity-50'} transition-all`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-colors ${viewStage === 5 ? 'ring-4 ring-primary/30' : ''} ${currentStage > 5 ? 'bg-primary text-white shadow-[0_0_15px_var(--color-primary)]' : currentStage === 5 ? 'bg-bg-card border-2 border-primary text-primary shadow-[0_0_15px_rgba(240,136,62,0.3)]' : 'bg-bg-active text-text-dim'}`}>5</div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Commission</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-text-main">Dispatch & Comm.</span>
             </div>
           </div>
 
@@ -696,14 +694,14 @@ const FinancingFormModal = ({ loan, onClose }) => {
                   <p className="text-[10px] text-text-dim max-w-[250px] mx-auto mb-8">
                     No approval flow is configured for this asset. It has been automatically approved.
                   </p>
-                  <button 
+                  <button
                     onClick={() => {
                       if (currentStage >= 2) {
                         setViewStage(2);
                       } else {
                         handleApproveAction('Approved');
                       }
-                    }} 
+                    }}
                     className="w-full py-3 bg-[#f0883e] hover:bg-[#d97736] text-black rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-[#f0883e]/20 flex items-center justify-center gap-2"
                   >
                     Proceed to Next Stage <ChevronRight size={14} />
@@ -901,13 +899,14 @@ const FinancingFormModal = ({ loan, onClose }) => {
 
               {viewStage === 4 && (
                 <div className="flex flex-col gap-4 animate-fade-in">
+                  {/* DISPATCH CARD */}
                   <div className="border border-border-main rounded-2xl overflow-hidden shadow-xl bg-bg-deep">
                     <div className="bg-bg-card p-4 border-b border-border-main">
                       <h4 className="text-[10px] font-black text-text-dim uppercase tracking-wider flex items-center gap-2"><Truck size={12} className="text-primary" /> Dispatch Stage</h4>
                     </div>
                     <div className="p-5 space-y-4">
                       <p className="text-xs text-text-dim">Invoice confirmed. Ready for asset dispatch.</p>
-                      {currentStage > 4 ? (
+                      {currentStage > 4 || loan.dispatchData ? (
                         <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                           <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-2">Asset Dispatched</p>
                           <div className="grid grid-cols-2 gap-3 mb-2">
@@ -966,52 +965,51 @@ const FinancingFormModal = ({ loan, onClose }) => {
                       ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Dispatch (Last Approver Required)</p></div></div>}
                     </div>
                   </div>
-                </div>
-              )}
 
-              {viewStage === 5 && (
-                <div className="flex flex-col gap-4 animate-fade-in">
-                  <div className="border border-border-main rounded-2xl overflow-hidden shadow-xl bg-bg-deep">
-                    <div className="bg-bg-card p-4 border-b border-border-main">
-                      <h4 className="text-[10px] font-black text-text-dim uppercase tracking-wider flex items-center gap-2"><CheckCircle size={12} className="text-primary" /> Commissioning Stage</h4>
-                    </div>
-                    <div className="p-5 space-y-4">
-                      <p className="text-xs text-text-dim">Asset dispatched. Ready for site commissioning.</p>
-                      {currentStage > 5 ? (
-                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                          <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Asset Commissioned</p>
-                          <p className="text-[10px] text-text-dim">Commission Date: {loan.commissionDate}</p>
-                        </div>
-                      ) : isFinalApprover() ? (
-                        <div className="flex flex-col gap-4 mt-2">
-                          <div>
-                            <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Select Commission Date</p>
-                            <div className="relative w-full h-[42px]">
-                              <input
-                                type="text"
-                                value={commissionDate || 'YYYY-MM-DD'}
-                                readOnly
-                                className="absolute inset-0 w-full h-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                              />
-                              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-dim">
-                                <Calendar size={16} />
-                              </div>
-                              <input
-                                type="date"
-                                value={commissionDate}
-                                onChange={e => setCommissionDate(e.target.value)}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                              />
-                            </div>
+                  {/* COMMISSIONING CARD */}
+                  {(currentStage > 4 || loan.dispatchData) && (
+                    <div className="border border-border-main rounded-2xl overflow-hidden shadow-xl bg-bg-deep">
+                      <div className="bg-bg-card p-4 border-b border-border-main">
+                        <h4 className="text-[10px] font-black text-text-dim uppercase tracking-wider flex items-center gap-2"><CheckCircle size={12} className="text-primary" /> Commissioning Stage</h4>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <p className="text-xs text-text-dim">Asset dispatched. Ready for site commissioning.</p>
+                        {loan.commissionDate ? (
+                          <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                            <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">Asset Commissioned</p>
+                            <p className="text-[10px] text-text-dim">Commission Date: {loan.commissionDate}</p>
                           </div>
-                          <button onClick={handleCommissionSubmit} className="w-full py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
-                            <CheckCircle size={16} className="shrink-0" />
-                            <span className="truncate">Confirm Commission</span>
-                          </button>
-                        </div>
-                      ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Commission (Last Approver Required)</p></div></div>}
+                        ) : isFinalApprover() ? (
+                          <div className="flex flex-col gap-4 mt-2">
+                            <div>
+                              <p className="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-1">Select Commission Date</p>
+                              <div className="relative w-full h-[42px]">
+                                <input
+                                  type="text"
+                                  value={commissionDate || 'YYYY-MM-DD'}
+                                  readOnly
+                                  className="absolute inset-0 w-full h-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-bold focus:border-[#58a6ff] outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-dim">
+                                  <Calendar size={16} />
+                                </div>
+                                <input
+                                  type="date"
+                                  value={commissionDate}
+                                  onChange={e => setCommissionDate(e.target.value)}
+                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                                />
+                              </div>
+                            </div>
+                            <button onClick={handleCommissionSubmit} className="w-full py-3.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 bg-[#f0883e] hover:bg-[#ffab70] text-black shadow-[#f0883e]/20">
+                              <CheckCircle size={16} className="shrink-0" />
+                              <span className="truncate">Confirm Commission</span>
+                            </button>
+                          </div>
+                        ) : <div className="p-4 bg-bg-card border border-red-500/20 rounded-xl flex items-start gap-3"><AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" /><div><p className="text-xs font-bold text-red-500">Permission Denied to Commission (Last Approver Required)</p></div></div>}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -1084,9 +1082,8 @@ const FinancingPipeline = () => {
     if (['Rejected'].includes(status)) return -1;
     if (['Pending Scheduling', 'Pending Signature', 'Agreement Confirmed'].includes(status)) return 2;
     if (['Pending Invoice', 'Invoice Uploaded'].includes(status)) return 3;
-    if (['Pending Dispatch'].includes(status)) return 4;
-    if (['Pending Commissioning'].includes(status)) return 5;
-    if (['Active'].includes(status)) return 6;
+    if (['Pending Dispatch', 'Pending Commissioning'].includes(status)) return 4;
+    if (['Active'].includes(status)) return 5;
     return 1;
   };
 
@@ -1392,7 +1389,7 @@ const FinancingPipeline = () => {
         </div>
       </div>
       {/* Pagination Footer */}
-      <Pagination 
+      <Pagination
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         totalItems={filteredLoans.length}
@@ -1406,3 +1403,4 @@ const FinancingPipeline = () => {
 };
 
 export default FinancingPipeline;
+export { FinancingFormModal };

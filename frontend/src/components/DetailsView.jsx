@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { state } from '../state';
 import { formatINR, showNotification } from '../utils';
+import { FinancingFormModal } from './FinancingPipeline.jsx';
 import Swal from 'sweetalert2';
 import {
   X, Download, Cpu, Zap, Settings, FileText, Maximize2, ChevronRight,
@@ -10,6 +11,7 @@ import {
 
 const LoanDetails = () => {
   const [activeTab, setActiveTab] = useState('schedule');
+  const [showPipelineModal, setShowPipelineModal] = useState(false);
   const [downloadingReceiptIndex, setDownloadingReceiptIndex] = useState(null);
   const { loans, machines, selectedLoanId, payments = [] } = state.data;
 
@@ -161,6 +163,72 @@ const LoanDetails = () => {
     }
   };
 
+  const handleManualPayment = async () => {
+    const result = await Swal.fire({
+      title: 'Add Manual Payment',
+      html: `
+        <div class="flex flex-col gap-4 text-left">
+          <div>
+            <label class="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2 block">Payment Date</label>
+            <input type="date" id="manual-payment-date" class="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs font-bold text-text-main focus:border-[#3fb950] outline-none" value="${new Date().toISOString().split('T')[0]}" />
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2 block">Amount Paid (₹)</label>
+            <input type="number" id="manual-payment-amount" class="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs font-bold text-text-main focus:border-[#3fb950] outline-none" placeholder="Enter amount..." />
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2 block">Payment Method</label>
+            <select id="manual-payment-method" class="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs font-bold text-text-main focus:border-[#3fb950] outline-none cursor-pointer">
+              <option value="Cash">Cash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cheque">Cheque</option>
+              <option value="UPI">UPI</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-text-dim uppercase tracking-wider mb-2 block">Reference Number (Optional)</label>
+            <input type="text" id="manual-payment-ref" class="w-full bg-bg-card border border-border-main rounded-xl px-4 py-3 text-xs font-bold text-text-main focus:border-[#3fb950] outline-none" placeholder="Transaction ID, Cheque No. etc." />
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Record Payment',
+      confirmButtonColor: '#3fb950',
+      background: document.documentElement.classList.contains('dark') ? '#0d1117' : '#ffffff',
+      color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#0f172a',
+      preConfirm: () => {
+        const date = document.getElementById('manual-payment-date').value;
+        const amount = document.getElementById('manual-payment-amount').value;
+        const method = document.getElementById('manual-payment-method').value;
+        const ref = document.getElementById('manual-payment-ref').value;
+        
+        if (!date) {
+          Swal.showValidationMessage('Please select a payment date');
+          return false;
+        }
+        if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+          Swal.showValidationMessage('Please enter a valid amount');
+          return false;
+        }
+        return { date, amount: parseFloat(amount), method, ref };
+      }
+    });
+
+    if (result.isConfirmed && result.value) {
+      const payload = {
+        loanId: loan._id,
+        amount: result.value.amount,
+        date: new Date(result.value.date).toISOString(),
+        paymentMethod: result.value.method,
+        referenceNumber: result.value.ref,
+        transactionId: result.value.ref || `MANUAL-${Math.floor(100000 + Math.random() * 899999)}`
+      };
+
+      await state.addPayment(payload);
+      showNotification('Manual payment recorded successfully', 'success');
+    }
+  };
+
   const [showReportFormats, setShowReportFormats] = useState(false);
   const [isDownloadingReport, setIsDownloadingReport] = useState(false);
   const reportRef = useRef(null);
@@ -272,21 +340,30 @@ const LoanDetails = () => {
 
         {/* HEADER */}
         <header className="h-14 px-5 border-b border-[#30363d] flex items-center justify-between bg-[#0d1117]/50 shrink-0">
-          <div className="flex items-center gap-3">
-            <button onClick={handleClose} className="p-2 hover:bg-[#30363d] rounded-lg text-[#768390] transition-colors">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button onClick={handleClose} className="p-2 hover:bg-[#30363d] rounded-lg text-[#768390] transition-colors shrink-0">
               <ChevronRight size={18} className="rotate-180" />
             </button>
-            <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-[#f0883e]/10 text-[#f0883e] border border-[#f0883e]/30 uppercase tracking-widest">
+            <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-[#f0883e]/10 text-[#f0883e] border border-[#f0883e]/30 uppercase tracking-widest shrink-0 hidden sm:block">
               FINANCING DETAILS
             </span>
-            <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-3">
-              {(() => {
-                const loanCustId = (loan?.customerId?._id || loan?.customerId)?.toString();
-                const cust = state.data.customers.find(c => c._id?.toString() === loanCustId);
-                return cust?.name || loan?.customerId?.name || loan?.customerName || 'CLIENT PROFILE';
-              })()}
-              <span className="hidden md:block w-px h-4 bg-[#30363d]" />
-              <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-3 min-w-0">
+              <span 
+                className="truncate max-w-[120px] sm:max-w-[200px] lg:max-w-[300px] xl:max-w-[400px]"
+                title={(() => {
+                  const loanCustId = (loan?.customerId?._id || loan?.customerId)?.toString();
+                  const cust = state.data.customers.find(c => c._id?.toString() === loanCustId);
+                  return cust?.name || loan?.customerId?.name || loan?.customerName || 'CLIENT PROFILE';
+                })()}
+              >
+                {(() => {
+                  const loanCustId = (loan?.customerId?._id || loan?.customerId)?.toString();
+                  const cust = state.data.customers.find(c => c._id?.toString() === loanCustId);
+                  return cust?.name || loan?.customerId?.name || loan?.customerName || 'CLIENT PROFILE';
+                })()}
+              </span>
+              <span className="hidden md:block w-px h-4 bg-[#30363d] shrink-0" />
+              <div className="flex items-center gap-4 shrink-0 overflow-x-auto hide-scrollbar">
                 {/* 1. AGREEMENT NUMBER */}
                 <div className="flex items-center gap-2">
                   <span className="text-[#444c56] font-mono text-[10px] font-bold uppercase tracking-widest">AGR:</span>
@@ -371,6 +448,9 @@ const LoanDetails = () => {
                 </div>
               )}
             </div>
+            <button onClick={handleManualPayment} className="btn-primary flex items-center gap-2 !py-1.5 !px-4 !text-[10px] bg-[#3fb950] hover:bg-[#3fb950]/90 text-white shadow-[#3fb950]/20 border-[#3fb950]/50">
+              <DollarSign size={14} /> MANUAL PAYMENT
+            </button>
             {nextInstallment && (
               <button onClick={handleWaiveInterest} className="btn-primary flex items-center gap-2 !py-1.5 !px-4 !text-[10px] bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20 border-rose-500/50">
                 <Zap size={14} /> WAIVE OFF - INTEREST
@@ -395,6 +475,13 @@ const LoanDetails = () => {
                   <p className="text-[9px] text-white/50 font-bold uppercase tracking-widest">{machine.model}</p>
                 </div>
               </div>
+              <button
+                onClick={() => setShowPipelineModal(true)}
+                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-[#f0883e] text-white rounded-lg backdrop-blur-sm transition-all shadow-lg border border-white/10 hover:border-transparent opacity-80 hover:opacity-100 z-10"
+                title="View Pipeline Details"
+              >
+                <Info size={16} />
+              </button>
             </div>
 
             <section className="p-4 bg-[#0d1117] border border-[#30363d] rounded-lg shrink-0">
@@ -668,6 +755,14 @@ const LoanDetails = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #444c56; }
       `}} />
+      {/* PIPELINE MODAL OVERLAY */}
+      {showPipelineModal && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-[95vw] max-w-[1600px] h-full max-h-full flex flex-col">
+            <FinancingFormModal loan={loan} onClose={() => setShowPipelineModal(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

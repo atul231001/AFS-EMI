@@ -26,7 +26,7 @@ export const calculateReducingEMI = (principal, annualRate, years) => {
 /**
  * Generate Repayment Schedule
  */
-export const generateSchedule = (principal, annualRate, years, type = 'reducing', startDate = new Date(), downPayment = 0, dpInstallments = 0, marginAnnualRate = 0) => {
+export const generateSchedule = (principal, annualRate, years, type = 'reducing', startDate = new Date(), downPayment = 0, dpInstallments = 0, marginAnnualRate = 0, moratoriumDays = 0) => {
   const schedule = [];
   const totalMonths = years * 12;
   const emiMonths = totalMonths;
@@ -67,8 +67,21 @@ export const generateSchedule = (principal, annualRate, years, type = 'reducing'
       });
     }
     
-    // Shift EMI start date by dpInstallments months
-    baseDate.setMonth(baseDate.getMonth() + dpInstallments);
+    // Shift EMI start date
+    const lastDpDate = new Date(baseDate);
+    lastDpDate.setMonth(lastDpDate.getMonth() + dpInstallments - 1);
+    baseDate = new Date(lastDpDate);
+    
+    if (moratoriumDays > 0) {
+      baseDate.setDate(baseDate.getDate() + parseInt(moratoriumDays, 10));
+    } else {
+      baseDate.setMonth(baseDate.getMonth() + 1);
+    }
+  } else {
+    // No DP installments
+    if (moratoriumDays > 0) {
+      baseDate.setDate(baseDate.getDate() + parseInt(moratoriumDays, 10));
+    }
   }
 
   // Phase 2: Regular EMI
