@@ -114,7 +114,7 @@ export const generateReceiptPDF = async (loan, installment) => {
   const bankNarration = installment.remarks || `FT - LIUGONG INDIA PVT LTD Cr - 50200059887830 - ${customerName}`;
   const ofmNumber = loan.ofmNumber || `OFM/271/Feb/LIPL`;
 
-  const logoPath = path.join(process.cwd(), '../frontend/src/assets/image.png');
+  const logoPath = path.join(process.cwd(), 'frontend/src/assets/lipl_logo.png');
   let logoImgTag = '';
   if (fs.existsSync(logoPath)) {
     const logoData = fs.readFileSync(logoPath);
@@ -163,9 +163,9 @@ export const generateReceiptPDF = async (loan, installment) => {
         <div class="logo-container">
           ${logoImgTag}
         </div>
+        <div class="company-name">LIUGONG INDIA PRIVATE LIMITED</div>
         <div class="company-address">101, OKHLA INDUSTRIAL ESTATE, PHASE-III, NEW DELHI- 110020</div>
         <div class="company-contact">Phone: 011 47272200 | Fax: 011 47272220</div>
-        <div class="company-name">LIUGONG INDIA PRIVATE LIMITED</div>
         <div class="receipt-title">RECEIPT</div>
       </div>
       

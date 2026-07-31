@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { state } from "../state";
+import liplLogo from "../assets/lipl_logo.png";
 
 import {
   LayoutDashboard,
@@ -158,8 +159,8 @@ const Sidebar = () => {
 
   // CUSTOMER FMC/EMI/RENTAL CHECK
   const userCustId = (user?.customerId?._id || user?.customerId)?.toString();
-  const userTypes = Array.isArray(user?.type) 
-    ? user.type.map(t => (t || '').toUpperCase()) 
+  const userTypes = Array.isArray(user?.type)
+    ? user.type.map(t => (t || '').toUpperCase())
     : [(user?.type || '').toUpperCase()].filter(Boolean);
 
   const hasFMCContracts = fmcContracts.some(
@@ -287,17 +288,12 @@ const Sidebar = () => {
     <aside className="w-64 border-r border-[#30363d] bg-[#0d1117] flex flex-col sticky top-0 h-screen shrink-0 z-50">
       {/* Logo */}
       <div className="pt-8 pb-4 flex flex-col items-center justify-center gap-2">
-        {/* Logo Icon (Colored to Primary Orange #f0883e) */}
-        <div 
-          className="relative overflow-hidden w-12 h-12 transition-all duration-300" 
-          style={{ filter: 'brightness(0) saturate(100%) invert(64%) sepia(80%) saturate(1518%) hue-rotate(338deg) brightness(96%) contrast(93%)' }}
-        >
-           <img src="/logo.png" alt="LiuGong Icon" className="absolute top-0 left-0 h-12 w-[262px] max-w-none" />
-        </div>
-        
+        {/* Logo Icon */}
+        <img src={liplLogo} alt="LIPL Logo" className="w-16 h-16 object-contain" />
+
         {/* Logo Text (White) */}
         <div className="relative overflow-hidden w-[145px] h-8 brightness-0 invert opacity-90 transition-all duration-300">
-           <img src="/logo.png" alt="LiuGong Text" className="absolute top-0 left-[-35px] h-8 w-[175px] max-w-none" />
+          <img src="/logo.png" alt="LiuGong Text" className="absolute top-0 left-[-35px] h-8 w-[175px] max-w-none" />
         </div>
       </div>
 
@@ -340,11 +336,10 @@ const Sidebar = () => {
                       });
                     }
                   }}
-                  className={`w-full flex items-center gap-3 px-5 py-3 text-[13px] font-bold tracking-tight transition-all duration-200 rounded-xl ${
-                    isActive
-                      ? "bg-[#1c2128] text-[#f0883e] border border-[#30363d] shadow-lg"
-                      : "text-[#768390] hover:text-white hover:bg-[#161b22] border border-transparent"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-5 py-3 text-[13px] font-bold tracking-tight transition-all duration-200 rounded-xl ${isActive
+                    ? "bg-[#1c2128] text-[#f0883e] border border-[#30363d] shadow-lg"
+                    : "text-[#768390] hover:text-white hover:bg-[#161b22] border border-transparent"
+                    }`}
                 >
                   <item.icon
                     size={18}
@@ -377,11 +372,10 @@ const Sidebar = () => {
                             view: sub.id,
                           })
                         }
-                        className={`w-full flex items-center gap-3 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all duration-200 rounded-lg ${
-                          view === sub.id
-                            ? "text-[#f0883e] bg-[#f0883e]/5"
-                            : "text-[#444c56] hover:text-[#768390]"
-                        }`}
+                        className={`w-full flex items-center gap-3 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all duration-200 rounded-lg ${view === sub.id
+                          ? "text-[#f0883e] bg-[#f0883e]/5"
+                          : "text-[#444c56] hover:text-[#768390]"
+                          }`}
                       >
                         {sub.label}
                       </button>

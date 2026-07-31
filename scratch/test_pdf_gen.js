@@ -9,6 +9,7 @@ async function testPDF() {
     machineName: 'Excavator 3000',
     serialNumber: 'SN-123456',
     emi: 50000,
+    schedule: [{ _id: '1', emi: 50000 }]
   };
 
   const mockInstallment = {
