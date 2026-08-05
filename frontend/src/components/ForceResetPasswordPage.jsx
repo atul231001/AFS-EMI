@@ -59,7 +59,7 @@ const ForceResetPasswordPage = () => {
         <div className="text-center space-y-4">
           <div className="h-12 w-full flex items-center justify-center">
             <img
-              src="/lipl_logo.png"
+              src="/logo.png"
               alt="LiuGong Logo"
               className="logo-image h-full object-contain brightness-0 invert opacity-90"
             />

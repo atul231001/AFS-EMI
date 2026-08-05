@@ -1,9 +1,10 @@
 import express from 'express';
 const router = express.Router();
-import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '../controllers/customerController.js';
+import { getCustomers, createCustomer, updateCustomer, deleteCustomer, bulkUploadCustomers } from '../controllers/customerController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 router.get('/', protect, getCustomers);
+router.post('/bulk', protect, bulkUploadCustomers);
 router.post('/', protect, createCustomer);
 router.put('/:id', protect, updateCustomer);
 router.delete('/:id', protect, deleteCustomer);

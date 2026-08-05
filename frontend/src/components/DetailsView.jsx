@@ -6,13 +6,15 @@ import Swal from 'sweetalert2';
 import {
   X, Download, Cpu, Zap, Settings, FileText, Maximize2, ChevronRight,
   Info, Calendar, Weight, History, Box, Truck, DollarSign, ShieldCheck, ExternalLink,
-  CreditCard, TrendingUp, AlertCircle, CheckCircle2, Clock, PieChart
+  CreditCard, TrendingUp, AlertCircle, CheckCircle2, Clock, PieChart, Eye
 } from 'lucide-react';
 
 const LoanDetails = () => {
   const [activeTab, setActiveTab] = useState('schedule');
   const [showPipelineModal, setShowPipelineModal] = useState(false);
   const [downloadingReceiptIndex, setDownloadingReceiptIndex] = useState(null);
+  const [openReceiptMenuIndex, setOpenReceiptMenuIndex] = useState(null);
+  const [pdfViewUrl, setPdfViewUrl] = useState(null);
   const { loans, machines, selectedLoanId, payments = [] } = state.data;
 
   React.useEffect(() => {
@@ -282,10 +284,10 @@ const LoanDetails = () => {
     }
   };
 
-  const handleDownloadReceipt = async (s, index) => {
+  const handleDownloadReceipt = async (s, index, action = 'view') => {
     const instNum = s.installment || s.installmentNo || (index + 1);
     setDownloadingReceiptIndex(index);
-    showNotification(`Downloading PDF receipt for Installment #${instNum}...`, 'info');
+    showNotification(`${action === 'view' ? 'Opening' : 'Downloading'} PDF receipt for Installment #${instNum}...`, 'info');
 
     try {
       const response = await fetch(`${state.apiUrl}/loans/${loan._id}/receipt/${instNum}`, {
@@ -300,23 +302,28 @@ const LoanDetails = () => {
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
-      const fileName = `Receipt_${customerName.replace(/\s+/g, '_')}_EMI_${s.installment}.pdf`;
 
-      link.href = url;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      showNotification('PDF Receipt Downloaded');
+      if (action === 'view') {
+        setPdfViewUrl(url);
+        showNotification('PDF Receipt Opened');
+      } else {
+        const link = document.createElement('a');
+        const customerName = (loan.customerId?.name || 'CLIENT').toUpperCase();
+        const fileName = `Receipt_${customerName.replace(/\s+/g, '_')}_EMI_${instNum}.pdf`;
+        link.href = url;
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        showNotification('PDF Receipt Downloaded');
+      }
     } catch (error) {
-      console.error('Download error:', error);
-      showNotification('Failed to download receipt', 'error');
+      console.error('Receipt error:', error);
+      showNotification(`Failed to ${action} receipt`, 'error');
     } finally {
       setDownloadingReceiptIndex(null);
+      setOpenReceiptMenuIndex(null);
     }
   };
 
@@ -632,23 +639,42 @@ const LoanDetails = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-5 py-2.5 text-center">
+                            <td className="px-5 py-2.5 text-center" onMouseLeave={() => setOpenReceiptMenuIndex(null)}>
                               {s.status === 'Paid' || s.status === 'Clear' ? (
-                                <button
-                                  onClick={() => handleDownloadReceipt(s, index)}
-                                  disabled={downloadingReceiptIndex === index}
-                                  className="p-1.5 hover:bg-[#f0883e]/20 rounded-md text-[#f0883e] transition-all disabled:opacity-50 disabled:cursor-wait"
-                                  title="Download Receipt"
-                                >
-                                  {downloadingReceiptIndex === index ? (
-                                    <div className="w-3.5 h-3.5 border-2 border-[#f0883e] border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    <Download size={14} />
+                                <div className="relative inline-block">
+                                  <button
+                                    onClick={() => setOpenReceiptMenuIndex(openReceiptMenuIndex === index ? null : index)}
+                                    disabled={downloadingReceiptIndex === index}
+                                    className="p-1.5 hover:bg-[#f0883e]/20 rounded-md text-[#f0883e] transition-all disabled:opacity-50 disabled:cursor-wait"
+                                    title="Receipt Options"
+                                  >
+                                    {downloadingReceiptIndex === index ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-[#f0883e] border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <Eye size={14} />
+                                    )}
+                                  </button>
+
+                                  {openReceiptMenuIndex === index && (
+                                    <div className="absolute right-0 top-full mt-1 w-32 bg-[#0d1117] border border-[#30363d] rounded-lg shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95">
+                                      <button
+                                        onClick={() => handleDownloadReceipt(s, index, 'view')}
+                                        className="w-full px-3 py-2 text-[10px] font-bold text-left text-white hover:bg-[#30363d] transition-colors flex items-center gap-2"
+                                      >
+                                        <Eye size={12} className="text-[#3fb950]" /> VIEW
+                                      </button>
+                                      <button
+                                        onClick={() => handleDownloadReceipt(s, index, 'download')}
+                                        className="w-full px-3 py-2 text-[10px] font-bold text-left text-white hover:bg-[#30363d] transition-colors flex items-center gap-2 border-t border-[#30363d]/50"
+                                      >
+                                        <Download size={12} className="text-[#f0883e]" /> DOWNLOAD
+                                      </button>
+                                    </div>
                                   )}
-                                </button>
+                                </div>
                               ) : (
-                                <span className="text-[#444c56] opacity-30 cursor-not-allowed">
-                                  <Download size={14} />
+                                <span className="text-[#444c56] opacity-30 cursor-not-allowed inline-block p-1.5">
+                                  <Eye size={14} />
                                 </span>
                               )}
                             </td>
@@ -760,6 +786,35 @@ const LoanDetails = () => {
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-[95vw] max-w-[1600px] h-full max-h-full flex flex-col">
             <FinancingFormModal loan={loan} onClose={() => setShowPipelineModal(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* PDF VIEWER MODAL */}
+      {pdfViewUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300 p-4 sm:p-8">
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-2xl w-full max-w-5xl h-full flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#30363d] bg-[#161b22]">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                <FileText size={16} className="text-[#f0883e]" /> Receipt Viewer
+              </h3>
+              <button
+                onClick={() => {
+                  setPdfViewUrl(null);
+                  window.URL.revokeObjectURL(pdfViewUrl);
+                }}
+                className="p-2 hover:bg-rose-500/10 text-[#768390] hover:text-rose-500 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 bg-[#525659] relative">
+              <iframe
+                src={`${pdfViewUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                className="w-full h-full border-0 absolute inset-0"
+                title="PDF Receipt"
+              />
+            </div>
           </div>
         </div>
       )}

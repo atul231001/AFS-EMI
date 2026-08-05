@@ -36,6 +36,8 @@ import {
   CreditCard,
   Landmark,
   Navigation,
+  UploadCloud,
+  DownloadCloud,
 } from "lucide-react";
 import Captcha from "./Captcha";
 
@@ -156,6 +158,9 @@ const CustomerManagement = () => {
   );
   const localColConfig = { ...defaultConfig, ...persistedColConfig };
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
+  const [bulkUploadFile, setBulkUploadFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [filterType, setFilterType] = usePersistentState(
     "customer_filter_type",
@@ -290,6 +295,69 @@ const CustomerManagement = () => {
       selectedCustomerId: customer._id,
       selectedCustomerContext: filterType
     });
+  };
+
+  const downloadTemplate = () => {
+    const csvContent = "data:text/csv;charset=utf-8," + "name,mobile,email,gst,pan,bankAcc,ifsc,type,address,city,pin\n" + "Test Company,9876543210,test@example.com,22AAAAA0000A1Z5,AAAAA0000A,1234567890,SBIN0000001,EMI,123 Test St,Mumbai,400001";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "customer_bulk_upload_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleBulkUpload = async () => {
+    if (!bulkUploadFile) return;
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target.result;
+        const lines = text.split('\n');
+        const headers = lines[0].split(',').map(h => h.trim().replace(/\r/g, ''));
+        const customersToUpload = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          if (!lines[i].trim()) continue;
+          const values = lines[i].split(',').map(v => v.trim().replace(/\r/g, ''));
+          const customer = {};
+          headers.forEach((header, index) => {
+            customer[header] = values[index] || "";
+          });
+          customersToUpload.push(customer);
+        }
+
+        const res = await fetch(`${state.apiUrl}/customers/bulk`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ customers: customersToUpload })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          showNotification(data.message, 'success');
+          if (data.errors && data.errors.length > 0) {
+            console.error("Bulk Upload Errors:", data.errors);
+            showNotification(`Completed with ${data.errors.length} errors (see console)`, 'error');
+          }
+          setIsBulkUploadModalOpen(false);
+          setBulkUploadFile(null);
+          await state.fetchCustomers();
+        } else {
+          showNotification(data.message || 'Bulk upload failed', 'error');
+        }
+      } catch (err) {
+        showNotification("Failed to parse or upload CSV.", 'error');
+      } finally {
+        setIsUploading(false);
+      }
+    };
+    reader.readAsText(bulkUploadFile);
   };
 
   return (
@@ -429,12 +497,20 @@ const CustomerManagement = () => {
             </div>
 
             {hasPermission(user, "customers", "create") && (
-              <button
-                onClick={handleAddCustomer}
-                className="px-8 py-3 bg-[#f0883e] text-black text-xs font-black rounded-xl hover:bg-[#f0883e]/90 transition-all shadow-[0_0_20px_rgba(240,136,62,0.15)] active:scale-95 uppercase tracking-widest flex items-center gap-2"
-              >
-                <Plus size={16} /> ONBOARD CLIENT
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsBulkUploadModalOpen(true)}
+                  className="px-6 py-3 bg-bg-deep text-[#f0883e] border border-[#f0883e]/50 text-xs font-black rounded-xl hover:bg-[#f0883e]/10 transition-all uppercase tracking-widest flex items-center gap-2"
+                >
+                  <UploadCloud size={16} /> BULK UPLOAD
+                </button>
+                <button
+                  onClick={handleAddCustomer}
+                  className="px-8 py-3 bg-[#f0883e] text-black text-xs font-black rounded-xl hover:bg-[#f0883e]/90 transition-all shadow-[0_0_20px_rgba(240,136,62,0.15)] active:scale-95 uppercase tracking-widest flex items-center gap-2"
+                >
+                  <Plus size={16} /> ONBOARD CLIENT
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -752,6 +828,70 @@ const CustomerManagement = () => {
         onClose={() => setIsModalOpen(false)}
         customer={editingCustomer}
       />
+
+      {isBulkUploadModalOpen && (
+        <Modal
+          isOpen={isBulkUploadModalOpen}
+          onClose={() => {
+            setIsBulkUploadModalOpen(false);
+            setBulkUploadFile(null);
+          }}
+          title="Bulk Upload Clients"
+          icon={<UploadCloud size={20} className="text-[#f0883e]" />}
+        >
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-bg-deep/50 p-4 rounded-xl border border-border-main flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-text-main uppercase tracking-widest">
+                  CSV Template
+                </p>
+                <p className="text-[9px] text-text-dim mt-1">
+                  Download the template to format your data correctly.
+                </p>
+              </div>
+              <button
+                onClick={downloadTemplate}
+                className="flex items-center gap-2 px-4 py-2 bg-bg-card border border-border-main rounded-lg text-[9px] font-bold text-text-main hover:border-[#f0883e] transition-all cursor-pointer"
+              >
+                <DownloadCloud size={12} /> DOWNLOAD
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-[#768390] uppercase tracking-wider">
+                Select CSV File
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => setBulkUploadFile(e.target.files[0])}
+                className="w-full bg-bg-deep border border-border-main rounded-xl px-4 py-3 text-xs text-text-main font-mono outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-[#f0883e] file:text-black hover:file:bg-[#f0883e]/90 cursor-pointer"
+              />
+            </div>
+
+            <div className="flex items-center gap-4 justify-end pt-4 border-t border-border-main">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBulkUploadModalOpen(false);
+                  setBulkUploadFile(null);
+                }}
+                className="px-6 py-2 text-[10px] font-black text-[#768390] uppercase tracking-widest hover:text-white transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkUpload}
+                disabled={!bulkUploadFile || isUploading}
+                className="px-8 py-3 bg-[#f0883e] text-black text-[10px] font-black rounded-xl uppercase tracking-widest shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+              >
+                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+                {isUploading ? "UPLOADING..." : "EXECUTE UPLOAD"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

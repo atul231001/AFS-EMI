@@ -138,3 +138,96 @@ export const deleteCustomer = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const bulkUploadCustomers = async (req, res) => {
+  try {
+    const { customers } = req.body;
+    
+    if (!customers || !Array.isArray(customers) || customers.length === 0) {
+      return res.status(400).json({ message: 'No customers provided for bulk upload.' });
+    }
+
+    const config = await SystemConfig.findOne();
+    let successCount = 0;
+    const errors = [];
+
+    for (let i = 0; i < customers.length; i++) {
+      const payload = customers[i];
+      try {
+        // Auto-ID Generation if required
+        if (config?.numbering?.customer?.mode === 'Auto' && !payload.customId) {
+          const { prefix, nextNumber } = config.numbering.customer;
+          payload.customId = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+          config.numbering.customer.nextNumber += 1;
+        }
+
+        // Unique Constraint Validation
+        const duplicateCheck = [];
+        if (payload.email) duplicateCheck.push({ email: payload.email });
+        if (payload.mobile) duplicateCheck.push({ mobile: payload.mobile });
+        if (payload.gst) duplicateCheck.push({ gst: payload.gst });
+        if (payload.pan) duplicateCheck.push({ pan: payload.pan });
+        if (payload.customId) duplicateCheck.push({ customId: payload.customId });
+
+        if (duplicateCheck.length > 0) {
+          const existing = await Customer.findOne({ $or: duplicateCheck });
+          if (existing) {
+            let field = 'Identity Property';
+            if (existing.email === payload.email) field = 'Email';
+            if (existing.mobile === payload.mobile) field = 'Mobile';
+            if (existing.gst === payload.gst) field = 'GSTIN';
+            if (existing.pan === payload.pan) field = 'PAN';
+            if (existing.customId === payload.customId) field = 'Customer ID';
+            errors.push({ row: i + 1, email: payload.email, error: `Protocol Conflict: ${field} already registered.` });
+            continue; // Skip to next customer
+          }
+        }
+
+        // Generate a secure random 10-character alphanumeric password
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let randomPassword = '';
+        for (let j = 0; j < 10; j++) {
+          randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const password = payload.password || randomPassword;
+        payload.password = password;
+
+        const newCustomer = await Customer.create(payload);
+
+        if (newCustomer.email) {
+          const existingUser = await User.findOne({ email: newCustomer.email });
+          if (existingUser) {
+            await Customer.findByIdAndDelete(newCustomer._id);
+            errors.push({ row: i + 1, email: payload.email, error: 'A user account with this email already exists.' });
+            continue;
+          }
+
+          await User.create({
+            name: newCustomer.name,
+            email: newCustomer.email,
+            password: password,
+            role: 'CUSTOMER',
+            customerId: newCustomer._id,
+            type: newCustomer.type || 'EMI',
+            mustResetPassword: true
+          });
+        }
+        successCount++;
+      } catch (err) {
+        errors.push({ row: i + 1, email: payload.email, error: err.message });
+      }
+    }
+
+    if (config) {
+      await config.save(); // Save nextNumber if it was updated
+    }
+
+    res.status(200).json({
+      message: `Bulk upload completed. Successfully added ${successCount} customers.`,
+      successCount,
+      errors
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
