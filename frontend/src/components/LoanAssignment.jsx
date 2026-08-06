@@ -21,8 +21,8 @@ import {
 import { generateSchedule } from '../logic/emi';
 
 const getMachineImage = (m) => {
-  if (!m) return 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=300';
-  return (m.images && m.images.length > 0 ? m.images[0] : m.img) || 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=300';
+  if (!m) return '/liugong_hero_machine.png';
+  return (m.images && m.images.length > 0 ? m.images[0] : m.img) || '/liugong_hero_machine.png';
 };
 
 const LoanAssignment = () => {
@@ -107,7 +107,7 @@ const PortfolioCardView = ({ loans, machines, user }) => {
     return (
       <div key={l._id} className="glass-card !p-0 overflow-hidden flex flex-col group hover:border-[#f0883e]/30 transition-all">
         <div className="relative h-24 bg-black overflow-hidden">
-          <img src={getMachineImage(machine)} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-700" alt="" />
+          <img src={getMachineImage(machine)} onError={(e) => { e.target.onerror = null; e.target.src = '/liugong_hero_machine.png'; }} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-700" alt="" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent"></div>
           <div className="absolute bottom-2 left-3">
             <h3 className="font-black text-[0.625rem] truncate w-[140px]" style={{ color: '#f8fafc' }}>{l.machineName}</h3>
@@ -269,7 +269,7 @@ const PortfolioListView = ({ loans, machines, user }) => {
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg overflow-hidden bg-bg-deep border border-border-main">
-                            <img src={getMachineImage(machine)} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" alt="" />
+                            <img src={getMachineImage(machine)} onError={(e) => { e.target.onerror = null; e.target.src = '/liugong_hero_machine.png'; }} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" alt="" />
                           </div>
                           <div>
                             <div className="font-black text-text-main text-[0.6875rem] truncate max-w-[150px]">{l.machineName}</div>

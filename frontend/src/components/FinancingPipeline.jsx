@@ -5,8 +5,8 @@ import Pagination from './Pagination.jsx';
 import { Download, Upload, Mail, CheckCircle, Truck, FileText, AlertCircle, FileCheck, X, Check, ListOrdered, CalendarCheck, Eye, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Calendar } from 'lucide-react';
 
 const getMachineImage = (m) => {
-  if (!m) return 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=300';
-  return (m.images && m.images.length > 0 ? m.images[0] : m.img) || 'https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&q=80&w=300';
+  if (!m) return '/liugong_hero_machine.png';
+  return (m.images && m.images.length > 0 ? m.images[0] : m.img) || '/liugong_hero_machine.png';
 };
 
 const FinancingFormModal = ({ loan, onClose }) => {
@@ -376,7 +376,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
           </div>
           <div className="col-span-2">
             <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">SODS No</p>
-            <p className="text-xs font-black text-text-main">{loan.sodsNo || loan.invoiceData.sodsNo || loan.invoiceData.sods_no || loan.invoiceData.sodsNumber || 'N/A'}</p>
+            <p className="text-xs font-black text-text-main">{loan.sodsNo || loan.invoiceData.sodsNo || loan.invoiceData.sods_no || loan.invoiceData.sodsNumber || loan.invoiceData.ofm_number || loan.invoiceData.ofm_no || loan.invoiceData.ofmNumber || loan.ofm_number || loan.ofm_no || loan.ofmNumber || 'N/A'}</p>
           </div>
         </div>
         {loan.invoiceData.invoiceFile && (
@@ -434,7 +434,7 @@ const FinancingFormModal = ({ loan, onClose }) => {
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0 overflow-y-auto custom-scrollbar items-start pr-2 pb-8">
             <div className="lg:col-span-3 flex flex-col gap-6 order-1">
               <div className="bg-bg-card border border-border-main rounded-2xl overflow-hidden shadow-xl flex flex-col shrink-0">
-                <img src={getMachineImage(machine)} alt={loan.machineName} className="w-full h-32 object-cover border-b border-border-main" />
+                <img src={getMachineImage(machine)} onError={(e) => { e.target.onerror = null; e.target.src = '/liugong_hero_machine.png'; }} alt={loan.machineName} className="w-full h-32 object-cover border-b border-border-main" />
                 <div className="p-3 space-y-3 bg-bg-deep">
                   <div>
                     <p className="text-[8px] font-bold text-text-dim uppercase tracking-wider mb-0.5">Client Name</p>

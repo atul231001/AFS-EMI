@@ -289,7 +289,7 @@ const Sidebar = () => {
       {/* Logo */}
       <div className="pt-8 pb-4 flex flex-col items-center justify-center gap-2">
         {/* Logo Icon */}
-        <img src={liplLogo} alt="LIPL Logo" className="w-16 h-16 object-contain" />
+        <img src="/lg_logo.png" alt="LG Logo" className="w-16 h-16 object-contain" />
 
         {/* Logo Text (White) */}
         <div className="relative overflow-hidden w-[145px] h-8 brightness-0 invert opacity-90 transition-all duration-300">
