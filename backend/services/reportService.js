@@ -549,7 +549,7 @@ export const generatePPTReport = async (loan, allLoans = []) => {
         
         overdueInstallments.push({
           machine: l.machineName,
-          installment: s.installment,
+          installment: s.installment || s.installmentNo || 1,
           dueDate: s.dueDate,
           emi: s.emi,
           delayDays,
@@ -687,9 +687,9 @@ export const generatePPTReport = async (loan, allLoans = []) => {
     const endIdx = startIdx + rowsPerSlide;
     const chunk = loan.schedule.slice(startIdx, endIdx);
 
-    chunk.forEach(s => {
+    chunk.forEach((s, index) => {
       ledgerTableData.push([
-        { text: `#${(s.installment || s.installmentNo).toString().padStart(2, '0')}`, options: { color: TEXT_WHITE, fontFace: 'Courier New' } },
+        { text: `#${(s.installment || s.installmentNo || (startIdx + index + 1)).toString().padStart(2, '0')}`, options: { color: TEXT_WHITE, fontFace: 'Courier New' } },
         { text: s.type === 'DownPayment' ? 'DOWN P.' : 'EMI', options: { color: TEXT_MUTED } },
         { text: s.dueDate, options: { color: TEXT_LIGHT, fontFace: 'Courier New' } },
         { text: s.paidDate ? new Date(s.paidDate).toISOString().split('T')[0] : '--', options: { color: TEXT_LIGHT, fontFace: 'Courier New' } },

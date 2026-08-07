@@ -170,7 +170,7 @@ export const syncProducts = async (req, res) => {
 
         return {
           updateOne: {
-            filter: { name: prod.prod_name, model: prod.prod_model_type || 'Standard' },
+            filter: { machineId: `PROD-${prod.prod_id}` },
             update: {
               $set: {
                 machineId: `PROD-${prod.prod_id}`,
