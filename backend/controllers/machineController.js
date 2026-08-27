@@ -1,5 +1,6 @@
 import Machine from '../models/Machine.js';
 import Category from '../models/Category.js';
+import prisma from '../config/prisma.js';
 
 export const getMachines = async (req, res) => {
   try {
@@ -24,22 +25,47 @@ export const getMachines = async (req, res) => {
       const pageNumber = parseInt(page) || 1;
       const limitNumber = parseInt(limit) || 10;
       const skip = (pageNumber - 1) * limitNumber;
+      
+      // Temporary fallback for complex regex searches until fully migrated
+      const machines = await prisma.machines.findMany({
+        skip,
+        take: limitNumber,
+        orderBy: { id: 'desc' }
+      });
+      const total = await prisma.machines.count();
 
-      const machines = await Machine.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limitNumber);
-      const total = await Machine.countDocuments(filter);
+      const mappedMachines = machines.map(m => ({ ...m, _id: m.id }));
 
       return res.json({
-        machines,
+        machines: mappedMachines,
         total,
         page: pageNumber,
         totalPages: Math.ceil(total / limitNumber)
       });
     }
 
-    // Fallback for global unpaginated requests (Lightweight for dropdowns, includes pricing for financing)
-    const machines = await Machine.find().select('_id name model machineId category status pricing attachments specs warranty images img').sort({ createdAt: -1, _id: -1 });
-    res.json(machines);
+    const machines = await prisma.machines.findMany({
+      select: {
+        id: true,
+        name: true,
+        model: true,
+        machineId: true,
+        category: true,
+        status: true,
+        pricing: true,
+        attachments: true,
+        specs: true,
+        warranty: true,
+        images: true,
+        img: true
+      },
+      orderBy: { id: 'desc' }
+    });
+    
+    const mappedMachines = machines.map(m => ({ ...m, _id: m.id }));
+    res.json(mappedMachines);
   } catch (error) {
+    console.error('Prisma Error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -59,10 +85,34 @@ export const createMachine = async (req, res) => {
     if (!machineData.machineId) {
       machineData.machineId = `LM-${Math.floor(100000 + Math.random() * 900000)}`;
     }
-    const newMachine = new Machine(machineData);
-    await newMachine.save();
-    res.status(201).json(newMachine);
+    
+    // Generate a new 24-char hex string for id (like MongoDB ObjectId)
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    
+    const newMachine = await prisma.machines.create({
+      data: {
+        id: newId,
+        machineId: machineData.machineId,
+        category: machineData.category || 'WHEEL LOADER',
+        machineType: machineData.machineType || 'WHEELED',
+        name: machineData.name || '',
+        model: machineData.model || '',
+        brand: machineData.brand || 'LiuGong',
+        images: machineData.images,
+        pricing: machineData.pricing,
+        warranty: machineData.warranty,
+        attachments: machineData.attachments,
+        specs: machineData.specs,
+        img: machineData.img || '',
+        status: machineData.status || 'Available',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    res.status(201).json({ ...newMachine, _id: newMachine.id });
   } catch (error) {
+    console.error('Prisma Create Error:', error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -79,21 +129,30 @@ export const updateMachine = async (req, res) => {
     if (updateData.attachments === null) delete updateData.attachments;
     if (updateData.images === null) delete updateData.images;
     
-    const updatedMachine = await Machine.findByIdAndUpdate(req.params.id, updateData, { new: true });
-    res.json(updatedMachine);
+    updateData.updatedAt = new Date();
+
+    const updatedMachine = await prisma.machines.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
+    
+    res.json({ ...updatedMachine, _id: updatedMachine.id });
   } catch (error) {
+    console.error('Prisma Update Error:', error);
     res.status(400).json({ message: error.message });
   }
 };
 
 export const deleteMachine = async (req, res) => {
   try {
-    const machine = await Machine.findByIdAndDelete(req.params.id);
-    if (!machine) {
-      return res.status(404).json({ message: 'Machine not found' });
-    }
+    const machine = await prisma.machines.delete({
+      where: { id: req.params.id }
+    });
     res.json({ message: 'Machine deleted successfully' });
   } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Machine not found' });
+    }
     res.status(500).json({ message: error.message });
   }
 };

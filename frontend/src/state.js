@@ -682,8 +682,8 @@ class State {
       headers: this.getHeaders(),
       body: JSON.stringify({ ...employee, role: 'OEM' })
     });
-    if (!res.ok) throw new Error('Personnel authorization failed');
     const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Personnel authorization failed');
     this.setState({ employees: [data, ...this.data.employees] });
     return data;
   }

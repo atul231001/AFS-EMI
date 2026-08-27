@@ -1,6 +1,4 @@
-import Loan from '../models/Loan.js';
-import ApprovalFlow from '../models/ApprovalFlow.js';
-import Machine from '../models/Machine.js';
+import prisma from '../config/prisma.js';
 import { generateReceiptPDF, generateAgreementPDF, generateAgreementHTML } from '../services/pdfService.js';
 import { generateExcelReport, generatePPTReport, generatePDFReport } from '../services/reportService.js';
 
@@ -8,9 +6,36 @@ import { calculateOverdueInterest } from '../utils/interestCalculator.js';
 
 export const getLoans = async (req, res) => {
   try {
-    const loans = await Loan.find().populate('customerId').populate('approvalFlowId').sort({ createdAt: -1 });
-    // Dynamically calculate overdue interest for all loans before sending to frontend
-    const updatedLoans = loans.map(loan => calculateOverdueInterest(loan.toObject ? loan.toObject() : loan));
+    const loans = await prisma.loans.findMany({ orderBy: { createdAt: 'desc' } });
+    
+    // Manual populate for customerId and approvalFlowId
+    const customerIds = loans.map(l => l.customerId).filter(Boolean);
+    const customers = await prisma.customers.findMany({ where: { id: { in: customerIds } } });
+    const customerMap = {};
+    customers.forEach(c => customerMap[c.id] = { ...c, _id: c.id });
+
+    const flowIds = loans.map(l => l.approvalFlowId).filter(Boolean);
+    const flows = await prisma.approvalflows.findMany({ where: { id: { in: flowIds } } });
+    const flowMap = {};
+    flows.forEach(f => flowMap[f.id] = { ...f, _id: f.id });
+
+    const updatedLoans = loans.map(loan => {
+      let l = { ...loan, _id: loan.id };
+      
+      // Parse JSON fields
+      if (l.schedule && typeof l.schedule === 'string') {
+        try { l.schedule = JSON.parse(l.schedule); } catch (e) { l.schedule = []; }
+      }
+      if (l.approvalHistory && typeof l.approvalHistory === 'string') {
+        try { l.approvalHistory = JSON.parse(l.approvalHistory); } catch (e) { l.approvalHistory = []; }
+      }
+      
+      if (l.customerId && customerMap[l.customerId]) l.customerId = customerMap[l.customerId];
+      if (l.approvalFlowId && flowMap[l.approvalFlowId]) l.approvalFlowId = flowMap[l.approvalFlowId];
+      
+      return calculateOverdueInterest(l);
+    });
+    
     res.json(updatedLoans);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -18,25 +43,55 @@ export const getLoans = async (req, res) => {
 };
 
 export const createLoan = async (req, res) => {
-  const loan = new Loan(req.body);
   try {
-    let flow = await ApprovalFlow.findOne({ type: 'FINANCING', isActive: true, supervisorId: req.user._id });
+    const payload = { ...req.body };
+    
+    // Convert arrays/objects to JSON for Prisma
+    if (payload.schedule) payload.schedule = payload.schedule; // Prisma will handle Json type
+    if (payload.approvalHistory) payload.approvalHistory = payload.approvalHistory;
+    
+    let flow = await prisma.approvalflows.findFirst({
+      where: { type: 'FINANCING', isActive: true, supervisorId: req.user.id }
+    });
+    
     if (!flow) {
-      flow = await ApprovalFlow.findOne({ type: 'FINANCING', isActive: true, $or: [{ supervisorId: null }, { supervisorId: '' }] });
-    }
-    if (flow && flow.steps && flow.steps.length > 0) {
-      loan.approvalFlowId = flow._id;
-      loan.approvalStatus = 'Pending Approval';
-      loan.approvalStep = 0;
-      loan.agreementGenerated = false;
-    } else {
-      loan.approvalStatus = 'Pending Scheduling';
-      loan.agreementGenerated = false;
+      flow = await prisma.approvalflows.findFirst({
+        where: { type: 'FINANCING', isActive: true, supervisorId: { in: [null, ''] } }
+      });
     }
 
-    const newLoan = await loan.save();
-    await newLoan.populate('customerId');
-    res.status(201).json(newLoan);
+    if (flow && flow.steps) {
+      let stepsArray = [];
+      try { stepsArray = typeof flow.steps === 'string' ? JSON.parse(flow.steps) : flow.steps; } catch(e){}
+      
+      if (stepsArray.length > 0) {
+        payload.approvalFlowId = flow.id;
+        payload.approvalStatus = 'Pending Approval';
+        payload.approvalStep = 0;
+        payload.agreementGenerated = false;
+      } else {
+        payload.approvalStatus = 'Pending Scheduling';
+        payload.agreementGenerated = false;
+      }
+    } else {
+      payload.approvalStatus = 'Pending Scheduling';
+      payload.agreementGenerated = false;
+    }
+
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    payload.id = newId;
+    payload.createdAt = new Date();
+    payload.updatedAt = new Date();
+
+    const newLoan = await prisma.loans.create({ data: payload });
+    
+    let populatedLoan = { ...newLoan, _id: newLoan.id };
+    if (populatedLoan.customerId) {
+      const cust = await prisma.customers.findUnique({ where: { id: populatedLoan.customerId } });
+      if (cust) populatedLoan.customerId = { ...cust, _id: cust.id };
+    }
+    
+    res.status(201).json(populatedLoan);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -44,8 +99,12 @@ export const createLoan = async (req, res) => {
 
 export const updateLoan = async (req, res) => {
   try {
-    const updatedLoan = await Loan.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(updatedLoan);
+    const updateData = { ...req.body, updatedAt: new Date() };
+    const updatedLoan = await prisma.loans.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
+    res.json({ ...updatedLoan, _id: updatedLoan.id });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

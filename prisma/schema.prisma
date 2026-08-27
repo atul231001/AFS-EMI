@@ -1,0 +1,393 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model approvalflows {
+  id           String    @id @map("_id") @db.VarChar(24)
+  name         String?   @db.Text
+  type         String?   @db.Text
+  steps        Json?
+  isActive     Boolean?
+  supervisorId String?   @db.Text
+  createdAt    DateTime? @db.DateTime(0)
+  updatedAt    DateTime? @db.DateTime(0)
+}
+
+model blacklistedtokens {
+  id        String    @id @map("_id") @db.VarChar(24)
+  token     String?   @db.Text
+  createdAt DateTime? @db.DateTime(0)
+
+  @@index([createdAt], map: "idx_blacklistedtokens_createdAt")
+  @@index([token(length: 255)], map: "idx_blacklistedtokens_token")
+}
+
+model bulkuploadlogs {
+  id                String    @id @map("_id") @db.VarChar(24)
+  fileName          String?   @db.Text
+  uploadedBy        String?   @db.VarChar(24)
+  uploadDate        DateTime? @db.DateTime(0)
+  totalRecords      Float?
+  successfulRecords Float?
+  failedRecords     Float?
+  uploadErrors      Json?
+  createdAt         DateTime? @db.DateTime(0)
+  updatedAt         DateTime? @db.DateTime(0)
+}
+
+model categories {
+  id        String    @id @map("_id") @db.VarChar(24)
+  cat_id    Float?
+  cat_name  String?   @db.Text
+  rawData   Json?
+  createdAt DateTime? @db.DateTime(0)
+  updatedAt DateTime? @db.DateTime(0)
+
+  @@index([cat_id], map: "idx_categories_cat_id")
+}
+
+model customers {
+  id        String    @id @map("_id") @db.VarChar(24)
+  name      String?   @db.Text
+  customId  String?   @db.Text
+  mobile    String?   @db.Text
+  email     String?   @db.Text
+  status    String?   @db.Text
+  address   String?   @db.Text
+  city      String?   @db.Text
+  state     String?   @db.Text
+  pin       String?   @db.Text
+  gst       String?   @db.Text
+  pan       String?   @db.Text
+  bankAcc   String?   @db.Text
+  ifsc      String?   @db.Text
+  company   String?   @db.Text
+  type      Json?
+  password  String?   @db.Text
+  createdAt DateTime? @db.DateTime(0)
+  updatedAt DateTime? @db.DateTime(0)
+
+  @@index([customId(length: 255)], map: "idx_customers_customId")
+}
+
+model dispatches {
+  id           String    @id @map("_id") @db.VarChar(24)
+  serialNumber String?   @db.Text
+  dispatchId   Float?
+  orderId      Float?
+  ddFile       String?   @db.Text
+  lrNo         String?   @db.Text
+  lrFile       String?   @db.Text
+  eWayBillNo   String?   @db.Text
+  eWayBillFile String?   @db.Text
+  dispatchDate String?   @db.Text
+  deliveryDate String?   @db.Text
+  isDispatched Boolean?
+  createdAt    DateTime? @db.DateTime(0)
+  updatedAt    DateTime? @db.DateTime(0)
+
+  @@index([serialNumber(length: 255)], map: "idx_dispatches_serialNumber")
+}
+
+model fmccontracts {
+  id                  String    @id @map("_id") @db.VarChar(24)
+  customerName        String?   @db.Text
+  companyName         String?   @db.Text
+  siteName            String?   @db.Text
+  siteAddress         String?   @db.Text
+  contactPerson       String?   @db.Text
+  mobile              String?   @db.Text
+  email               String?   @db.Text
+  customerId          String?   @db.Text
+  agreementNumber     String?   @db.Text
+  startDate           String?   @db.Text
+  endDate             String?   @db.Text
+  billingCycle        String?   @db.Text
+  machines            Json?
+  assignedSupervisor  String?   @db.Text
+  backupSupervisor    String?   @db.Text
+  fixedMonthlyCharge  Float?
+  hourlyRate          Float?
+  minBillingHours     Float?
+  overtimeRate        Float?
+  breakdownCoverage   Boolean?
+  partsIncluded       Boolean?
+  consumablesIncluded Boolean?
+  slaResponseTime     Float?
+  slaResolutionTime   Float?
+  status              String?   @db.Text
+  createdAt           DateTime? @db.DateTime(0)
+  updatedAt           DateTime? @db.DateTime(0)
+
+  @@index([agreementNumber(length: 255)], map: "idx_fmccontracts_agreementNumber")
+}
+
+model fmcdailyhours {
+  id              String    @id @map("_id") @db.VarChar(24)
+  date            String?   @db.Text
+  machineName     String?   @db.Text
+  contractId      String?   @db.Text
+  supervisorId    String?   @db.Text
+  startMeter      Float?
+  endMeter        Float?
+  totalHours      Float?
+  idleHours       Float?
+  fuelConsumption Float?
+  remarks         String?   @db.Text
+  createdAt       DateTime? @db.DateTime(0)
+  updatedAt       DateTime? @db.DateTime(0)
+}
+
+model fmcinvoices {
+  id              String    @id @map("_id") @db.VarChar(24)
+  invoiceNumber   String?   @db.Text
+  contractId      String?   @db.Text
+  agreementNumber String?   @db.Text
+  customerName    String?   @db.Text
+  billingMonth    String?   @db.Text
+  totalHours      Float?
+  billedHours     Float?
+  hourlyRate      Float?
+  fixedCharge     Float?
+  usageCharge     Float?
+  partsCharge     Float?
+  laborCharge     Float?
+  gst             Float?
+  totalAmount     Float?
+  status          String?   @db.Text
+  paidAt          DateTime? @db.DateTime(0)
+  createdAt       DateTime? @db.DateTime(0)
+  updatedAt       DateTime? @db.DateTime(0)
+
+  @@index([invoiceNumber(length: 255)], map: "idx_fmcinvoices_invoiceNumber")
+}
+
+model fmcsupervisors {
+  id                String    @id @map("_id") @db.VarChar(24)
+  name              String?   @db.Text
+  employeeId        String?   @db.Text
+  mobile            String?   @db.Text
+  skills            Json?
+  region            String?   @db.Text
+  status            String?   @db.Text
+  contractId        String?   @db.Text
+  shiftStart        String?   @db.Text
+  shiftEnd          String?   @db.Text
+  assignedEmployees Json?
+  approvalFlowId    String?   @db.VarChar(24)
+  createdAt         DateTime? @db.DateTime(0)
+  updatedAt         DateTime? @db.DateTime(0)
+}
+
+model fmctickets {
+  id               String    @id @map("_id") @db.VarChar(24)
+  ticketNumber     String?   @db.Text
+  contractId       String?   @db.Text
+  machineName      String?   @db.Text
+  breakdownType    String?   @db.Text
+  severity         String?   @db.Text
+  description      String?   @db.Text
+  location         String?   @db.Text
+  hourReading      String?   @db.Text
+  status           String?   @db.Text
+  photos           Json?
+  resolvedAt       DateTime? @db.DateTime(0)
+  resolvedBy       String?   @db.Text
+  resolutionNotes  String?   @db.Text
+  currentStepIndex Float?
+  supervisorId     String?   @db.Text
+  createdBy        String?   @db.VarChar(24)
+  approvalHistory  Json?
+  createdAt        DateTime? @db.DateTime(0)
+  updatedAt        DateTime? @db.DateTime(0)
+
+  @@index([ticketNumber(length: 255)], map: "idx_fmctickets_ticketNumber")
+}
+
+model loans {
+  id                      String    @id @map("_id") @db.VarChar(24)
+  customerId              String?   @db.VarChar(24)
+  financingType           String?   @db.Text
+  machineName             String?   @db.Text
+  model                   String?   @db.Text
+  invoiceNumber           String?   @db.Text
+  emiStartDate            String?   @db.Text
+  startDate               String?   @db.Text
+  principal               Float?
+  emi                     Float?
+  tenure                  Float?
+  interestRate            Float?
+  downPayment             Float?
+  machinePrice            Float?
+  discountAmount          Float?
+  discountPercentage      Float?
+  tcsPercentage           Float?
+  delayInterest           Float?
+  selectedAttachments     Json?
+  manualCharges           Json?
+  status                  String?   @db.Text
+  approvalStatus          String?   @db.Text
+  approvalHistory         Json?
+  approvalStep            Float?
+  approvalFlowId          String?   @db.VarChar(24)
+  agreementGenerated      Boolean?
+  agreementUrl            String?   @db.Text
+  invoiceData             Json?
+  invoiceUrl              String?   @db.Text
+  serialNumber            String?   @db.Text
+  dispatchDate            String?   @db.Text
+  dispatchData            Json?
+  commissionDate          String?   @db.Text
+  downPaymentInstallments Float?
+  compoundOverdueInterest Boolean?
+  interestWaiverLogs      Json?
+  schedule                Json?
+  createdAt               DateTime? @db.DateTime(0)
+  updatedAt               DateTime? @db.DateTime(0)
+}
+
+model machines {
+  id          String    @id @map("_id") @db.VarChar(24)
+  machineId   String?   @db.Text
+  category    String?   @db.Text
+  machineType String?   @db.Text
+  name        String?   @db.Text
+  model       String?   @db.Text
+  brand       String?   @db.Text
+  images      Json?
+  pricing     Json?
+  warranty    Json?
+  attachments Json?
+  specs       Json?
+  img         String?   @db.Text
+  brochurePdf String?   @db.Text
+  specSheet   String?   @db.Text
+  catalogUrl  String?   @db.Text
+  manualUrl   String?   @db.Text
+  documents   Json?
+  isFromAPI   Boolean?
+  status      String?   @db.Text
+  createdAt   DateTime? @db.DateTime(0)
+  updatedAt   DateTime? @db.DateTime(0)
+
+  @@index([machineId(length: 255)], map: "idx_machines_machineId")
+}
+
+model notificationlogs {
+  id         String    @id @map("_id") @db.VarChar(24)
+  event      String?   @db.Text
+  channel    String?   @db.Text
+  recipient  String?   @db.Text
+  subject    String?   @db.Text
+  body       String?   @db.Text
+  status     String?   @db.Text
+  error      String?   @db.Text
+  metadata   Json?
+  retryCount Float?
+  createdAt  DateTime? @db.DateTime(0)
+  updatedAt  DateTime? @db.DateTime(0)
+}
+
+model notificationtemplates {
+  id        String    @id @map("_id") @db.VarChar(24)
+  name      String?   @db.Text
+  event     String?   @db.Text
+  subject   String?   @db.Text
+  body      String?   @db.Text
+  variables Json?
+  enabled   Boolean?
+  channels  Json?
+  createdAt DateTime? @db.DateTime(0)
+  updatedAt DateTime? @db.DateTime(0)
+
+  @@index([event(length: 255)], map: "idx_notificationtemplates_event")
+  @@index([name(length: 255)], map: "idx_notificationtemplates_name")
+}
+
+model payments {
+  id                 String    @id @map("_id") @db.VarChar(24)
+  loanId             String?   @db.VarChar(24)
+  amount             Float?
+  date               String?   @db.Text
+  method             String?   @db.Text
+  transactionId      String?   @db.Text
+  allocations        Json?
+  waiveInterest      Boolean?
+  waiverReason       String?   @db.Text
+  waiveInstallmentNo Float?
+  uploadedBy         String?   @db.VarChar(24)
+  status             String?   @db.Text
+  revokeRemark       String?   @db.Text
+  createdAt          DateTime? @db.DateTime(0)
+  updatedAt          DateTime? @db.DateTime(0)
+}
+
+model roles {
+  id          String    @id @map("_id") @db.VarChar(24)
+  name        String?   @db.Text
+  description String?   @db.Text
+  permissions Json?
+  createdAt   DateTime? @db.DateTime(0)
+  updatedAt   DateTime? @db.DateTime(0)
+
+  @@index([name(length: 255)], map: "idx_roles_name")
+}
+
+model systemconfigs {
+  id                String    @id @map("_id") @db.VarChar(24)
+  categories        Json?
+  dieselTypes       Json?
+  evTypes           Json?
+  transmissionTypes Json?
+  attachmentTypes   Json?
+  numbering         Json?
+  security          Json?
+  financing         Json?
+  customerColumns   Json?
+  employeeColumns   Json?
+  machineColumns    Json?
+  notifications     Json?
+  smtp              Json?
+  createdAt         DateTime? @db.DateTime(0)
+  updatedAt         DateTime? @db.DateTime(0)
+}
+
+model ticketstatuses {
+  id           String    @id @map("_id") @db.VarChar(24)
+  name         String?   @db.Text
+  color        String?   @db.Text
+  description  String?   @db.Text
+  allowedUsers Json?
+  createdAt    DateTime? @db.DateTime(0)
+  updatedAt    DateTime? @db.DateTime(0)
+
+  @@index([name(length: 255)], map: "idx_ticketstatuses_name")
+}
+
+model users {
+  id                String    @id @map("_id") @db.VarChar(24)
+  name              String?   @db.Text
+  customId          String?   @db.Text
+  email             String?   @db.Text
+  phone             String?   @db.Text
+  password          String?   @db.Text
+  role              String?   @db.Text
+  roleId            String?   @db.VarChar(24)
+  customerId        String?   @db.VarChar(24)
+  supervisorId      String?   @db.VarChar(24)
+  type              Json?
+  status            String?   @db.Text
+  settings          Json?
+  resetOtp          String?   @db.Text
+  resetOtpExpires   DateTime? @db.DateTime(0)
+  mustResetPassword Boolean?
+  createdAt         DateTime? @db.DateTime(0)
+  updatedAt         DateTime? @db.DateTime(0)
+
+  @@index([email(length: 255)], map: "idx_users_email")
+}

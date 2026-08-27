@@ -1,16 +1,19 @@
-import Customer from '../models/Customer.js';
-import User from '../models/User.js';
-import SystemConfig from '../models/SystemConfig.js';
+import prisma from '../config/prisma.js';
 import { sendNotification } from '../services/notificationService.js';
 
 export const getCustomers = async (req, res) => {
   try {
     let filter = {};
     if (req.user && req.user.role && req.user.role.toUpperCase() === 'CUSTOMER') {
-      filter._id = req.user.customerId || null;
+      filter.id = req.user.customerId || undefined;
     }
-    const customers = await Customer.find(filter).sort({ createdAt: -1 });
-    res.json(customers);
+    const customers = await prisma.customers.findMany({
+      where: filter,
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    const mapped = customers.map(c => ({ ...c, _id: c.id }));
+    res.json(mapped);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -19,14 +22,21 @@ export const getCustomers = async (req, res) => {
 export const createCustomer = async (req, res) => {
   try {
     const payload = { ...req.body };
-    const config = await SystemConfig.findOne();
+    const config = await prisma.systemconfigs.findFirst();
 
     // Auto-ID Generation
     if (config?.numbering?.customer?.mode === 'Auto' && !payload.customId) {
-      const { prefix, nextNumber } = config.numbering.customer;
+      const prefix = config.numbering.customer.prefix || '';
+      const nextNumber = config.numbering.customer.nextNumber || 1;
       payload.customId = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
-      config.numbering.customer.nextNumber += 1;
-      await config.save();
+      
+      const updatedNumbering = { ...config.numbering };
+      updatedNumbering.customer.nextNumber = nextNumber + 1;
+      
+      await prisma.systemconfigs.update({
+        where: { id: config.id },
+        data: { numbering: updatedNumbering }
+      });
     }
 
     // Unique Constraint Validation
@@ -38,7 +48,9 @@ export const createCustomer = async (req, res) => {
     if (payload.customId) duplicateCheck.push({ customId: payload.customId });
 
     if (duplicateCheck.length > 0) {
-      const existing = await Customer.findOne({ $or: duplicateCheck });
+      const existing = await prisma.customers.findFirst({
+        where: { OR: duplicateCheck }
+      });
       if (existing) {
         let field = 'Identity Property';
         if (existing.email === payload.email) field = 'Email';
@@ -60,24 +72,35 @@ export const createCustomer = async (req, res) => {
     payload.password = password;
     console.log(`[Customer Onboarding] Password for ${payload.email}: ${password}`);
 
-    const newCustomer = await Customer.create(payload);
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    payload.id = newId;
+    payload.createdAt = new Date();
+    payload.updatedAt = new Date();
+
+    const newCustomer = await prisma.customers.create({ data: payload });
 
     try {
       if (newCustomer.email) {
         // Check if user already exists
-        const existingUser = await User.findOne({ email: newCustomer.email });
+        const existingUser = await prisma.users.findFirst({ where: { email: newCustomer.email } });
         if (existingUser) {
           return res.status(400).json({ message: 'A user account with this email already exists in the system.' });
         }
-
-        await User.create({
-          name: newCustomer.name,
-          email: newCustomer.email,
-          password: password,
-          role: 'CUSTOMER',
-          customerId: newCustomer._id,
-          type: newCustomer.type,
-          mustResetPassword: true
+        
+        const newUserId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+        await prisma.users.create({
+          data: {
+            id: newUserId,
+            name: newCustomer.name || '',
+            email: newCustomer.email,
+            password: password,
+            role: 'CUSTOMER',
+            customerId: newCustomer.id,
+            type: newCustomer.type || 'EMI',
+            mustResetPassword: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
         });
 
         // Trigger Notification
@@ -90,10 +113,10 @@ export const createCustomer = async (req, res) => {
           loginUrl: 'http://localhost:5173'
         }).catch(err => console.error('Delayed Notify Error:', err));
       }
-      res.status(201).json(newCustomer);
+      res.status(201).json({ ...newCustomer, _id: newCustomer.id });
     } catch (userError) {
       // Rollback primary creation if secondary fails
-      await Customer.findByIdAndDelete(newCustomer._id);
+      await prisma.customers.delete({ where: { id: newCustomer.id } });
       res.status(400).json({ message: `Security Protocol Failure: ${userError.message}` });
     }
   } catch (error) {
@@ -103,24 +126,33 @@ export const createCustomer = async (req, res) => {
 
 export const updateCustomer = async (req, res) => {
   try {
-    const updatedCustomer = await Customer.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = { ...req.body, updatedAt: new Date() };
+    const updatedCustomer = await prisma.customers.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
 
-    const userUpdate = { name: updatedCustomer.name, email: updatedCustomer.email, type: updatedCustomer.type };
+    const userUpdate = { name: updatedCustomer.name || '', email: updatedCustomer.email || '', type: updatedCustomer.type || 'EMI', updatedAt: new Date() };
     if (req.body.password) {
       const bcrypt = await import('bcryptjs');
       const salt = await bcrypt.default.genSalt(10);
       userUpdate.password = await bcrypt.default.hash(req.body.password, salt);
-      updatedCustomer.password = req.body.password;
-      await updatedCustomer.save();
+      
+      await prisma.customers.update({
+        where: { id: req.params.id },
+        data: { password: req.body.password }
+      });
     }
 
-    await User.findOneAndUpdate(
-      { customerId: updatedCustomer._id },
-      userUpdate,
-      { upsert: true, new: true }
-    );
+    const existingUser = await prisma.users.findFirst({ where: { customerId: req.params.id } });
+    if (existingUser) {
+      await prisma.users.update({
+        where: { id: existingUser.id },
+        data: userUpdate
+      });
+    }
 
-    res.json(updatedCustomer);
+    res.json({ ...updatedCustomer, _id: updatedCustomer.id });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -128,10 +160,10 @@ export const updateCustomer = async (req, res) => {
 
 export const deleteCustomer = async (req, res) => {
   try {
-    const customer = await Customer.findById(req.params.id);
+    const customer = await prisma.customers.findUnique({ where: { id: req.params.id } });
     if (customer) {
-      await User.deleteMany({ customerId: customer._id });
-      await Customer.findByIdAndDelete(req.params.id);
+      await prisma.users.deleteMany({ where: { customerId: customer.id } });
+      await prisma.customers.delete({ where: { id: req.params.id } });
     }
     res.json({ message: 'Customer and associated user purged' });
   } catch (error) {
@@ -147,7 +179,7 @@ export const bulkUploadCustomers = async (req, res) => {
       return res.status(400).json({ message: 'No customers provided for bulk upload.' });
     }
 
-    const config = await SystemConfig.findOne();
+    const config = await prisma.systemconfigs.findFirst();
     let successCount = 0;
     const errors = [];
 
@@ -170,7 +202,9 @@ export const bulkUploadCustomers = async (req, res) => {
         if (payload.customId) duplicateCheck.push({ customId: payload.customId });
 
         if (duplicateCheck.length > 0) {
-          const existing = await Customer.findOne({ $or: duplicateCheck });
+          const existing = await prisma.customers.findFirst({
+            where: { OR: duplicateCheck }
+          });
           if (existing) {
             let field = 'Identity Property';
             if (existing.email === payload.email) field = 'Email';
@@ -192,24 +226,35 @@ export const bulkUploadCustomers = async (req, res) => {
         const password = payload.password || randomPassword;
         payload.password = password;
 
-        const newCustomer = await Customer.create(payload);
+        const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+        payload.id = newId;
+        payload.createdAt = new Date();
+        payload.updatedAt = new Date();
+
+        const newCustomer = await prisma.customers.create({ data: payload });
 
         if (newCustomer.email) {
-          const existingUser = await User.findOne({ email: newCustomer.email });
+          const existingUser = await prisma.users.findFirst({ where: { email: newCustomer.email } });
           if (existingUser) {
-            await Customer.findByIdAndDelete(newCustomer._id);
+            await prisma.customers.delete({ where: { id: newCustomer.id } });
             errors.push({ row: i + 1, email: payload.email, error: 'A user account with this email already exists.' });
             continue;
           }
-
-          await User.create({
-            name: newCustomer.name,
-            email: newCustomer.email,
-            password: password,
-            role: 'CUSTOMER',
-            customerId: newCustomer._id,
-            type: newCustomer.type || 'EMI',
-            mustResetPassword: true
+          
+          const newUserId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+          await prisma.users.create({
+            data: {
+              id: newUserId,
+              name: newCustomer.name || '',
+              email: newCustomer.email,
+              password: password,
+              role: 'CUSTOMER',
+              customerId: newCustomer.id,
+              type: newCustomer.type || 'EMI',
+              mustResetPassword: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
           });
         }
         successCount++;
@@ -219,7 +264,10 @@ export const bulkUploadCustomers = async (req, res) => {
     }
 
     if (config) {
-      await config.save(); // Save nextNumber if it was updated
+      await prisma.systemconfigs.update({
+        where: { id: config.id },
+        data: { numbering: config.numbering }
+      });
     }
 
     res.status(200).json({

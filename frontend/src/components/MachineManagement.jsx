@@ -17,6 +17,7 @@ const MachineManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMachine, setEditingMachine] = useState(null);
   const [detailMachine, setDetailMachine] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const isAdmin = user?.role === 'OEM' || user?.role === 'Admin';
   const [localColConfig, setLocalColConfig] = usePersistentState('machine_col_config', { identity: true, status: true, specs: true, valuation: true, dataSync: true, control: true });
@@ -298,8 +299,10 @@ const MachineManagement = () => {
             )}
 
             <button
+              disabled={isSyncing}
               onClick={async () => {
                 try {
+                  setIsSyncing(true);
                   const res = await fetch(`${state.apiUrl}/machines/sync`, {
                     method: 'POST',
                     headers: { Authorization: `Bearer ${state.token}` }
@@ -307,16 +310,24 @@ const MachineManagement = () => {
                   if (res.ok) {
                     showNotification('Products synced successfully', 'success');
                     await state.fetchData();
+                    if (!isCustomer) fetchServerMachines();
                   } else {
                     showNotification('Failed to sync products', 'error');
                   }
                 } catch (e) {
                   showNotification('Sync error', 'error');
+                } finally {
+                  setIsSyncing(false);
                 }
               }}
-              className="px-6 py-3 bg-[#30363d] text-white text-xs font-black rounded-xl hover:bg-[#444c56] transition-all border border-[#30363d] active:scale-95 uppercase tracking-widest flex items-center gap-2"
+              className="px-6 py-3 bg-[#30363d] text-white text-xs font-black rounded-xl hover:bg-[#444c56] transition-all border border-[#30363d] active:scale-95 uppercase tracking-widest flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RefreshCw size={16} className="text-[#f0883e]" /> SYNC ASSETS
+              {isSyncing ? (
+                <div className="w-4 h-4 border-2 border-[#f0883e] border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <RefreshCw size={16} className="text-[#f0883e]" />
+              )}
+              {isSyncing ? 'SYNCING...' : 'SYNC ASSETS'}
             </button>
             {hasPermission(user, 'machines', 'create') && (
               <button onClick={handleAddMachine} className="px-8 py-3 bg-[#f0883e] text-black text-xs font-black rounded-xl hover:bg-[#f0883e]/90 transition-all shadow-[0_0_20px_rgba(240,136,62,0.15)] active:scale-95 uppercase tracking-widest flex items-center gap-2">

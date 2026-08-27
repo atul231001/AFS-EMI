@@ -42,17 +42,17 @@ const LoanAssignment = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-text-main tracking-tight uppercase italic">
-            {activeTab === 'new' ? 'New Financing' : 'Financed Assets'}
-          </h2>
-          <p className="text-[0.625rem] font-bold text-text-dim uppercase tracking-[0.2em] mt-1">
-            {activeTab === 'new' ? 'Assign Asset to Client' : 'Financed Asset Management'}
-          </p>
-        </div>
+      {activeTab !== 'new' && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-2xl font-black text-text-main tracking-tight uppercase italic">
+              Financed Assets
+            </h2>
+            <p className="text-[0.625rem] font-bold text-text-dim uppercase tracking-[0.2em] mt-1">
+              Financed Asset Management
+            </p>
+          </div>
 
-        {activeTab !== 'new' && (
           <div className="flex items-center gap-6">
             <div className="glass-tabs">
               <div className="tab-indicator" style={{
@@ -73,8 +73,8 @@ const LoanAssignment = () => {
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {activeTab === 'portfolio' ? (
         (loanListView || 'card') === 'card' ? <PortfolioCardView loans={loans} machines={machines} user={user} /> : <PortfolioListView loans={loans} machines={machines} user={user} />
@@ -453,10 +453,10 @@ const NewAssignment = ({ machines, customers, user, financing }) => {
   const attachmentOptions = ["None", ...availableAttachments.map(a => `${a.type} - ${a.config} (₹${a.amount})`)];
 
   return (
-    <div className="flex-1 grid grid-cols-12 gap-8 min-h-[calc(100vh-180px)] h-[calc(100vh-180px)] mt-4">
+    <div className="flex-1 grid grid-cols-12 gap-6 lg:gap-8 h-[calc(100vh-180px)]">
 
       {/* LEFT COLUMN: FINANCIAL PARAMETERS */}
-      <div className="col-span-12 lg:col-span-5 bg-bg-card border border-border-main rounded-2xl relative overflow-hidden flex flex-col shadow-2xl">
+      <div className="col-span-12 lg:col-span-5 bg-gradient-to-br from-bg-card to-bg-deep border border-border-main rounded-2xl relative overflow-hidden flex flex-col shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
         {/* GitHub Style Vertical Progress Line */}
         <div className="absolute left-6 top-8 bottom-8 w-px bg-border-main" />
 
@@ -637,7 +637,7 @@ const NewAssignment = ({ machines, customers, user, financing }) => {
               </div>
             </div>
 
-            <div className="bg-bg-deep/50 border border-border-main rounded-xl p-5 flex flex-col gap-6 shadow-inner">
+            <div className="bg-black/20 border border-border-main/50 rounded-xl p-5 flex flex-col gap-6 shadow-inner">
               <div className="flex flex-wrap md:flex-nowrap gap-6">
                 <div className="flex-1">
                   <p className="text-[10px] font-bold text-text-dim mb-1 uppercase tracking-tighter">Margin Money (₹)</p>
@@ -848,7 +848,7 @@ const NewAssignment = ({ machines, customers, user, financing }) => {
 
         {/* STATS STRIP */}
         <div className="grid grid-cols-2 gap-4 shrink-0">
-          <div className="p-4 rounded-xl border border-border-main bg-bg-card space-y-2">
+          <div className="p-5 rounded-xl border border-border-main bg-black/20 space-y-2 shadow-sm hover:border-border-main/80 transition-colors">
             <h3 className="text-[10px] font-bold text-text-dim uppercase tracking-widest border-b border-border-main pb-2">Value Breakdown</h3>
             <div className="flex justify-between text-[10px]"><span className="text-text-dim">1. Machine Price</span><span className="font-mono text-text-main">{formatINR(norms.machinePrice)}</span></div>
             <div className="flex justify-between text-[10px]"><span className="text-text-dim">2. Interest (Capitalized) @{norms.r}%</span><span className="font-mono text-[#f0883e]">{formatINR(norms.interestAmount)}</span></div>
@@ -858,7 +858,7 @@ const NewAssignment = ({ machines, customers, user, financing }) => {
             <div className="flex justify-between text-[10px]"><span className="text-text-dim">6. TCS @{formData.tcsPercentage || 0}%</span><span className="font-mono text-text-main">{formatINR(norms.tcs)}</span></div>
             <div className="flex justify-between text-[10px] font-black pt-1 border-t border-border-main mt-1 pt-2"><span className="text-text-main">7. Invoice Value</span><span className="font-mono text-text-main">{formatINR(norms.invoiceValue)}</span></div>
           </div>
-          <div className="p-4 rounded-xl border border-border-main bg-bg-card space-y-2 flex flex-col">
+          <div className="p-5 rounded-xl border border-border-main bg-black/20 space-y-2 flex flex-col shadow-sm hover:border-[#f0883e]/30 transition-colors">
             <h3 className="text-[10px] font-bold text-text-dim uppercase tracking-widest border-b border-border-main pb-2">Financing Details</h3>
             <div className="flex justify-between text-[10px]"><span className="text-text-dim">8. Margin Money</span><span className="font-mono text-text-main">{formatINR(norms.marginMoney)}</span></div>
             <div className="flex justify-between text-[10px] font-black pt-1 border-t border-border-main mt-1 pt-2"><span className="text-[#f0883e]">9. Financed Amount</span><span className="font-mono text-[#f0883e]">{formatINR(norms.financedAmount)}</span></div>
@@ -871,7 +871,7 @@ const NewAssignment = ({ machines, customers, user, financing }) => {
         </div>
 
         {/* REPAYMENT SCHEDULE TABLE */}
-        <div className="flex-1 overflow-hidden flex flex-col bg-bg-card border border-border-main rounded-2xl shadow-xl">
+        <div className="flex-1 overflow-hidden flex flex-col bg-bg-card/50 border border-border-main rounded-2xl shadow-xl backdrop-blur-sm">
           <div className="bg-bg-active border-b border-border-main p-3">
             <h3 className="text-[10px] font-bold text-text-dim uppercase tracking-widest flex items-center justify-between">
               <span>Amortization Schedule</span>
