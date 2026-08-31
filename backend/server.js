@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
-import connectDB from './config/db.js';
+// import connectDB from './config/db.js';
 
 // Route Imports
 import customerRoutes from './routes/customerRoutes.js';
@@ -39,7 +39,7 @@ import { getLoanDetails } from './controllers/app/loanController.js';
 import { protect } from './middleware/authMiddleware.js';
 
 dotenv.config({ path: './backend/.env' });
-connectDB();
+// connectDB(); // Removed since migration to MySQL
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -93,7 +93,7 @@ app.get('/', (req, res) => {
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    initScheduler();
+    // initScheduler(); // Disabled temporarily as it still uses Mongoose
   });
 }
 
