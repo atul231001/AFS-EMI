@@ -93,7 +93,7 @@ app.get('/', (req, res) => {
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    // initScheduler(); // Disabled temporarily as it still uses Mongoose
+    initScheduler();
   });
 }
 

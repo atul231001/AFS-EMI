@@ -1,33 +1,45 @@
-import Loan from '../models/Loan.js';
-import SystemConfig from '../models/SystemConfig.js';
-import NotificationLog from '../models/NotificationLog.js';
+import { PrismaClient } from '@prisma/client';
 import { sendNotification } from './notificationService.js';
+
+const prisma = new PrismaClient();
 
 export const runOverdueCheck = async () => {
   console.log('--- STARTING OVERDUE NOTIFICATION SCAN ---');
   try {
-    const config = await SystemConfig.findOne();
-    if (!config || !config.notifications.overdue_alert) {
+    const config = await prisma.systemconfigs.findFirst();
+    if (!config || !config.notifications || !config.notifications.overdue_alert) {
       console.log('Overdue alerts are globally disabled.');
       return;
     }
 
     const intervalDays = config.notifications.overdue_interval || 7;
-    const loans = await Loan.find().populate('customerId');
+    const loans = await prisma.loans.findMany();
 
     for (const loan of loans) {
-      if (!loan.customerId || !loan.customerId.email) continue;
+      if (!loan.customerId) continue;
+      
+      // Fetch customer manually since there is no Prisma relation defined
+      const customer = await prisma.customers.findUnique({
+        where: { id: loan.customerId }
+      });
 
-      const overdueSchedule = (loan.schedule || []).filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date());
+      if (!customer || !customer.email) continue;
+
+      const schedule = loan.schedule || [];
+      const overdueSchedule = schedule.filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date());
       const overdueAmount = overdueSchedule.reduce((sum, s) => sum + s.emi, 0);
 
       if (overdueAmount > 0) {
-        // Check last log for this loan
-        const lastLog = await NotificationLog.findOne({
-          event: 'overdue_alert',
-          'metadata.loanId': loan._id,
-          status: 'Sent'
-        }).sort({ createdAt: -1 });
+        // Fetch logs and filter in JS to avoid complex MySQL JSON path filtering issues
+        const recentLogs = await prisma.notificationlogs.findMany({
+          where: {
+            event: 'overdue_alert',
+            status: 'Sent'
+          },
+          orderBy: { createdAt: 'desc' }
+        });
+        
+        const lastLog = recentLogs.find(log => log.metadata && log.metadata.loanId === loan.id);
 
         let shouldSend = false;
         if (!lastLog) {
@@ -40,15 +52,15 @@ export const runOverdueCheck = async () => {
         }
 
         if (shouldSend) {
-          console.log(`Sending overdue notice for ${loan.machineName} to ${loan.customerId.email}`);
+          console.log(`Sending overdue notice for ${loan.machineName} to ${customer.email}`);
           await sendNotification('overdue_alert', {
-            name: loan.customerId.name,
-            email: loan.customerId.email,
+            name: customer.name,
+            email: customer.email,
             machineName: loan.machineName,
             overdueAmount: overdueAmount.toLocaleString('en-IN'),
             currency: '₹',
             dueDate: overdueSchedule[0].dueDate
-          }, { loanId: loan._id, auto: true });
+          }, { loanId: loan.id, auto: true });
         }
       }
     }
