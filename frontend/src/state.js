@@ -1,6 +1,6 @@
 // src/state.js
 
-const BASE_URL = import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://afs-emi.onrender.com/api';
+const BASE_URL = import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://afs-emi-production.up.railway.app/api';
 import { lightenDarkenColor } from './utils';
 
 const INITIAL_STATE = {
