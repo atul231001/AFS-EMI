@@ -1,16 +1,18 @@
-import User from '../../models/User.js';
-import Role from '../../models/Role.js';
+import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
-import SystemConfig from '../../models/SystemConfig.js';
-import BlacklistedToken from '../../models/BlacklistedToken.js';
+import crypto from 'crypto';
+
+const prisma = new PrismaClient();
 
 const generateToken = (id) => {
   return jwt.sign({ id, source: 'app' }, process.env.JWT_SECRET_APP || process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 };
+
+const generateObjectId = () => crypto.randomBytes(12).toString('hex');
 
 // Helper to ensure default Admin role with full permissions
 const ensureAdminRole = async () => {
@@ -31,16 +33,26 @@ const ensureAdminRole = async () => {
   };
 
   try {
-    let adminRole = await Role.findOne({ name: 'Admin' });
+    let adminRole = await prisma.roles.findFirst({ where: { name: 'Admin' } });
     if (!adminRole) {
-      adminRole = await Role.create({
-        name: 'Admin',
-        description: 'Master Administrator with unrestricted access',
-        permissions: fullPermissions
+      adminRole = await prisma.roles.create({
+        data: {
+          id: generateObjectId(),
+          name: 'Admin',
+          description: 'Master Administrator with unrestricted access',
+          permissions: fullPermissions,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
       });
     } else {
-      adminRole.permissions = fullPermissions;
-      await adminRole.save();
+      adminRole = await prisma.roles.update({
+        where: { id: adminRole.id },
+        data: {
+          permissions: fullPermissions,
+          updatedAt: new Date()
+        }
+      });
     }
     return adminRole;
   } catch (error) {
@@ -55,17 +67,29 @@ export const login = async (req, res) => {
   try {
     let queryRole = role;
     if (role === 'OEM') {
-      queryRole = { $in: ['OEM', 'SUPERVISOR'] };
+      queryRole = { in: ['OEM', 'SUPERVISOR'] };
     }
-    let user = await User.findOne({ email, role: queryRole }).populate('roleId').populate('customerId');
+    
+    let user = await prisma.users.findFirst({ where: { email, role: queryRole } });
+    
+    if (user) {
+      if (user.roleId) {
+        user.roleId = await prisma.roles.findUnique({ where: { id: user.roleId } });
+      }
+      if (user.customerId) {
+        user.customerId = await prisma.customers.findUnique({ where: { id: user.customerId } });
+      }
+    }
 
     // Master Admin Auto-Assignment
     if (user && email === 'oem@liugong.com' && password === user.password) {
       const adminRole = await ensureAdminRole();
       if (!user.roleId || user.roleId.name !== 'Admin') {
-        user.roleId = adminRole._id;
-        await user.save();
-        user = await User.findById(user._id).populate('roleId');
+        user = await prisma.users.update({
+          where: { id: user.id },
+          data: { roleId: adminRole.id, updatedAt: new Date() }
+        });
+        user.roleId = adminRole;
       }
     }
 
@@ -75,19 +99,19 @@ export const login = async (req, res) => {
         statusCode: 200,
         message: "Data retrieved successfully",
         data: {
-          _id: user._id,
+          _id: user.id,
           name: user.name,
           role: user.role,
           email: user.email
         },
-        token: generateToken(user._id)
+        token: generateToken(user.id)
       });
     } else {
       res.status(401).json({
         success: false,
         statusCode: 401,
         message: "Invalid email, password or role"
-      })
+      });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -97,17 +121,31 @@ export const login = async (req, res) => {
 export const register = async (req, res) => {
   const { name, email, password, role, customerId } = req.body;
   try {
-    const userExists = await User.findOne({ email });
+    const userExists = await prisma.users.findFirst({ where: { email } });
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
-    const user = await User.create({ name, email, password, role, customerId });
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await prisma.users.create({
+      data: {
+        id: generateObjectId(),
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        customerId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+    
     res.status(201).json({
-      _id: user._id,
+      _id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
-      token: generateToken(user._id)
+      token: generateToken(user.id)
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -117,7 +155,7 @@ export const register = async (req, res) => {
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const user = await prisma.users.findFirst({ where: { email } });
     if (!user) {
       return res.status(404).json({ message: 'User with this identity not found' });
     }
@@ -126,12 +164,19 @@ export const forgotPassword = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Set expiry to 10 minutes
-    user.resetOtp = otp;
-    user.resetOtpExpires = Date.now() + 10 * 60 * 1000;
-    await user.save();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    
+    await prisma.users.update({
+      where: { id: user.id },
+      data: {
+        resetOtp: otp,
+        resetOtpExpires: expiresAt,
+        updatedAt: new Date()
+      }
+    });
 
     // Check system SMTP configuration
-    const config = await SystemConfig.findOne();
+    const config = await prisma.systemconfigs.findFirst();
     const smtp = config?.smtp;
 
     if (smtp && smtp.host && smtp.user && smtp.pass) {
@@ -177,20 +222,26 @@ export const forgotPassword = async (req, res) => {
 export const resetPassword = async (req, res) => {
   const { email, otp, password } = req.body;
   try {
-    const user = await User.findOne({ email });
+    const user = await prisma.users.findFirst({ where: { email } });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (!user.resetOtp || user.resetOtp !== otp || user.resetOtpExpires < Date.now()) {
+    if (!user.resetOtp || user.resetOtp !== otp || new Date(user.resetOtpExpires).getTime() < Date.now()) {
       return res.status(400).json({ message: 'Invalid or expired OTP code' });
     }
 
-    // Set new password (pre-save hook hashes it)
-    user.password = password;
-    user.resetOtp = undefined;
-    user.resetOtpExpires = undefined;
-    await user.save();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    await prisma.users.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetOtp: null,
+        resetOtpExpires: null,
+        updatedAt: new Date()
+      }
+    });
 
     res.json({ message: 'Password recovery successful. Please log in with your new cipher.' });
   } catch (error) {
@@ -202,14 +253,21 @@ export const resetPassword = async (req, res) => {
 export const forceResetPassword = async (req, res) => {
   const { password } = req.body;
   try {
-    const user = await User.findById(req.user._id);
+    const user = await prisma.users.findUnique({ where: { id: req.user._id || req.user.id } });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.password = password;
-    user.mustResetPassword = false;
-    await user.save();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    await prisma.users.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        mustResetPassword: false,
+        updatedAt: new Date()
+      }
+    });
 
     res.json({ message: 'Cipher successfully initialized. Welcome to the portal.' });
   } catch (error) {
@@ -226,11 +284,17 @@ export const logout = async (req, res) => {
     }
 
     if (token) {
-      const isBlacklisted = await BlacklistedToken.findOne({ token });
+      const isBlacklisted = await prisma.blacklistedtokens.findFirst({ where: { token } });
       if (isBlacklisted) {
         return res.status(400).json({ success: false, statusCode: 400, message: 'Already logged out' });
       }
-      await BlacklistedToken.create({ token });
+      await prisma.blacklistedtokens.create({
+        data: {
+          id: generateObjectId(),
+          token,
+          createdAt: new Date()
+        }
+      });
     }
 
     res.json({ success: true, statusCode: 200, message: 'Logged out successfully' });
