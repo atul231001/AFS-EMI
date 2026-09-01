@@ -38,7 +38,10 @@ import { initScheduler } from './services/schedulerService.js';
 import { getLoanDetails } from './controllers/app/loanController.js';
 import { protect } from './middleware/authMiddleware.js';
 
-dotenv.config({ path: './backend/.env' });
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '.env') });
 // connectDB(); // Removed since migration to MySQL
 
 const app = express();
@@ -52,7 +55,7 @@ app.use((req, res, next) => {
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use('/uploads', express.static(path.join(process.cwd(), 'backend', 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/customers', customerRoutes);

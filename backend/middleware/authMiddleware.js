@@ -1,6 +1,5 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
-import BlacklistedToken from '../models/BlacklistedToken.js';
+import prisma from '../config/prisma.js';
 
 export const protect = async (req, res, next) => {
   let token;
@@ -18,7 +17,9 @@ export const protect = async (req, res, next) => {
   }
 
   try {
-    const isBlacklisted = await BlacklistedToken.findOne({ token });
+    const isBlacklisted = await prisma.blacklistedtokens.findFirst({
+      where: { token }
+    });
     if (isBlacklisted) {
       return res.status(401).json({ message: 'Not authorized, token invalidated' });
     }
@@ -40,10 +41,17 @@ export const protect = async (req, res, next) => {
       }
     }
 
-    req.user = await User.findById(decoded.id).select('-password');
-    if (!req.user) {
+    const user = await prisma.users.findUnique({
+      where: { id: decoded.id }
+    });
+
+    if (!user) {
       return res.status(401).json({ message: 'Not authorized, user not found' });
     }
+    
+    // Remove password field
+    const { password, ...userWithoutPassword } = user;
+    req.user = userWithoutPassword;
 
     // Block requests if password reset is required, except for the force reset endpoint itself
     if (req.user.mustResetPassword && !req.originalUrl.includes('/force-reset-password')) {
@@ -64,3 +72,4 @@ export const admin = (req, res, next) => {
     return res.status(401).json({ message: 'Not authorized as an admin' });
   }
 };
+

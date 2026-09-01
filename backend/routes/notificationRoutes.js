@@ -1,9 +1,6 @@
 import express from 'express';
-import NotificationTemplate from '../models/NotificationTemplate.js';
-import NotificationLog from '../models/NotificationLog.js';
+import prisma from '../config/prisma.js';
 import nodemailer from 'nodemailer';
-import Loan from '../models/Loan.js';
-import Customer from '../models/Customer.js';
 import { sendNotification } from '../services/notificationService.js';
 
 const router = express.Router();
@@ -14,8 +11,8 @@ console.log('--- Notification Routes Initializing ---');
 // Get all templates
 router.get('/templates', async (req, res) => {
   try {
-    const templates = await NotificationTemplate.find();
-    res.json(templates);
+    const templates = await prisma.notificationtemplates.findMany();
+    res.json(templates.map(t => ({ ...t, _id: t.id })));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -25,12 +22,19 @@ router.get('/templates', async (req, res) => {
 router.post('/templates', async (req, res) => {
   try {
     const { event, name, subject, body, variables, enabled, channels } = req.body;
-    const template = await NotificationTemplate.findOneAndUpdate(
-      { event },
-      { name, subject, body, variables, enabled, channels },
-      { new: true, upsert: true }
-    );
-    res.json(template);
+    let template = await prisma.notificationtemplates.findUnique({ where: { event } });
+    if (template) {
+      template = await prisma.notificationtemplates.update({
+        where: { event },
+        data: { name, subject, body, variables, enabled, channels, updatedAt: new Date() }
+      });
+    } else {
+      const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      template = await prisma.notificationtemplates.create({
+        data: { event, name, subject, body, variables, enabled, channels, id: newId, createdAt: new Date(), updatedAt: new Date() }
+      });
+    }
+    res.json({ ...template, _id: template.id });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -39,7 +43,7 @@ router.post('/templates', async (req, res) => {
 // Delete template
 router.delete('/templates/:id', async (req, res) => {
   try {
-    await NotificationTemplate.findByIdAndDelete(req.params.id);
+    await prisma.notificationtemplates.delete({ where: { id: req.params.id } });
     res.json({ message: 'Template deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -51,8 +55,11 @@ router.delete('/templates/:id', async (req, res) => {
 // Get all logs
 router.get('/logs', async (req, res) => {
   try {
-    const logs = await NotificationLog.find().sort({ createdAt: -1 }).limit(100);
-    res.json(logs);
+    const logs = await prisma.notificationlogs.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+    res.json(logs.map(l => ({ ...l, _id: l.id })));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -85,16 +92,19 @@ router.post('/test-mail', async (req, res) => {
 router.post('/send-overdue-notice', async (req, res) => {
   try {
     const { loanId } = req.body;
-    const loan = await Loan.findById(loanId).populate('customerId');
+    const loan = await prisma.loans.findUnique({ where: { id: loanId }, include: { customers: true } });
     if (!loan) return res.status(404).json({ message: 'Loan/Asset not found' });
 
-    const customer = loan.customerId;
+    const customer = loan.customers;
     if (!customer || !customer.email) return res.status(400).json({ message: 'Customer email not found' });
 
-    const overdueSchedule = (loan.schedule || []).filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date());
+    let schedule = [];
+    try { schedule = typeof loan.schedule === 'string' ? JSON.parse(loan.schedule) : loan.schedule; } catch(e){}
+
+    const overdueSchedule = (schedule || []).filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date());
     const overdueAmount = overdueSchedule.reduce((sum, s) => sum + s.emi, 0);
 
-    const upcomingSchedule = (loan.schedule || []).filter(s => s.status === 'Pending' && new Date(s.dueDate) >= new Date()).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    const upcomingSchedule = (schedule || []).filter(s => s.status === 'Pending' && new Date(s.dueDate) >= new Date()).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
     const upcomingEmi = upcomingSchedule[0];
 
     const isOverdue = overdueAmount > 0;

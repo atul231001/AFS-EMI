@@ -7,7 +7,7 @@ import crypto from 'crypto';
 const prisma = new PrismaClient();
 
 const generateToken = (id) => {
-  return jwt.sign({ id, source: 'app' }, process.env.JWT_SECRET_APP || process.env.JWT_SECRET, {
+  return jwt.sign({ id, source: 'web' }, process.env.JWT_SECRET_WEB || process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 };
@@ -65,13 +65,16 @@ export const login = async (req, res) => {
   const { email, password, role } = req.body;
   console.log("Login request:", req.body);
   try {
-    let queryRole = role;
-    if (role === 'OEM') {
-      queryRole = { in: ['OEM', 'SUPERVISOR'] };
+    let query = { email };
+    if (role) {
+      if (role === 'OEM') {
+        query.role = { in: ['OEM', 'SUPERVISOR'] };
+      } else {
+        query.role = role;
+      }
     }
     
-    let user = await prisma.users.findFirst({ where: { email, role: queryRole } });
-    
+    let user = await prisma.users.findFirst({ where: query });
     if (user) {
       if (user.roleId) {
         user.roleId = await prisma.roles.findUnique({ where: { id: user.roleId } });
@@ -95,22 +98,24 @@ export const login = async (req, res) => {
 
     if (user && (await bcrypt.compare(password, user.password))) {
       res.json({
-        success: true,
-        statusCode: 200,
-        message: "Data retrieved successfully",
-        data: {
-          _id: user.id,
-          name: user.name,
-          role: user.role,
-          email: user.email
-        },
-        token: generateToken(user.id)
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        roleId: user.roleId,
+        customerId: user.customerId,
+        supervisorId: user.supervisorId || null,
+        type: user.type || (user.customerId ? user.customerId.type : null),
+        status: user.status,
+        settings: user.settings,
+        mustResetPassword: user.mustResetPassword || false,
+        token: generateToken(user.id),
       });
     } else {
       res.status(401).json({
         success: false,
         statusCode: 401,
-        message: "Invalid email, password or role"
+        message: "Invalid email and password"
       });
     }
   } catch (error) {
@@ -282,11 +287,11 @@ export const logout = async (req, res) => {
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
-
+    
     if (token) {
       const isBlacklisted = await prisma.blacklistedtokens.findFirst({ where: { token } });
       if (isBlacklisted) {
-        return res.status(400).json({ success: false, statusCode: 400, message: 'Already logged out' });
+        return res.status(400).json({ success: false, message: 'Already logged out' });
       }
       await prisma.blacklistedtokens.create({
         data: {
@@ -297,8 +302,8 @@ export const logout = async (req, res) => {
       });
     }
 
-    res.json({ success: true, statusCode: 200, message: 'Logged out successfully' });
+    res.json({ success: true, message: 'Logged out successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, statusCode: 500, message: 'Logout failed', error: error.message });
+    res.status(500).json({ success: false, message: 'Logout failed', error: error.message });
   }
 };

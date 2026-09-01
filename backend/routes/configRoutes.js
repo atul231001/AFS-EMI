@@ -1,5 +1,5 @@
 import express from 'express';
-import SystemConfig from '../models/SystemConfig.js';
+import prisma from '../config/prisma.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -7,11 +7,12 @@ const router = express.Router();
 // Get config
 router.get('/', protect, async (req, res) => {
   try {
-    let config = await SystemConfig.findOne();
+    let config = await prisma.systemconfigs.findFirst();
     if (!config) {
-      config = await SystemConfig.create({});
+      const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      config = await prisma.systemconfigs.create({ data: { id: newId, createdAt: new Date(), updatedAt: new Date() } });
     }
-    res.json(config);
+    res.json({ ...config, _id: config.id });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -20,8 +21,20 @@ router.get('/', protect, async (req, res) => {
 // Update config
 router.put('/', protect, async (req, res) => {
   try {
-    const config = await SystemConfig.findOneAndUpdate({}, req.body, { new: true, upsert: true });
-    res.json(config);
+    let config = await prisma.systemconfigs.findFirst();
+    let updatedConfig;
+    if (config) {
+      updatedConfig = await prisma.systemconfigs.update({
+        where: { id: config.id },
+        data: { ...req.body, updatedAt: new Date() }
+      });
+    } else {
+      const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      updatedConfig = await prisma.systemconfigs.create({
+        data: { ...req.body, id: newId, createdAt: new Date(), updatedAt: new Date() }
+      });
+    }
+    res.json({ ...updatedConfig, _id: updatedConfig.id });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -59,6 +59,7 @@ model customers {
   email     String?   @db.Text
   status    String?   @db.Text
   address   String?   @db.Text
+  loans     loans[]
   city      String?   @db.Text
   state     String?   @db.Text
   pin       String?   @db.Text
@@ -212,6 +213,8 @@ model fmctickets {
 model loans {
   id                      String    @id @map("_id") @db.VarChar(24)
   customerId              String?   @db.VarChar(24)
+  customers               customers? @relation(fields: [customerId], references: [id])
+  payments                payments[]
   financingType           String?   @db.Text
   machineName             String?   @db.Text
   model                   String?   @db.Text
@@ -221,6 +224,8 @@ model loans {
   principal               Float?
   emi                     Float?
   tenure                  Float?
+  paidAmount              Float?    @default(0)
+  balance                 Float?
   interestRate            Float?
   downPayment             Float?
   machinePrice            Float?
@@ -244,6 +249,8 @@ model loans {
   dispatchData            Json?
   commissionDate          String?   @db.Text
   downPaymentInstallments Float?
+  moratoriumDays          Float?
+  marginInterestRate      Float?
   compoundOverdueInterest Boolean?
   interestWaiverLogs      Json?
   schedule                Json?
@@ -312,6 +319,7 @@ model notificationtemplates {
 model payments {
   id                 String    @id @map("_id") @db.VarChar(24)
   loanId             String?   @db.VarChar(24)
+  loans              loans?    @relation(fields: [loanId], references: [id])
   amount             Float?
   date               String?   @db.Text
   method             String?   @db.Text

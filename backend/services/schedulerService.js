@@ -25,7 +25,8 @@ export const runOverdueCheck = async () => {
 
       if (!customer || !customer.email) continue;
 
-      const schedule = loan.schedule || [];
+      let schedule = [];
+      try { schedule = typeof loan.schedule === 'string' ? JSON.parse(loan.schedule) : (loan.schedule || []); } catch(e){}
       const overdueSchedule = schedule.filter(s => s.status === 'Pending' && new Date(s.dueDate) < new Date());
       const overdueAmount = overdueSchedule.reduce((sum, s) => sum + s.emi, 0);
 

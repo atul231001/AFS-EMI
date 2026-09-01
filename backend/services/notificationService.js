@@ -1,19 +1,23 @@
 import nodemailer from 'nodemailer';
-import SystemConfig from '../models/SystemConfig.js';
-import NotificationTemplate from '../models/NotificationTemplate.js';
-import NotificationLog from '../models/NotificationLog.js';
+import prisma from '../config/prisma.js';
 
 export const sendNotification = async (event, recipientData, metadata = {}) => {
   try {
     // 1. Check if event is enabled in SystemConfig
-    const config = await SystemConfig.findOne();
-    if (!config || !config.notifications[event]) {
+    const config = await prisma.systemconfigs.findFirst();
+    
+    let notificationsConfig = {};
+    if (config && config.notifications) {
+      try { notificationsConfig = typeof config.notifications === 'string' ? JSON.parse(config.notifications) : config.notifications; } catch(e){}
+    }
+
+    if (!config || !notificationsConfig[event]) {
       console.log(`Notification for event ${event} is disabled.`);
       return { success: false, message: 'Notification disabled' };
     }
 
     // 2. Get Template
-    const template = await NotificationTemplate.findOne({ event, enabled: true });
+    const template = await prisma.notificationtemplates.findFirst({ where: { event, enabled: true } });
     if (!template) {
       console.log(`No active template found for event ${event}.`);
       return { success: false, message: 'Template not found' };
@@ -27,8 +31,8 @@ export const sendNotification = async (event, recipientData, metadata = {}) => {
     
     Object.keys(allData).forEach(key => {
       const placeholder = new RegExp(`{{${key}}}`, 'g');
-      body = body.replace(placeholder, allData[key]);
-      subject = subject.replace(placeholder, allData[key]);
+      body = body.replace(placeholder, allData[key] || '');
+      subject = subject.replace(placeholder, allData[key] || '');
     });
 
     // 4. Wrap plain text in professional HTML template if needed
@@ -53,8 +57,17 @@ export const sendNotification = async (event, recipientData, metadata = {}) => {
     }
 
     // 5. Send via Email (if channel exists)
-    if (template.channels.includes('email')) {
-      const smtp = config.smtp;
+    let channels = [];
+    if (template.channels) {
+      try { channels = typeof template.channels === 'string' ? JSON.parse(template.channels) : template.channels; } catch(e){}
+    }
+
+    if (channels.includes('email')) {
+      let smtp = {};
+      if (config.smtp) {
+        try { smtp = typeof config.smtp === 'string' ? JSON.parse(config.smtp) : config.smtp; } catch(e){}
+      }
+
       if (!smtp || !smtp.user || !smtp.pass) {
         throw new Error('SMTP configuration incomplete');
       }
@@ -79,14 +92,20 @@ export const sendNotification = async (event, recipientData, metadata = {}) => {
       const info = await transporter.sendMail(mailOptions);
       
       // 5. Log Success
-      await NotificationLog.create({
-        event,
-        channel: 'email',
-        recipient: allData.email,
-        subject,
-        body,
-        status: 'Sent',
-        metadata: { messageId: info.messageId, ...metadata }
+      const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      await prisma.notificationlogs.create({
+        data: {
+          id: newId,
+          event,
+          channel: 'email',
+          recipient: allData.email,
+          subject,
+          body,
+          status: 'Sent',
+          metadata: { messageId: info.messageId, ...metadata },
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
       });
 
       return { success: true, messageId: info.messageId };
@@ -97,14 +116,22 @@ export const sendNotification = async (event, recipientData, metadata = {}) => {
     console.error('Notification Error:', error);
     
     // Log Failure
-    await NotificationLog.create({
-      event,
-      channel: 'email',
-      recipient: recipientData.email || 'unknown',
-      status: 'Failed',
-      error: error.message,
-      metadata
-    });
+    try {
+      const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      await prisma.notificationlogs.create({
+        data: {
+          id: newId,
+          event,
+          channel: 'email',
+          recipient: recipientData.email || 'unknown',
+          status: 'Failed',
+          error: error.message,
+          metadata,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+    } catch(e) {}
 
     return { success: false, error: error.message };
   }

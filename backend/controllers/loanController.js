@@ -56,7 +56,7 @@ export const createLoan = async (req, res) => {
     
     if (!flow) {
       flow = await prisma.approvalflows.findFirst({
-        where: { type: 'FINANCING', isActive: true, supervisorId: { in: [null, ''] } }
+        where: { type: 'FINANCING', isActive: true, OR: [{ supervisorId: null }, { supervisorId: '' }] }
       });
     }
 
@@ -115,11 +115,10 @@ export const approveLoan = async (req, res) => {
     const { id } = req.params;
     const { action = 'Approved', notes = '' } = req.body || {};
 
-    const loan = await Loan.findById(id).populate({
-      path: 'approvalFlowId',
-      populate: {
-        path: 'steps.statusId',
-        model: 'TicketStatus'
+    const loan = await prisma.loans.findUnique({
+      where: { id },
+      include: {
+        approvalflows: true
       }
     });
 
@@ -128,62 +127,88 @@ export const approveLoan = async (req, res) => {
     if (loan.approvalStatus === 'Approved' || loan.approvalStatus === 'Rejected') {
       return res.status(400).json({ message: 'Loan is already fully processed' });
     }
+    
+    let approvalHistory = [];
+    try { approvalHistory = typeof loan.approvalHistory === 'string' ? JSON.parse(loan.approvalHistory) : (loan.approvalHistory || []); } catch(e){}
 
     if (action === 'Rejected') {
-      loan.approvalStatus = 'Rejected';
-      loan.approvalHistory.push({
+      approvalHistory.push({
         action,
         notes,
-        approverId: req.user._id,
+        approverId: req.user.id || req.user._id,
         approverName: req.user.name || 'Unknown',
         status: 'Rejected',
         date: new Date()
       });
-      await loan.save();
-      const updated = await Loan.findById(id).populate('customerId');
-      return res.json(updated);
+      await prisma.loans.update({
+        where: { id },
+        data: { approvalStatus: 'Rejected', approvalHistory }
+      });
+      
+      const updated = await prisma.loans.findUnique({ where: { id }, include: { customers: true } });
+      return res.json({ ...updated, _id: updated.id, customerId: updated.customers });
     }
 
-    const flow = loan.approvalFlowId;
-    if (!flow) {
-      loan.approvalStatus = 'Approved';
-      loan.agreementGenerated = true;
-      loan.approvalHistory.push({
+    const flow = loan.approvalflows;
+    let flowSteps = [];
+    if (flow && flow.steps) {
+      try { flowSteps = typeof flow.steps === 'string' ? JSON.parse(flow.steps) : flow.steps; } catch(e){}
+    }
+
+    if (!flow || flowSteps.length === 0) {
+      approvalHistory.push({
         action,
         notes,
-        approverId: req.user._id,
+        approverId: req.user.id || req.user._id,
         approverName: req.user.name || 'Unknown',
         status: 'Approved',
         date: new Date()
       });
-      await loan.save();
-      const updated = await Loan.findById(id).populate('customerId');
-      return res.json(updated);
+      await prisma.loans.update({
+        where: { id },
+        data: { approvalStatus: 'Approved', agreementGenerated: true, approvalHistory }
+      });
+      const updated = await prisma.loans.findUnique({ where: { id }, include: { customers: true } });
+      return res.json({ ...updated, _id: updated.id, customerId: updated.customers });
     }
 
     // Get the status from the current step
-    const currentStep = flow.steps[loan.approvalStep];
-    const stepStatusName = currentStep && currentStep.statusId ? (currentStep.statusId.name || currentStep.statusId) : 'Approved Step';
+    const currentStep = flowSteps[loan.approvalStep || 0];
+    let stepStatusName = 'Approved Step';
+    
+    if (currentStep && currentStep.statusId) {
+      // Fetch ticket status to get name
+      const statusDoc = await prisma.ticketstatuses.findUnique({ where: { id: currentStep.statusId } });
+      if (statusDoc) stepStatusName = statusDoc.name;
+    }
 
-    loan.approvalHistory.push({
+    approvalHistory.push({
       action,
       notes,
-      approverId: req.user._id,
+      approverId: req.user.id || req.user._id,
       approverName: req.user.name || 'Unknown',
       status: stepStatusName,
       date: new Date()
     });
 
-    loan.approvalStatus = stepStatusName;
-    loan.approvalStep += 1;
+    let newStep = (loan.approvalStep || 0) + 1;
+    let newStatus = stepStatusName;
 
-    if (loan.approvalStep >= flow.steps.length) {
-      loan.approvalStatus = 'Pending Scheduling';
+    if (newStep >= flowSteps.length) {
+      newStatus = 'Pending Scheduling';
     }
 
-    await loan.save();
-    const updatedLoan = await Loan.findById(id).populate('customerId');
-    res.json(updatedLoan);
+    await prisma.loans.update({
+      where: { id },
+      data: {
+        approvalStatus: newStatus,
+        approvalStep: newStep,
+        approvalHistory
+      }
+    });
+    
+    const updatedLoan = await prisma.loans.findUnique({ where: { id }, include: { customers: true } });
+    res.json({ ...updatedLoan, _id: updatedLoan.id, customerId: updatedLoan.customers });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -191,24 +216,28 @@ export const approveLoan = async (req, res) => {
 
 export const downloadAgreement = async (req, res) => {
   try {
-    const loan = await Loan.findById(req.params.id).populate('customerId');
+    const loan = await prisma.loans.findUnique({ where: { id: req.params.id }, include: { customers: true } });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
 
-    const pdf = await generateAgreementPDF(loan);
+    // Map for legacy pdfService
+    const mappedLoan = { ...loan, _id: loan.id, customerId: loan.customers };
+    const pdf = await generateAgreementPDF(mappedLoan);
     res.contentType("application/pdf");
-    res.setHeader('Content-Disposition', `attachment; filename=Agreement_${loan._id}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=Agreement_${loan.id}.pdf`);
     res.send(pdf);
   } catch (error) {
+    console.error("downloadAgreement error:", error);
     res.status(500).json({ message: 'Error generating agreement PDF' });
   }
 };
 
 export const getAgreementHTML = async (req, res) => {
   try {
-    const loan = await Loan.findById(req.params.id).populate('customerId');
+    const loan = await prisma.loans.findUnique({ where: { id: req.params.id }, include: { customers: true } });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
 
-    const html = generateAgreementHTML(loan, true);
+    const mappedLoan = { ...loan, _id: loan.id, customerId: loan.customers };
+    const html = generateAgreementHTML(mappedLoan, true);
     res.contentType("text/html");
     res.send(html);
   } catch (error) {
@@ -218,9 +247,9 @@ export const getAgreementHTML = async (req, res) => {
 
 export const sendAgreementEmail = async (req, res) => {
   try {
-    const loan = await Loan.findById(req.params.id).populate('customerId');
+    const loan = await prisma.loans.findUnique({ where: { id: req.params.id }, include: { customers: true } });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
-    res.json({ message: 'Email sent successfully to ' + (loan.customerId?.email || 'customer') });
+    res.json({ message: 'Email sent successfully to ' + (loan.customers?.email || 'customer') });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -228,15 +257,19 @@ export const sendAgreementEmail = async (req, res) => {
 
 export const confirmDispatch = async (req, res) => {
   try {
-    const loan = await Loan.findById(req.params.id).populate('customerId');
+    const loan = await prisma.loans.findUnique({ where: { id: req.params.id } });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
 
-    loan.approvalStatus = 'Pending Commissioning';
-    loan.dispatchDate = req.body.dispatchDate || new Date().toISOString().split('T')[0];
-    if (req.body.serialNumber) loan.serialNumber = req.body.serialNumber;
-    if (req.body.dispatchData) loan.dispatchData = req.body.dispatchData;
-    await loan.save();
-    res.json(loan);
+    const updateData = {
+      approvalStatus: 'Pending Commissioning',
+      dispatchDate: req.body.dispatchDate ? new Date(req.body.dispatchDate).toISOString() : new Date().toISOString()
+    };
+    
+    if (req.body.serialNumber) updateData.serialNumber = req.body.serialNumber;
+    if (req.body.dispatchData) updateData.dispatchData = req.body.dispatchData;
+    
+    const updated = await prisma.loans.update({ where: { id: loan.id }, data: updateData, include: { customers: true } });
+    res.json({ ...updated, _id: updated.id, customerId: updated.customers });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -244,13 +277,16 @@ export const confirmDispatch = async (req, res) => {
 
 export const confirmCommission = async (req, res) => {
   try {
-    const loan = await Loan.findById(req.params.id).populate('customerId');
+    const loan = await prisma.loans.findUnique({ where: { id: req.params.id } });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
 
-    loan.approvalStatus = 'Active';
-    loan.commissionDate = req.body.commissionDate || new Date().toISOString().split('T')[0];
-    await loan.save();
-    res.json(loan);
+    const updateData = {
+      approvalStatus: 'Active',
+      commissionDate: req.body.commissionDate ? new Date(req.body.commissionDate).toISOString() : new Date().toISOString()
+    };
+    
+    const updated = await prisma.loans.update({ where: { id: loan.id }, data: updateData, include: { customers: true } });
+    res.json({ ...updated, _id: updated.id, customerId: updated.customers });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -258,13 +294,14 @@ export const confirmCommission = async (req, res) => {
 
 export const approveSchedule = async (req, res) => {
   try {
-    const loan = await Loan.findById(req.params.id);
+    const loan = await prisma.loans.findUnique({ where: { id: req.params.id } });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
-    loan.approvalStatus = 'Pending Invoice';
+    
+    let approvalHistory = [];
+    try { approvalHistory = typeof loan.approvalHistory === 'string' ? JSON.parse(loan.approvalHistory) : (loan.approvalHistory || []); } catch(e){}
     
     if (req.body.notes) {
-      loan.approvalHistory = loan.approvalHistory || [];
-      loan.approvalHistory.push({
+      approvalHistory.push({
         step: 'Scheduling Phase',
         status: 'Scheduled',
         notes: req.body.notes,
@@ -272,8 +309,11 @@ export const approveSchedule = async (req, res) => {
       });
     }
     
-    await loan.save();
-    res.json(loan);
+    const updated = await prisma.loans.update({
+      where: { id: loan.id },
+      data: { approvalStatus: 'Pending Invoice', approvalHistory }
+    });
+    res.json({ ...updated, _id: updated.id });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -281,21 +321,14 @@ export const approveSchedule = async (req, res) => {
 
 export const approveInvoice = async (req, res) => {
   try {
-    const loan = await Loan.findById(req.params.id);
+    const loan = await prisma.loans.findUnique({ where: { id: req.params.id } });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
-    loan.approvalStatus = 'Pending Dispatch';
     
-    if (req.body.invoiceNumber) {
-      loan.invoiceNumber = req.body.invoiceNumber;
-    }
-    
-    if (req.body.invoiceData) {
-      loan.invoiceData = req.body.invoiceData;
-    }
+    let approvalHistory = [];
+    try { approvalHistory = typeof loan.approvalHistory === 'string' ? JSON.parse(loan.approvalHistory) : (loan.approvalHistory || []); } catch(e){}
     
     if (req.body.notes) {
-      loan.approvalHistory = loan.approvalHistory || [];
-      loan.approvalHistory.push({
+      approvalHistory.push({
         step: 'Invoicing Phase',
         status: 'Invoiced',
         notes: req.body.notes,
@@ -303,8 +336,15 @@ export const approveInvoice = async (req, res) => {
       });
     }
     
-    await loan.save();
-    res.json(loan);
+    const updateData = { approvalStatus: 'Pending Dispatch', approvalHistory };
+    if (req.body.invoiceNumber) updateData.invoiceNumber = req.body.invoiceNumber;
+    if (req.body.invoiceData) updateData.invoiceData = req.body.invoiceData;
+    
+    const updated = await prisma.loans.update({
+      where: { id: loan.id },
+      data: updateData
+    });
+    res.json({ ...updated, _id: updated.id });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -312,19 +352,23 @@ export const approveInvoice = async (req, res) => {
 
 export const downloadReceipt = async (req, res) => {
   try {
-    const loan = await Loan.findById(req.params.id).populate('customerId');
+    const loan = await prisma.loans.findUnique({ where: { id: req.params.id }, include: { customers: true } });
     if (!loan) {
       return res.status(404).json({ message: 'Loan not found' });
     }
 
+    let schedule = [];
+    try { schedule = typeof loan.schedule === 'string' ? JSON.parse(loan.schedule) : loan.schedule; } catch(e){}
+
     const installmentNum = parseInt(req.params.installment);
-    const installment = loan.schedule.find((s, index) => s.installment === installmentNum || s.installmentNo === installmentNum || (index + 1) === installmentNum);
+    const installment = (schedule || []).find((s, index) => s.installment === installmentNum || s.installmentNo === installmentNum || (index + 1) === installmentNum);
 
     if (!installment) {
       return res.status(404).json({ message: 'Installment not found' });
     }
 
-    const pdf = await generateReceiptPDF(loan, installment);
+    const mappedLoan = { ...loan, _id: loan.id, customerId: loan.customers };
+    const pdf = await generateReceiptPDF(mappedLoan, installment);
 
     res.contentType("application/pdf");
     res.send(pdf);
@@ -337,11 +381,13 @@ export const downloadReceipt = async (req, res) => {
 export const downloadReport = async (req, res) => {
   try {
     const { id, format } = req.params;
-    const loan = await Loan.findById(id).populate('customerId');
+    const loan = await prisma.loans.findUnique({ where: { id }, include: { customers: true } });
 
     if (!loan) {
       return res.status(404).json({ message: 'Asset Protocol Not Found' });
     }
+
+    const mappedLoan = { ...loan, _id: loan.id, customerId: loan.customers };
 
     let buffer;
     let contentType;
@@ -349,19 +395,20 @@ export const downloadReport = async (req, res) => {
 
     switch (format.toLowerCase()) {
       case 'excel':
-        buffer = await generateExcelReport(loan);
+        buffer = await generateExcelReport(mappedLoan);
         contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         extension = 'xlsx';
         break;
       case 'ppt': {
-        const allLoans = await Loan.find({ customerId: loan.customerId._id }).populate('customerId');
-        buffer = await generatePPTReport(loan, allLoans);
+        const allLoans = await prisma.loans.findMany({ where: { customerId: loan.customerId }, include: { customers: true } });
+        const mappedAllLoans = allLoans.map(l => ({ ...l, _id: l.id, customerId: l.customers }));
+        buffer = await generatePPTReport(mappedLoan, mappedAllLoans);
         contentType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
         extension = 'pptx';
         break;
       }
       case 'pdf':
-        buffer = await generatePDFReport(loan);
+        buffer = await generatePDFReport(mappedLoan);
         contentType = 'application/pdf';
         extension = 'pdf';
         break;
@@ -392,9 +439,7 @@ export const lookupLoan = async (req, res) => {
         error: {
           code: "MISSING_PARAM",
           message: "A required query parameter 'invoice' or 'serial' is missing."
-        },
-        timestamp: new Date().toISOString(),
-        path: req.originalUrl
+        }
       });
     }
 
@@ -405,7 +450,7 @@ export const lookupLoan = async (req, res) => {
       query.serialNumber = serial;
     }
 
-    const loan = await Loan.findOne(query).populate('customerId');
+    const loan = await prisma.loans.findFirst({ where: query, include: { customers: true } });
     if (!loan) {
       return res.status(404).json({
         success: false,
@@ -414,16 +459,14 @@ export const lookupLoan = async (req, res) => {
         error: {
           code: "RESOURCE_NOT_FOUND",
           message: `No loan record exists for the provided ${invoice ? 'invoice (' + invoice + ')' : 'serial (' + serial + ')'}.`
-        },
-        timestamp: new Date().toISOString(),
-        path: req.originalUrl
+        }
       });
     }
 
     // Fetch associated machine
     let machineInfo = null;
     if (loan.machineName) {
-      const machineDoc = await Machine.findOne({ name: loan.machineName });
+      const machineDoc = await prisma.machines.findFirst({ where: { name: loan.machineName } });
       if (machineDoc) {
         machineInfo = {
           name: machineDoc.name,
@@ -443,22 +486,25 @@ export const lookupLoan = async (req, res) => {
       }
     }
 
+    let schedule = [];
+    try { schedule = typeof loan.schedule === 'string' ? JSON.parse(loan.schedule) : loan.schedule; } catch(e){}
+
     // Calculate schedule summary
     const scheduleSummary = {
-      totalInstallments: loan.schedule ? loan.schedule.length : 0,
-      paidInstallments: loan.schedule ? loan.schedule.filter(s => s.status === 'Paid').length : 0,
-      pendingInstallments: loan.schedule ? loan.schedule.filter(s => s.status !== 'Paid').length : 0,
+      totalInstallments: schedule ? schedule.length : 0,
+      paidInstallments: schedule ? schedule.filter(s => s.status === 'Paid').length : 0,
+      pendingInstallments: schedule ? schedule.filter(s => s.status !== 'Paid').length : 0,
       nextDueDate: null,
       outstandingPrincipal: 0,
       overdueInstallments: 0
     };
 
-    if (loan.schedule && loan.schedule.length > 0) {
-      const pending = loan.schedule.filter(s => s.status !== 'Paid').sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    if (schedule && schedule.length > 0) {
+      const pending = schedule.filter(s => s.status !== 'Paid').sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
       if (pending.length > 0) {
         scheduleSummary.nextDueDate = pending[0].dueDate;
       }
-      const lastPaid = loan.schedule.filter(s => s.status === 'Paid').sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate))[0];
+      const lastPaid = schedule.filter(s => s.status === 'Paid').sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate))[0];
       if (lastPaid) {
         scheduleSummary.outstandingPrincipal = lastPaid.balance || 0;
       } else if (pending.length > 0) {
@@ -466,38 +512,46 @@ export const lookupLoan = async (req, res) => {
       }
       
       const now = new Date();
-      scheduleSummary.overdueInstallments = loan.schedule.filter(s => s.status !== 'Paid' && new Date(s.dueDate) < now).length;
+      scheduleSummary.overdueInstallments = schedule.filter(s => s.status !== 'Paid' && new Date(s.dueDate) < now).length;
     }
 
-    const customerData = loan.customerId ? {
-      id: loan.customerId._id,
-      name: loan.customerId.name,
-      customId: loan.customerId.customId,
-      mobile: loan.customerId.mobile,
-      email: loan.customerId.email,
-      gst: loan.customerId.gst,
-      type: loan.customerId.type
+    const customerData = loan.customers ? {
+      id: loan.customers.id,
+      name: loan.customers.name,
+      customId: loan.customers.customId,
+      mobile: loan.customers.mobile,
+      email: loan.customers.email,
+      gst: loan.customers.gst,
+      type: loan.customers.type
     } : null;
+
+    let invoiceData = {};
+    let dispatchData = {};
+    try { invoiceData = typeof loan.invoiceData === 'string' ? JSON.parse(loan.invoiceData) : (loan.invoiceData || {}); } catch(e){}
+    try { dispatchData = typeof loan.dispatchData === 'string' ? JSON.parse(loan.dispatchData) : (loan.dispatchData || {}); } catch(e){}
 
     // Dispatch info
     const dispatchInfo = {
       invoiceNumber: loan.invoiceNumber,
-      invoiceDate: loan.invoiceData?.invoiceDate || loan.invoiceData?.date || null,
+      invoiceDate: invoiceData.invoiceDate || invoiceData.date || null,
       dispatchDate: loan.dispatchDate,
       serialNumber: loan.serialNumber,
       documents: {
-        invoiceFile: loan.invoiceUrl || loan.invoiceData?.invoiceFile || loan.invoiceData?.url || null,
-        ddFile: loan.dispatchData?.ddFile || loan.dispatchData?.url || null,
-        lrFile: loan.dispatchData?.lrFile || loan.dispatchData?.lrUrl || null
+        invoiceFile: loan.invoiceUrl || invoiceData.invoiceFile || invoiceData.url || null,
+        ddFile: dispatchData.ddFile || dispatchData.url || null,
+        lrFile: dispatchData.lrFile || dispatchData.lrUrl || null
       }
     };
+    
+    let approvalHistory = [];
+    try { approvalHistory = typeof loan.approvalHistory === 'string' ? JSON.parse(loan.approvalHistory) : (loan.approvalHistory || []); } catch(e){}
 
     return res.status(200).json({
       success: true,
       statusCode: 200,
       status: "OK",
       data: {
-        loanId: loan._id,
+        loanId: loan.id,
         customer: customerData,
         machine: machineInfo,
         loanDetails: {
@@ -517,10 +571,10 @@ export const lookupLoan = async (req, res) => {
           agreementUrl: loan.agreementUrl,
           emiStartDate: loan.emiStartDate,
           scheduleSummary,
-          schedule: loan.schedule
+          schedule: schedule
         },
         dispatchInfo,
-        approvalHistory: loan.approvalHistory
+        approvalHistory
       },
       meta: {
         requestedAt: new Date().toISOString(),
@@ -538,9 +592,8 @@ export const lookupLoan = async (req, res) => {
       error: {
         code: "INTERNAL_SERVER_ERROR",
         message: "An unexpected error occurred while processing your request."
-      },
-      timestamp: new Date().toISOString(),
-      path: req.originalUrl
+      }
     });
   }
 };
+

@@ -1,12 +1,6 @@
 import express from 'express';
 const router = express.Router();
-import mongoose from 'mongoose';
-import { FMCContract, FMCTicket, FMCSupervisor, FMCDailyHour, FMCInvoice } from '../../models/FMC.js';
-import User from '../../models/User.js';
-import TicketStatus from '../../models/TicketStatus.js';
-import ApprovalFlow from '../../models/ApprovalFlow.js';
-import Role from '../../models/Role.js';
-
+import prisma from '../../config/prisma.js';
 import { protect } from '../../middleware/authMiddleware.js';
 import { sendNotification } from '../../services/notificationService.js';
 
@@ -19,7 +13,7 @@ const isUserAdmin = async (user) => {
       const name = user.roleId.name.toUpperCase();
       return name.includes('ADMIN') || name.includes('SUPER');
     }
-    const role = await Role.findById(user.roleId);
+    const role = await prisma.roles.findUnique({ where: { id: user.roleId } });
     if (role && role.name) {
       const name = role.name.toUpperCase();
       return name.includes('ADMIN') || name.includes('SUPER');
@@ -35,72 +29,105 @@ const getTicketActiveApproverId = async (t) => {
 
   let supervisorId = t.supervisorId;
   if (!supervisorId && t.contractId) {
-    const contract = await FMCContract.findById(t.contractId);
+    const contract = await prisma.fmccontracts.findUnique({ where: { id: t.contractId } });
     if (contract && contract.assignedSupervisor) {
-      const superv = await FMCSupervisor.findOne({
-        $or: [
-          { name: contract.assignedSupervisor },
-          { _id: mongoose.isValidObjectId(contract.assignedSupervisor) ? contract.assignedSupervisor : new mongoose.Types.ObjectId() }
-        ]
+      const superv = await prisma.fmcsupervisors.findFirst({
+        where: {
+          OR: [
+            { name: contract.assignedSupervisor },
+            { id: contract.assignedSupervisor }
+          ]
+        }
       });
       if (superv) {
-        supervisorId = superv._id.toString();
+        supervisorId = superv.id;
       }
     }
   }
 
   let activeFlow = null;
-  const flowQuery = { isActive: true, $or: [{ type: 'TICKET' }, { type: { $exists: false } }, { type: null }] };
-
+  
   if (supervisorId) {
-    const supervisor = await FMCSupervisor.findById(supervisorId);
+    const supervisor = await prisma.fmcsupervisors.findUnique({ where: { id: supervisorId } });
     if (supervisor && supervisor.approvalFlowId) {
-      activeFlow = await ApprovalFlow.findOne({ _id: supervisor.approvalFlowId, ...flowQuery });
+      activeFlow = await prisma.approvalflows.findFirst({
+        where: {
+          id: supervisor.approvalFlowId,
+          isActive: true,
+          OR: [{ type: 'TICKET' }, { type: null }]
+        }
+      });
     }
     if (!activeFlow) {
-      activeFlow = await ApprovalFlow.findOne({ supervisorId: supervisorId, ...flowQuery });
+      activeFlow = await prisma.approvalflows.findFirst({
+        where: {
+          supervisorId: supervisorId,
+          isActive: true,
+          OR: [{ type: 'TICKET' }, { type: null }]
+        }
+      });
     }
   }
+  
   if (!activeFlow) {
-    activeFlow = await ApprovalFlow.findOne({ $or: [{ supervisorId: '' }, { supervisorId: null }], ...flowQuery });
+    activeFlow = await prisma.approvalflows.findFirst({
+      where: {
+        OR: [{ supervisorId: '' }, { supervisorId: null }],
+        isActive: true,
+        AND: [{ OR: [{ type: 'TICKET' }, { type: null }] }]
+      }
+    });
   }
   if (!activeFlow) return null;
 
   const stepIndex = t.currentStepIndex || 0;
-  if (stepIndex >= activeFlow.steps.length) return null;
-  const activeStep = activeFlow.steps[stepIndex];
+  
+  let steps = [];
+  try { steps = typeof activeFlow.steps === 'string' ? JSON.parse(activeFlow.steps) : (activeFlow.steps || []); } catch(e){}
+
+  if (stepIndex >= steps.length) return null;
+  const activeStep = steps[stepIndex];
   if (!activeStep) return null;
 
-  return activeStep.approverId?.toString() || null;
+  return activeStep.approverId || null;
 };
 
 // ── Helper: build CRUD for a model ─────────────────────────────────────────
-const crud = (Model) => ({
+const crud = (modelName) => ({
   getAll: async (req, res) => {
-    try { res.json(await Model.find().sort({ createdAt: -1 })); }
+    try {
+      const data = await prisma[modelName].findMany({ orderBy: { createdAt: 'desc' } });
+      res.json(data.map(d => ({ ...d, _id: d.id })));
+    }
     catch (e) { res.status(500).json({ message: e.message }); }
   },
   create: async (req, res) => {
-    try { const doc = await Model.create(req.body); res.status(201).json(doc); }
+    try {
+      const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      const doc = await prisma[modelName].create({ data: { ...req.body, id: newId, createdAt: new Date(), updatedAt: new Date() } });
+      res.status(201).json({ ...doc, _id: doc.id });
+    }
     catch (e) { res.status(400).json({ message: e.message }); }
   },
   update: async (req, res) => {
     try {
-      const doc = await Model.findByIdAndUpdate(req.params.id, req.body, { new: true });
-      if (!doc) return res.status(404).json({ message: 'Not found' });
-      res.json(doc);
+      const doc = await prisma[modelName].update({
+        where: { id: req.params.id },
+        data: { ...req.body, updatedAt: new Date() }
+      });
+      res.json({ ...doc, _id: doc.id });
     } catch (e) { res.status(400).json({ message: e.message }); }
   },
   delete: async (req, res) => {
     try {
-      await Model.findByIdAndDelete(req.params.id);
+      await prisma[modelName].delete({ where: { id: req.params.id } });
       res.json({ success: true });
     } catch (e) { res.status(400).json({ message: e.message }); }
   }
 });
 
 // ── FMC Contracts ───────────────────────────────────────────────────────────
-const contracts = crud(FMCContract);
+const contracts = crud('fmccontracts');
 router.get('/contracts', protect, contracts.getAll);
 router.post('/contracts', protect, contracts.create);
 router.put('/contracts/:id', protect, contracts.update);
@@ -108,60 +135,98 @@ router.delete('/contracts/:id', protect, contracts.delete);
 
 // ── Ticket Statuses ─────────────────────────────────────────────────────────
 router.get('/ticket-statuses', protect, async (req, res) => {
-  try { res.json(await TicketStatus.find().populate('allowedUsers').sort({ name: 1 })); }
+  try {
+    const statuses = await prisma.ticketstatuses.findMany({ orderBy: { name: 'asc' } });
+    res.json(statuses.map(s => ({ ...s, _id: s.id })));
+  }
   catch (e) { res.status(500).json({ message: e.message }); }
 });
 router.post('/ticket-statuses', protect, async (req, res) => {
   try {
-    const doc = await TicketStatus.create(req.body);
-    res.status(201).json(await doc.populate('allowedUsers'));
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    const doc = await prisma.ticketstatuses.create({ data: { ...req.body, id: newId, createdAt: new Date(), updatedAt: new Date() } });
+    res.status(201).json({ ...doc, _id: doc.id });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 router.put('/ticket-statuses/:id', protect, async (req, res) => {
   try {
-    const doc = await TicketStatus.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('allowedUsers');
-    res.json(doc);
+    const doc = await prisma.ticketstatuses.update({
+      where: { id: req.params.id },
+      data: { ...req.body, updatedAt: new Date() }
+    });
+    res.json({ ...doc, _id: doc.id });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 router.delete('/ticket-statuses/:id', protect, async (req, res) => {
   try {
-    await TicketStatus.findByIdAndDelete(req.params.id);
+    await prisma.ticketstatuses.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
 // ── Approval Flows ──────────────────────────────────────────────────────────
 router.get('/approval-flows', protect, async (req, res) => {
-  try { res.json(await ApprovalFlow.find().populate('steps.approverId').populate('steps.statusId').sort({ createdAt: -1 })); }
+  try {
+    const flows = await prisma.approvalflows.findMany({ orderBy: { createdAt: 'desc' } });
+    // Mock populate steps
+    const flowList = [];
+    for (let f of flows) {
+      const flowObj = { ...f, _id: f.id };
+      let steps = [];
+      try { steps = typeof f.steps === 'string' ? JSON.parse(f.steps) : (f.steps || []); } catch(e){}
+      
+      const populatedSteps = [];
+      for (let s of steps) {
+        let approverObj = s.approverId;
+        let statusObj = s.statusId;
+        if (s.approverId) {
+          const user = await prisma.users.findUnique({ where: { id: s.approverId } });
+          if (user) approverObj = { ...user, _id: user.id };
+        }
+        if (s.statusId) {
+          const status = await prisma.ticketstatuses.findUnique({ where: { id: s.statusId } });
+          if (status) statusObj = { ...status, _id: status.id };
+        }
+        populatedSteps.push({ ...s, approverId: approverObj, statusId: statusObj });
+      }
+      flowObj.steps = populatedSteps;
+      flowList.push(flowObj);
+    }
+    res.json(flowList);
+  }
   catch (e) { res.status(500).json({ message: e.message }); }
 });
 router.post('/approval-flows', protect, async (req, res) => {
   try {
     const supervisorId = req.body.supervisorId || '';
     const type = req.body.type || 'TICKET';
-    const existing = await ApprovalFlow.findOne({ supervisorId, type });
+    const existing = await prisma.approvalflows.findFirst({ where: { supervisorId, type } });
     if (existing) {
       return res.status(400).json({ message: 'An approval flow already exists for this type and scope. You can only edit the existing flow.' });
     }
-    const doc = await ApprovalFlow.create(req.body);
-    res.status(201).json(await doc.populate(['steps.approverId', 'steps.statusId']));
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    const doc = await prisma.approvalflows.create({ data: { ...req.body, id: newId, createdAt: new Date(), updatedAt: new Date() } });
+    res.status(201).json({ ...doc, _id: doc.id });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 router.put('/approval-flows/:id', protect, async (req, res) => {
   try {
     const supervisorId = req.body.supervisorId || '';
     const type = req.body.type || 'TICKET';
-    const existing = await ApprovalFlow.findOne({ supervisorId, type, _id: { $ne: req.params.id } });
+    const existing = await prisma.approvalflows.findFirst({ where: { supervisorId, type, id: { not: req.params.id } } });
     if (existing) {
       return res.status(400).json({ message: 'An approval flow already exists for this type and scope. You can only edit the existing flow.' });
     }
-    const doc = await ApprovalFlow.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('steps.approverId').populate('steps.statusId');
-    res.json(doc);
+    const doc = await prisma.approvalflows.update({
+      where: { id: req.params.id },
+      data: { ...req.body, updatedAt: new Date() }
+    });
+    res.json({ ...doc, _id: doc.id });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 router.delete('/approval-flows/:id', protect, async (req, res) => {
   try {
-    await ApprovalFlow.findByIdAndDelete(req.params.id);
+    await prisma.approvalflows.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
@@ -170,33 +235,40 @@ router.delete('/approval-flows/:id', protect, async (req, res) => {
 router.get('/tickets', protect, async (req, res) => {
   try {
     const adminCheck = await isUserAdmin(req.user);
-    let tickets;
+    let tickets = [];
     if (req.user.role === 'SUPERVISOR') {
-      const supervId = req.user.supervisorId?.toString();
-      tickets = await FMCTicket.find({
-        $or: [
-          { createdBy: req.user._id },
-          { supervisorId: supervId }
-        ]
-      }).sort({ createdAt: -1 });
+      const supervId = req.user.supervisorId;
+      tickets = await prisma.fmctickets.findMany({
+        where: {
+          OR: [
+            { createdBy: req.user.id },
+            { supervisorId: supervId }
+          ]
+        },
+        orderBy: { createdAt: 'desc' }
+      });
     } else if (adminCheck) {
-      tickets = await FMCTicket.find().sort({ createdAt: -1 });
+      tickets = await prisma.fmctickets.findMany({ orderBy: { createdAt: 'desc' } });
     } else {
       // Employee / Approver: see tickets where they are the active approver OR they are in the approval history
-      const allTickets = await FMCTicket.find().sort({ createdAt: -1 });
+      const allTickets = await prisma.fmctickets.findMany({ orderBy: { createdAt: 'desc' } });
       const visibleTickets = [];
       for (const t of allTickets) {
         const activeApproverId = await getTicketActiveApproverId(t);
-        const hasApprovedBefore = t.approvalHistory?.some(h =>
-          (h.approverId?._id || h.approverId)?.toString() === req.user._id.toString()
+        
+        let approvalHistory = [];
+        try { approvalHistory = typeof t.approvalHistory === 'string' ? JSON.parse(t.approvalHistory) : (t.approvalHistory || []); } catch(e){}
+        
+        const hasApprovedBefore = approvalHistory?.some(h =>
+          (h.approverId?.id || h.approverId) === req.user.id
         );
-        if (activeApproverId === req.user._id.toString() || hasApprovedBefore) {
+        if (activeApproverId === req.user.id || hasApprovedBefore) {
           visibleTickets.push(t);
         }
       }
       tickets = visibleTickets;
     }
-    res.json(tickets);
+    res.json(tickets.map(t => ({ ...t, _id: t.id })));
   } catch (e) {
     res.status(500).json({ message: e.message });
   }
@@ -206,33 +278,37 @@ router.post('/tickets', protect, async (req, res) => {
   try {
     let supervisorId = null;
     if (req.user.role === 'SUPERVISOR') {
-      supervisorId = req.user.supervisorId?.toString();
+      supervisorId = req.user.supervisorId;
     } else if (req.body.contractId) {
-      const contract = await FMCContract.findById(req.body.contractId);
+      const contract = await prisma.fmccontracts.findUnique({ where: { id: req.body.contractId } });
       if (contract && contract.assignedSupervisor) {
-        const superv = await FMCSupervisor.findOne({ name: contract.assignedSupervisor });
+        const superv = await prisma.fmcsupervisors.findFirst({ where: { name: contract.assignedSupervisor } });
         if (superv) {
-          supervisorId = superv._id.toString();
+          supervisorId = superv.id;
         }
       }
     }
 
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
     const payload = {
       ...req.body,
+      id: newId,
       status: 'Requested',
       currentStepIndex: 0,
-      createdBy: req.user._id,
-      supervisorId: supervisorId
+      createdBy: req.user.id,
+      supervisorId: supervisorId,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
-    const doc = await FMCTicket.create(payload);
-    res.status(201).json(doc);
+    const doc = await prisma.fmctickets.create({ data: payload });
+    res.status(201).json({ ...doc, _id: doc.id });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
 router.put('/tickets/:id', protect, async (req, res) => {
   try {
-    const ticket = await FMCTicket.findById(req.params.id);
+    const ticket = await prisma.fmctickets.findUnique({ where: { id: req.params.id } });
     if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
     // Prevent edit of rejected tickets
@@ -249,8 +325,7 @@ router.put('/tickets/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access Denied: Approvers are not allowed to edit tickets.' });
     }
 
-    const isOwner = ticket.createdBy?.toString() === req.user._id.toString() ||
-      ticket.supervisorId?.toString() === req.user.supervisorId?.toString();
+    const isOwner = ticket.createdBy === req.user.id || ticket.supervisorId === req.user.supervisorId;
     if (!isOwner) {
       return res.status(403).json({ message: 'Access Denied: Supervisors can only read and update their own tickets.' });
     }
@@ -260,21 +335,22 @@ router.put('/tickets/:id', protect, async (req, res) => {
       return res.status(400).json({ message: 'Access Denied: Tickets cannot be edited after the approval process has started.' });
     }
 
-    Object.assign(ticket, req.body);
-    const updated = await ticket.save();
-    res.json(updated);
+    const updated = await prisma.fmctickets.update({
+      where: { id: req.params.id },
+      data: { ...req.body, updatedAt: new Date() }
+    });
+    res.json({ ...updated, _id: updated.id });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
 router.delete('/tickets/:id', protect, async (req, res) => {
   try {
-    const ticket = await FMCTicket.findById(req.params.id);
+    const ticket = await prisma.fmctickets.findUnique({ where: { id: req.params.id } });
     if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
     const adminCheck = await isUserAdmin(req.user);
     if (req.user.role === 'SUPERVISOR') {
-      const isOwner = ticket.createdBy?.toString() === req.user._id.toString() ||
-        ticket.supervisorId?.toString() === req.user.supervisorId?.toString();
+      const isOwner = ticket.createdBy === req.user.id || ticket.supervisorId === req.user.supervisorId;
       if (!isOwner) {
         return res.status(403).json({ message: 'Access Denied: Supervisors can only delete their own tickets.' });
       }
@@ -285,14 +361,14 @@ router.delete('/tickets/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Access Denied: Approvers are not allowed to delete tickets.' });
     }
 
-    await FMCTicket.findByIdAndDelete(req.params.id);
+    await prisma.fmctickets.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
 router.post('/tickets/:id/approve', protect, async (req, res) => {
   try {
-    const ticket = await FMCTicket.findById(req.params.id);
+    const ticket = await prisma.fmctickets.findUnique({ where: { id: req.params.id } });
     if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
     const adminCheck = await isUserAdmin(req.user);
@@ -300,79 +376,109 @@ router.post('/tickets/:id/approve', protect, async (req, res) => {
     const { notes, action } = req.body;
 
     const activeApproverId = await getTicketActiveApproverId(ticket);
-    if (!adminCheck && (!activeApproverId || activeApproverId !== req.user._id.toString())) {
+    if (!adminCheck && (!activeApproverId || activeApproverId !== req.user.id)) {
       return res.status(403).json({ message: 'You are not the designated approver for this step.' });
     }
 
     let supervisorId = ticket.supervisorId;
     if (!supervisorId && ticket.contractId) {
-      const contract = await FMCContract.findById(ticket.contractId);
+      const contract = await prisma.fmccontracts.findUnique({ where: { id: ticket.contractId } });
       if (contract && contract.assignedSupervisor) {
-        const superv = await FMCSupervisor.findOne({
-          $or: [
-            { name: contract.assignedSupervisor },
-            { _id: mongoose.isValidObjectId(contract.assignedSupervisor) ? contract.assignedSupervisor : new mongoose.Types.ObjectId() }
-          ]
+        const superv = await prisma.fmcsupervisors.findFirst({
+          where: {
+            OR: [
+              { name: contract.assignedSupervisor },
+              { id: contract.assignedSupervisor }
+            ]
+          }
         });
-        if (superv) supervisorId = superv._id.toString();
+        if (superv) supervisorId = superv.id;
       }
     }
 
     let flow = null;
-    const flowQuery = { isActive: true, $or: [{ type: 'TICKET' }, { type: { $exists: false } }, { type: null }] };
-    
     if (supervisorId) {
-      const supervisor = await FMCSupervisor.findById(supervisorId);
+      const supervisor = await prisma.fmcsupervisors.findUnique({ where: { id: supervisorId } });
       if (supervisor && supervisor.approvalFlowId) {
-        flow = await ApprovalFlow.findOne({ _id: supervisor.approvalFlowId, ...flowQuery }).populate('steps.approverId').populate('steps.statusId');
+        flow = await prisma.approvalflows.findFirst({
+          where: { id: supervisor.approvalFlowId, isActive: true, OR: [{ type: 'TICKET' }, { type: null }] }
+        });
       }
       if (!flow) {
-        flow = await ApprovalFlow.findOne({ supervisorId, ...flowQuery }).populate('steps.approverId').populate('steps.statusId');
+        flow = await prisma.approvalflows.findFirst({
+          where: { supervisorId, isActive: true, OR: [{ type: 'TICKET' }, { type: null }] }
+        });
       }
     }
     if (!flow) {
-      flow = await ApprovalFlow.findOne({ $or: [{ supervisorId: '' }, { supervisorId: null }], ...flowQuery }).populate('steps.approverId').populate('steps.statusId');
+      flow = await prisma.approvalflows.findFirst({
+        where: { OR: [{ supervisorId: '' }, { supervisorId: null }], isActive: true, AND: [{ OR: [{ type: 'TICKET' }, { type: null }] }] }
+      });
     }
 
     if (!flow) {
       return res.status(400).json({ message: 'No active approval flow configured.' });
     }
+    
+    let flowSteps = [];
+    try { flowSteps = typeof flow.steps === 'string' ? JSON.parse(flow.steps) : (flow.steps || []); } catch(e){}
 
-    if (ticket.currentStepIndex >= flow.steps.length) {
+    if (ticket.currentStepIndex >= flowSteps.length) {
       return res.status(400).json({ message: 'Ticket has already completed all approval steps.' });
     }
 
-    const currentStep = flow.steps[ticket.currentStepIndex];
+    const currentStep = flowSteps[ticket.currentStepIndex];
     if (!currentStep) {
       return res.status(400).json({ message: 'Designated step does not exist.' });
     }
+    
+    let approvalHistory = [];
+    try { approvalHistory = typeof ticket.approvalHistory === 'string' ? JSON.parse(ticket.approvalHistory) : (ticket.approvalHistory || []); } catch(e){}
+
+    let updateData = {};
 
     if (action === 'Approved') {
-      const isFinalStep = ticket.currentStepIndex + 1 >= flow.steps.length;
-      const targetStatus = currentStep.statusId?.name || (isFinalStep ? 'Approved' : `Pending for Level ${ticket.currentStepIndex + 2} Approval`);
+      const isFinalStep = ticket.currentStepIndex + 1 >= flowSteps.length;
+      
+      let statusName = 'Approved';
+      if (currentStep.statusId) {
+        const stat = await prisma.ticketstatuses.findUnique({ where: { id: currentStep.statusId } });
+        if (stat) statusName = stat.name;
+      }
+      
+      const targetStatus = statusName || (isFinalStep ? 'Approved' : `Pending for Level ${ticket.currentStepIndex + 2} Approval`);
 
-      ticket.status = targetStatus;
-      ticket.currentStepIndex += 1;
-      ticket.approvalHistory.push({
-        approverId: req.user._id,
+      updateData.status = targetStatus;
+      updateData.currentStepIndex = ticket.currentStepIndex + 1;
+      
+      approvalHistory.push({
+        approverId: req.user.id,
         approverName: req.user.name,
         status: targetStatus,
         action: 'Approved',
-        notes: notes || 'Approved step'
+        notes: notes || 'Approved step',
+        date: new Date()
       });
     } else {
-      ticket.status = 'Rejected';
-      ticket.approvalHistory.push({
-        approverId: req.user._id,
+      updateData.status = 'Rejected';
+      approvalHistory.push({
+        approverId: req.user.id,
         approverName: req.user.name,
         status: 'Rejected',
         action: 'Rejected',
-        notes: notes || 'Rejected step'
+        notes: notes || 'Rejected step',
+        date: new Date()
       });
     }
+    
+    updateData.approvalHistory = approvalHistory;
+    updateData.updatedAt = new Date();
 
-    const updated = await ticket.save();
-    res.json(updated);
+    const updated = await prisma.fmctickets.update({
+      where: { id: ticket.id },
+      data: updateData
+    });
+    res.json({ ...updated, _id: updated.id });
   } catch (e) {
     res.status(400).json({ message: e.message });
   }
@@ -381,18 +487,22 @@ router.post('/tickets/:id/approve', protect, async (req, res) => {
 // ── FMC Supervisors — with linked User account ─────────────────────────────
 router.get('/supervisors', protect, async (req, res) => {
   try {
-    const supervisors = await FMCSupervisor.find().sort({ createdAt: -1 }).lean();
-    const supervisorIds = supervisors.map(s => s._id);
-    const users = await User.find({ supervisorId: { $in: supervisorIds } }, 'email supervisorId');
+    const supervisors = await prisma.fmcsupervisors.findMany({ orderBy: { createdAt: 'desc' } });
+    const supervisorIds = supervisors.map(s => s.id);
+    const users = await prisma.users.findMany({
+      where: { supervisorId: { in: supervisorIds } },
+      select: { email: true, supervisorId: true }
+    });
     const emailMap = {};
     users.forEach(u => {
       if (u.supervisorId) {
-        emailMap[u.supervisorId.toString()] = u.email;
+        emailMap[u.supervisorId] = u.email;
       }
     });
     const result = supervisors.map(s => ({
       ...s,
-      email: emailMap[s._id.toString()] || ''
+      _id: s.id,
+      email: emailMap[s.id] || ''
     }));
     res.json(result);
   }
@@ -408,7 +518,10 @@ router.post('/supervisors', protect, async (req, res) => {
     }
 
     // 1. Create the FMC supervisor profile
-    const supervisor = await FMCSupervisor.create(supervisorData);
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    const supervisor = await prisma.fmcsupervisors.create({
+      data: { ...supervisorData, id: newId, createdAt: new Date(), updatedAt: new Date() }
+    });
 
     // 2. If email provided, create a linked User account and generate random password if needed
     if (email) {
@@ -423,24 +536,34 @@ router.post('/supervisors', protect, async (req, res) => {
 
       console.log(`[Supervisor Onboarding] Password for ${email}: ${finalPassword}`);
 
-      const existing = await User.findOne({ email });
+      const existing = await prisma.users.findFirst({ where: { email } });
       if (existing) {
         // Update existing user to link to this supervisor
-        existing.supervisorId = supervisor._id;
-        existing.role = 'SUPERVISOR';
-        existing.name = supervisor.name;
-        existing.password = finalPassword;
-        existing.mustResetPassword = true;
-        await existing.save();
+        await prisma.users.update({
+          where: { id: existing.id },
+          data: {
+            supervisorId: supervisor.id,
+            role: 'SUPERVISOR',
+            name: supervisor.name,
+            password: finalPassword,
+            mustResetPassword: true
+          }
+        });
       } else {
-        await User.create({
-          name: supervisor.name,
-          email,
-          password: finalPassword,
-          role: 'SUPERVISOR',
-          supervisorId: supervisor._id,
-          status: supervisor.status || 'Active',
-          mustResetPassword: true
+        const newUserId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+        await prisma.users.create({
+          data: {
+            id: newUserId,
+            name: supervisor.name,
+            email,
+            password: finalPassword,
+            role: 'SUPERVISOR',
+            supervisorId: supervisor.id,
+            status: supervisor.status || 'Active',
+            mustResetPassword: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
         });
       }
 
@@ -455,9 +578,7 @@ router.post('/supervisors', protect, async (req, res) => {
       }).catch(err => console.error('FMC Supervisor welcome notification error:', err));
     }
 
-    const supervisorObj = supervisor.toObject();
-    supervisorObj.email = email || '';
-    res.status(201).json(supervisorObj);
+    res.status(201).json({ ...supervisor, _id: supervisor.id, email: email || '' });
   } catch (e) {
     res.status(400).json({ message: e.message });
   }
@@ -469,18 +590,22 @@ router.put('/supervisors/:id', protect, async (req, res) => {
     if (supervisorData.approvalFlowId === '') {
       supervisorData.approvalFlowId = null;
     }
-    const supervisor = await FMCSupervisor.findByIdAndUpdate(req.params.id, supervisorData, { new: true });
-    if (!supervisor) return res.status(404).json({ message: 'Supervisor not found' });
+    const supervisor = await prisma.fmcsupervisors.update({
+      where: { id: req.params.id },
+      data: { ...supervisorData, updatedAt: new Date() }
+    });
 
     // Update linked user if email provided
     if (email) {
-      const existingUser = await User.findOne({ supervisorId: supervisor._id });
+      const existingUser = await prisma.users.findFirst({ where: { supervisorId: supervisor.id } });
       if (existingUser) {
-        existingUser.email = email;
-        existingUser.name = supervisor.name;
-        existingUser.status = supervisor.status || 'Active';
-        if (password) existingUser.password = password;
-        await existingUser.save();
+        const userData = {
+          email,
+          name: supervisor.name,
+          status: supervisor.status || 'Active'
+        };
+        if (password) userData.password = password;
+        await prisma.users.update({ where: { id: existingUser.id }, data: userData });
       } else {
         // Create new user if not exists
         const finalPassword = (password && password.trim() !== '') ? password : (() => {
@@ -492,14 +617,20 @@ router.put('/supervisors/:id', protect, async (req, res) => {
           return randomPassword;
         })();
 
-        await User.create({
-          name: supervisor.name,
-          email,
-          password: finalPassword,
-          role: 'SUPERVISOR',
-          supervisorId: supervisor._id,
-          status: supervisor.status || 'Active',
-          mustResetPassword: true
+        const newUserId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+        await prisma.users.create({
+          data: {
+            id: newUserId,
+            name: supervisor.name,
+            email,
+            password: finalPassword,
+            role: 'SUPERVISOR',
+            supervisorId: supervisor.id,
+            status: supervisor.status || 'Active',
+            mustResetPassword: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
         });
 
         // Send welcome notification
@@ -514,10 +645,8 @@ router.put('/supervisors/:id', protect, async (req, res) => {
       }
     }
 
-    const supervisorObj = supervisor.toObject();
-    const linkedUser = await User.findOne({ supervisorId: supervisor._id }, 'email');
-    supervisorObj.email = linkedUser ? linkedUser.email : (email || '');
-    res.json(supervisorObj);
+    const linkedUser = await prisma.users.findFirst({ where: { supervisorId: supervisor.id }, select: { email: true } });
+    res.json({ ...supervisor, _id: supervisor.id, email: linkedUser ? linkedUser.email : (email || '') });
   } catch (e) {
     res.status(400).json({ message: e.message });
   }
@@ -526,8 +655,8 @@ router.put('/supervisors/:id', protect, async (req, res) => {
 router.delete('/supervisors/:id', protect, async (req, res) => {
   try {
     // Also remove the linked user account
-    await User.deleteOne({ supervisorId: req.params.id });
-    await FMCSupervisor.findByIdAndDelete(req.params.id);
+    await prisma.users.deleteMany({ where: { supervisorId: req.params.id } });
+    await prisma.fmcsupervisors.delete({ where: { id: req.params.id } });
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ message: e.message });
@@ -535,14 +664,14 @@ router.delete('/supervisors/:id', protect, async (req, res) => {
 });
 
 // ── FMC Daily Hours ─────────────────────────────────────────────────────────
-const hours = crud(FMCDailyHour);
+const hours = crud('fmcdailyhours');
 router.get('/daily-hours', protect, hours.getAll);
 router.post('/daily-hours', protect, hours.create);
 router.put('/daily-hours/:id', protect, hours.update);
 router.delete('/daily-hours/:id', protect, hours.delete);
 
 // ── FMC Invoices ────────────────────────────────────────────────────────────
-const invoices = crud(FMCInvoice);
+const invoices = crud('fmcinvoices');
 router.get('/invoices', protect, invoices.getAll);
 router.post('/invoices', protect, invoices.create);
 router.put('/invoices/:id', protect, invoices.update);

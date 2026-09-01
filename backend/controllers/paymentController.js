@@ -156,17 +156,38 @@ export const createPayment = async (req, res) => {
     // it will just naturally apply to the next pending installment in the loop above!
     // Because the loop goes through all installments.
 
-    payload.allocations = allocations;
     const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-    payload.id = newId;
-    payload.createdAt = new Date();
-    payload.updatedAt = new Date();
+    
+    const paymentPayload = {
+      id: newId,
+      loanId: loan.id,
+      amount: req.body.amount,
+      date: req.body.date,
+      method: req.body.paymentMethod || 'Manual',
+      transactionId: req.body.transactionId || req.body.referenceNumber,
+      allocations: allocations,
+      waiveInterest: req.body.waiveInterest,
+      waiverReason: req.body.waiverReason,
+      waiveInstallmentNo: req.body.waiveInstallmentNo ? Number(req.body.waiveInstallmentNo) : null,
+      uploadedBy: req.user ? req.user.id : null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
-    const newPayment = await prisma.payments.create({ data: payload });
+    const newPayment = await prisma.payments.create({ data: paymentPayload });
+
+    // Recalculate loan totals
+    loan.paidAmount = loan.schedule.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+    loan.balance = loan.principal - loan.paidAmount;
 
     await prisma.loans.update({
       where: { id: loan.id },
-      data: { schedule: loan.schedule, interestWaiverLogs: loan.interestWaiverLogs }
+      data: { 
+        schedule: loan.schedule, 
+        interestWaiverLogs: loan.interestWaiverLogs,
+        paidAmount: loan.paidAmount,
+        balance: loan.balance
+      }
     });
 
     res.status(201).json({ ...newPayment, _id: newPayment.id });
@@ -410,7 +431,19 @@ export const importBulkUpload = async (req, res) => {
       };
 
       await prisma.payments.create({ data: paymentPayload });
-      await prisma.loans.update({ where: { id: loan.id }, data: { schedule: loan.schedule } });
+
+      // Recalculate loan totals
+      loan.paidAmount = loan.schedule.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+      loan.balance = loan.principal - loan.paidAmount;
+
+      await prisma.loans.update({ 
+        where: { id: loan.id }, 
+        data: { 
+          schedule: loan.schedule,
+          paidAmount: loan.paidAmount,
+          balance: loan.balance
+        } 
+      });
       successfulRecords++;
     }
 

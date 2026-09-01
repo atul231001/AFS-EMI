@@ -1,5 +1,4 @@
-import Loan from '../models/Loan.js';
-import Payment from '../models/Payment.js';
+import prisma from '../config/prisma.js';
 import {
   generateGlobalExcelReport,
   generateGlobalPPTReport,
@@ -18,14 +17,31 @@ export const downloadGlobalReport = async (req, res) => {
     }
 
     // Fetch all relevant data
-    const loans = await Loan.find().populate('customerId');
-    const payments = await Payment.find().populate({
-      path: 'loanId',
-      populate: { path: 'customerId' }
+    const rawLoans = await prisma.loans.findMany({
+      include: {
+        customers: true
+      }
+    });
+    
+    // Map customerId for backward compatibility in reportService
+    const loans = rawLoans.map(l => ({ ...l, customerId: l.customers, _id: l.id }));
+    
+    const rawPayments = await prisma.payments.findMany({
+      include: {
+        loans: {
+          include: { customers: true }
+        }
+      }
     });
 
+    const payments = rawPayments.map(p => ({
+      ...p,
+      loanId: p.loans ? { ...p.loans, customerId: p.loans.customers, _id: p.loans.id } : p.loanId,
+      _id: p.id
+    }));
+
     const approvedLoans = loans.filter(l => ['Approved', 'Active'].includes(l.approvalStatus));
-    const getLoanLabel = (l) => `${l.machineName} (${l.invoiceNumber || l._id.toString().substring(l._id.toString().length - 4)})`;
+    const getLoanLabel = (l) => `${l.machineName} (${l.invoiceNumber || l.id.substring(l.id.length - 4)})`;
     const getCustomerLabel = (l) => l.customerId?.name || 'Unknown Customer';
 
     // Filtering Logic
@@ -48,14 +64,15 @@ export const downloadGlobalReport = async (req, res) => {
 
       if (viewMode === 'customer') {
         if (selectedAssets.includes('ALL CUSTOMERS')) return true;
-        const associatedLoan = approvedLoans.find(l => l._id.toString() === (p.loanId?._id || p.loanId)?.toString());
+        const associatedLoan = approvedLoans.find(l => l.id === (p.loanId?.id || p.loanId));
         return associatedLoan && selectedAssets.includes(getCustomerLabel(associatedLoan));
       } else {
         if (selectedAssets.includes('ALL MACHINES')) return true;
-        const associatedLoan = approvedLoans.find(l => l._id.toString() === (p.loanId?._id || p.loanId)?.toString());
+        const associatedLoan = approvedLoans.find(l => l.id === (p.loanId?.id || p.loanId));
         return associatedLoan && selectedAssets.includes(getLoanLabel(associatedLoan));
       }
     });
+    
     // Generate Month Objects for calculation
     const start = new Date(dateRange.start);
     const end = new Date(dateRange.end);
@@ -97,3 +114,4 @@ export const downloadGlobalReport = async (req, res) => {
     res.status(500).json({ message: 'Failed to synthesize global report protocol', error: error.message });
   }
 };
+

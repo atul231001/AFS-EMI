@@ -1,114 +1,42 @@
-import Customer from '../../models/Customer.js';
-import User from '../../models/User.js';
-import SystemConfig from '../../models/SystemConfig.js';
+import prisma from '../../config/prisma.js';
 import { sendNotification } from '../../services/notificationService.js';
-import Loan from '../../models/Loan.js';
-import { FMCContract } from '../../models/FMC.js';
 
 export const getCustomers = async (req, res) => {
   try {
     let filter = {};
-    if (req.user && req.user.role === 'CUSTOMER') {
-      filter._id = req.user.customerId;
+    if (req.user && req.user.role && req.user.role.toUpperCase() === 'CUSTOMER') {
+      filter.id = req.user.customerId || undefined;
     }
-    const customers = await Customer.find(filter).sort({ createdAt: -1 });
-    let userTypes = [];
-    if (req.user && req.user.type) {
-      if (Array.isArray(req.user.type)) {
-        userTypes = req.user.type.map(t => t.toLowerCase());
-      } else {
-        userTypes = [req.user.type.toLowerCase()];
-      }
-    } else {
-      userTypes = ['emi'];
-    }
-
-    let visible_features = [];
-    let assets = {};
-
-    for (const t of userTypes) {
-      if (t === 'emi') {
-        visible_features.push('emi');
-        let emiAssets = [];
-        if (req.user && req.user.customerId) {
-          const loans = await Loan.find({ customerId: req.user.customerId });
-          emiAssets = loans.map(loan => {
-            let currentCycle = "0";
-            if (loan.schedule && loan.schedule.length > 0) {
-              const paidCount = loan.schedule.filter(s => s.status === 'Paid').length;
-              currentCycle = paidCount.toString().padStart(2, '0');
-            }
-            return {
-              id: loan._id.toString(),
-              brand: "LIUGONG",
-              name: loan.machineName || "Unknown",
-              category: loan.model || "EXCAVATOR",
-              price_label: loan.status === 'Active' ? "EMI ACTIVE" : loan.status,
-              current_cycle: currentCycle,
-              total_cycles: loan.tenure ? loan.tenure.toString() : "24",
-              status: loan.status || "Active",
-              status_color: loan.status === 'Active' ? "successGreen" : "actionBlue"
-            };
-          });
-        }
-        assets.emi = emiAssets;
-      } else if (t === 'fmc') {
-        visible_features.push('fmc');
-        let fmcAssets = [];
-        if (req.user && req.user.customerId) {
-          const contracts = await FMCContract.find({ customerId: req.user.customerId.toString() });
-          fmcAssets = contracts.map(c => ({
-            id: c._id.toString(),
-            brand: "LIUGONG",
-            name: c.machines && c.machines.length > 0 ? c.machines.join(', ') : "FMC Machine",
-            category: "MAINTENANCE",
-            price_label: c.fixedMonthlyCharge ? `₹${c.fixedMonthlyCharge}/Mo` : "FMC Active",
-            current_cycle: "0",
-            total_cycles: c.billingCycle || "Monthly",
-            status: c.status || "Active",
-            status_color: c.status === 'Active' ? "successGreen" : "actionBlue"
-          }));
-        }
-        assets.fmc = fmcAssets;
-      } else if (t === 'rental') {
-        visible_features.push('rental');
-        assets.rental = [];
-      } else if (t === 'finance') {
-        visible_features.push('finance');
-        assets.finance = [];
-      } else {
-        if (!visible_features.includes(t)) visible_features.push(t);
-        assets[t] = [];
-      }
-    }
-
-    res.json({
-      success: true,
-      statusCode: 200,
-      message: "Assets fetched successfully",
-      data: {
-        customers,
-        visible_features,
-        assets
-      },
-      error: null
+    const customers = await prisma.customers.findMany({
+      where: filter,
+      orderBy: { createdAt: 'desc' }
     });
+    
+    const mapped = customers.map(c => ({ ...c, _id: c.id }));
+    res.json(mapped);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
 export const createCustomer = async (req, res) => {
   try {
     const payload = { ...req.body };
-    const config = await SystemConfig.findOne();
+    const config = await prisma.systemconfigs.findFirst();
 
     // Auto-ID Generation
     if (config?.numbering?.customer?.mode === 'Auto' && !payload.customId) {
-      const { prefix, nextNumber } = config.numbering.customer;
+      const prefix = config.numbering.customer.prefix || '';
+      const nextNumber = config.numbering.customer.nextNumber || 1;
       payload.customId = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
-      config.numbering.customer.nextNumber += 1;
-      await config.save();
+      
+      const updatedNumbering = { ...config.numbering };
+      updatedNumbering.customer.nextNumber = nextNumber + 1;
+      
+      await prisma.systemconfigs.update({
+        where: { id: config.id },
+        data: { numbering: updatedNumbering }
+      });
     }
 
     // Unique Constraint Validation
@@ -120,7 +48,9 @@ export const createCustomer = async (req, res) => {
     if (payload.customId) duplicateCheck.push({ customId: payload.customId });
 
     if (duplicateCheck.length > 0) {
-      const existing = await Customer.findOne({ $or: duplicateCheck });
+      const existing = await prisma.customers.findFirst({
+        where: { OR: duplicateCheck }
+      });
       if (existing) {
         let field = 'Identity Property';
         if (existing.email === payload.email) field = 'Email';
@@ -142,24 +72,35 @@ export const createCustomer = async (req, res) => {
     payload.password = password;
     console.log(`[Customer Onboarding] Password for ${payload.email}: ${password}`);
 
-    const newCustomer = await Customer.create(payload);
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    payload.id = newId;
+    payload.createdAt = new Date();
+    payload.updatedAt = new Date();
+
+    const newCustomer = await prisma.customers.create({ data: payload });
 
     try {
       if (newCustomer.email) {
         // Check if user already exists
-        const existingUser = await User.findOne({ email: newCustomer.email });
+        const existingUser = await prisma.users.findFirst({ where: { email: newCustomer.email } });
         if (existingUser) {
           return res.status(400).json({ message: 'A user account with this email already exists in the system.' });
         }
-
-        await User.create({
-          name: newCustomer.name,
-          email: newCustomer.email,
-          password: password,
-          role: 'CUSTOMER',
-          customerId: newCustomer._id,
-          type: newCustomer.type,
-          mustResetPassword: true
+        
+        const newUserId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+        await prisma.users.create({
+          data: {
+            id: newUserId,
+            name: newCustomer.name || '',
+            email: newCustomer.email,
+            password: password,
+            role: 'CUSTOMER',
+            customerId: newCustomer.id,
+            type: newCustomer.type || 'EMI',
+            mustResetPassword: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
         });
 
         // Trigger Notification
@@ -172,10 +113,10 @@ export const createCustomer = async (req, res) => {
           loginUrl: 'http://localhost:5173'
         }).catch(err => console.error('Delayed Notify Error:', err));
       }
-      res.status(201).json(newCustomer);
+      res.status(201).json({ ...newCustomer, _id: newCustomer.id });
     } catch (userError) {
       // Rollback primary creation if secondary fails
-      await Customer.findByIdAndDelete(newCustomer._id);
+      await prisma.customers.delete({ where: { id: newCustomer.id } });
       res.status(400).json({ message: `Security Protocol Failure: ${userError.message}` });
     }
   } catch (error) {
@@ -185,24 +126,33 @@ export const createCustomer = async (req, res) => {
 
 export const updateCustomer = async (req, res) => {
   try {
-    const updatedCustomer = await Customer.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = { ...req.body, updatedAt: new Date() };
+    const updatedCustomer = await prisma.customers.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
 
-    const userUpdate = { name: updatedCustomer.name, email: updatedCustomer.email, type: updatedCustomer.type };
+    const userUpdate = { name: updatedCustomer.name || '', email: updatedCustomer.email || '', type: updatedCustomer.type || 'EMI', updatedAt: new Date() };
     if (req.body.password) {
       const bcrypt = await import('bcryptjs');
       const salt = await bcrypt.default.genSalt(10);
       userUpdate.password = await bcrypt.default.hash(req.body.password, salt);
-      updatedCustomer.password = req.body.password;
-      await updatedCustomer.save();
+      
+      await prisma.customers.update({
+        where: { id: req.params.id },
+        data: { password: req.body.password }
+      });
     }
 
-    await User.findOneAndUpdate(
-      { customerId: updatedCustomer._id },
-      userUpdate,
-      { upsert: true, new: true }
-    );
+    const existingUser = await prisma.users.findFirst({ where: { customerId: req.params.id } });
+    if (existingUser) {
+      await prisma.users.update({
+        where: { id: existingUser.id },
+        data: userUpdate
+      });
+    }
 
-    res.json(updatedCustomer);
+    res.json({ ...updatedCustomer, _id: updatedCustomer.id });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -210,12 +160,121 @@ export const updateCustomer = async (req, res) => {
 
 export const deleteCustomer = async (req, res) => {
   try {
-    const customer = await Customer.findById(req.params.id);
+    const customer = await prisma.customers.findUnique({ where: { id: req.params.id } });
     if (customer) {
-      await User.deleteMany({ customerId: customer._id });
-      await Customer.findByIdAndDelete(req.params.id);
+      await prisma.users.deleteMany({ where: { customerId: customer.id } });
+      await prisma.customers.delete({ where: { id: req.params.id } });
     }
     res.json({ message: 'Customer and associated user purged' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const bulkUploadCustomers = async (req, res) => {
+  try {
+    const { customers } = req.body;
+    
+    if (!customers || !Array.isArray(customers) || customers.length === 0) {
+      return res.status(400).json({ message: 'No customers provided for bulk upload.' });
+    }
+
+    const config = await prisma.systemconfigs.findFirst();
+    let successCount = 0;
+    const errors = [];
+
+    for (let i = 0; i < customers.length; i++) {
+      const payload = customers[i];
+      try {
+        // Auto-ID Generation if required
+        if (config?.numbering?.customer?.mode === 'Auto' && !payload.customId) {
+          const { prefix, nextNumber } = config.numbering.customer;
+          payload.customId = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+          config.numbering.customer.nextNumber += 1;
+        }
+
+        // Unique Constraint Validation
+        const duplicateCheck = [];
+        if (payload.email) duplicateCheck.push({ email: payload.email });
+        if (payload.mobile) duplicateCheck.push({ mobile: payload.mobile });
+        if (payload.gst) duplicateCheck.push({ gst: payload.gst });
+        if (payload.pan) duplicateCheck.push({ pan: payload.pan });
+        if (payload.customId) duplicateCheck.push({ customId: payload.customId });
+
+        if (duplicateCheck.length > 0) {
+          const existing = await prisma.customers.findFirst({
+            where: { OR: duplicateCheck }
+          });
+          if (existing) {
+            let field = 'Identity Property';
+            if (existing.email === payload.email) field = 'Email';
+            if (existing.mobile === payload.mobile) field = 'Mobile';
+            if (existing.gst === payload.gst) field = 'GSTIN';
+            if (existing.pan === payload.pan) field = 'PAN';
+            if (existing.customId === payload.customId) field = 'Customer ID';
+            errors.push({ row: i + 1, email: payload.email, error: `Protocol Conflict: ${field} already registered.` });
+            continue; // Skip to next customer
+          }
+        }
+
+        // Generate a secure random 10-character alphanumeric password
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let randomPassword = '';
+        for (let j = 0; j < 10; j++) {
+          randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const password = payload.password || randomPassword;
+        payload.password = password;
+
+        const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+        payload.id = newId;
+        payload.createdAt = new Date();
+        payload.updatedAt = new Date();
+
+        const newCustomer = await prisma.customers.create({ data: payload });
+
+        if (newCustomer.email) {
+          const existingUser = await prisma.users.findFirst({ where: { email: newCustomer.email } });
+          if (existingUser) {
+            await prisma.customers.delete({ where: { id: newCustomer.id } });
+            errors.push({ row: i + 1, email: payload.email, error: 'A user account with this email already exists.' });
+            continue;
+          }
+          
+          const newUserId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+          await prisma.users.create({
+            data: {
+              id: newUserId,
+              name: newCustomer.name || '',
+              email: newCustomer.email,
+              password: password,
+              role: 'CUSTOMER',
+              customerId: newCustomer.id,
+              type: newCustomer.type || 'EMI',
+              mustResetPassword: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          });
+        }
+        successCount++;
+      } catch (err) {
+        errors.push({ row: i + 1, email: payload.email, error: err.message });
+      }
+    }
+
+    if (config) {
+      await prisma.systemconfigs.update({
+        where: { id: config.id },
+        data: { numbering: config.numbering }
+      });
+    }
+
+    res.status(200).json({
+      message: `Bulk upload completed. Successfully added ${successCount} customers.`,
+      successCount,
+      errors
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -1,31 +1,59 @@
-import Payment from '../../models/Payment.js';
-import Loan from '../../models/Loan.js';
+import prisma from '../../config/prisma.js';
 import ExcelJS from 'exceljs';
-import BulkUploadLog from '../../models/BulkUploadLog.js';
 
 export const getPayments = async (req, res) => {
   try {
-    const payments = await Payment.find()
-      .populate({
-        path: 'loanId',
-        populate: { path: 'customerId' }
-      })
-      .populate('uploadedBy', 'name email customId')
-      .sort({ createdAt: -1 });
-    res.json(payments);
+    const payments = await prisma.payments.findMany({ orderBy: { createdAt: 'desc' } });
+    
+    // Simulate populate
+    const loanIds = payments.map(p => p.loanId).filter(Boolean);
+    const loans = await prisma.loans.findMany({ where: { id: { in: loanIds } } });
+    
+    const customerIds = loans.map(l => l.customerId).filter(Boolean);
+    const customers = await prisma.customers.findMany({ where: { id: { in: customerIds } } });
+    const custMap = {};
+    customers.forEach(c => custMap[c.id] = { ...c, _id: c.id });
+
+    const loanMap = {};
+    loans.forEach(l => {
+      let lObj = { ...l, _id: l.id };
+      if (l.customerId && custMap[l.customerId]) lObj.customerId = custMap[l.customerId];
+      loanMap[l.id] = lObj;
+    });
+
+    const userIds = payments.map(p => p.uploadedBy).filter(Boolean);
+    const users = await prisma.users.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, email: true, customId: true } });
+    const userMap = {};
+    users.forEach(u => userMap[u.id] = { ...u, _id: u.id });
+
+    const mapped = payments.map(p => {
+      let pObj = { ...p, _id: p.id };
+      if (p.allocations && typeof p.allocations === 'string') {
+        try { pObj.allocations = JSON.parse(p.allocations); } catch(e) {}
+      }
+      if (p.loanId && loanMap[p.loanId]) pObj.loanId = loanMap[p.loanId];
+      if (p.uploadedBy && userMap[p.uploadedBy]) pObj.uploadedBy = userMap[p.uploadedBy];
+      return pObj;
+    });
+
+    res.json(mapped);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 export const createPayment = async (req, res) => {
-  const payment = new Payment({
-    ...req.body,
-    uploadedBy: req.user ? req.user._id : null
-  });
+  const payload = { ...req.body, uploadedBy: req.user ? req.user.id : null };
   try {
-    const loan = await Loan.findById(req.body.loanId);
+    const loan = await prisma.loans.findUnique({ where: { id: req.body.loanId } });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
+    if (loan.schedule && typeof loan.schedule === 'string') {
+      try { loan.schedule = JSON.parse(loan.schedule); } catch(e){}
+    }
+    if (loan.interestWaiverLogs && typeof loan.interestWaiverLogs === 'string') {
+      try { loan.interestWaiverLogs = JSON.parse(loan.interestWaiverLogs); } catch(e){}
+    }
+    if (!loan.interestWaiverLogs) loan.interestWaiverLogs = [];
 
     let remainingPayment = req.body.amount || 0;
     const waiveInterest = req.body.waiveInterest || false;
@@ -128,13 +156,20 @@ export const createPayment = async (req, res) => {
     // it will just naturally apply to the next pending installment in the loop above!
     // Because the loop goes through all installments.
 
-    payment.allocations = allocations;
-    const newPayment = await payment.save();
+    payload.allocations = allocations;
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    payload.id = newId;
+    payload.createdAt = new Date();
+    payload.updatedAt = new Date();
 
-    loan.markModified('schedule');
-    await loan.save();
+    const newPayment = await prisma.payments.create({ data: payload });
 
-    res.status(201).json(newPayment);
+    await prisma.loans.update({
+      where: { id: loan.id },
+      data: { schedule: loan.schedule, interestWaiverLogs: loan.interestWaiverLogs }
+    });
+
+    res.status(201).json({ ...newPayment, _id: newPayment.id });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -151,8 +186,16 @@ const processExcelRows = async (buffer) => {
   const todayStr = new Date().toISOString().split('T')[0];
   const processedInvoicesToday = new Set();
 
-  const allLoans = await Loan.find({}).lean();
-  const todaysPayments = await Payment.find({ date: { $regex: `^${todayStr}` } }).lean();
+  const allLoans = await prisma.loans.findMany();
+  allLoans.forEach(l => {
+    if (l.schedule && typeof l.schedule === 'string') {
+      try { l.schedule = JSON.parse(l.schedule); } catch(e){}
+    }
+    if (l.invoiceData && typeof l.invoiceData === 'string') {
+      try { l.invoiceData = JSON.parse(l.invoiceData); } catch(e){}
+    }
+  });
+  const todaysPayments = await prisma.payments.findMany({ where: { date: { startsWith: todayStr } } });
 
   for (let i = 2; i <= worksheet.rowCount; i++) {
     const row = worksheet.getRow(i);
@@ -275,8 +318,11 @@ export const importBulkUpload = async (req, res) => {
     let successfulRecords = 0;
 
     for (const validRow of results.validRows) {
-      const loan = await Loan.findById(validRow.loanId);
+      const loan = await prisma.loans.findUnique({ where: { id: validRow.loanId } });
       if (!loan) continue;
+      if (loan.schedule && typeof loan.schedule === 'string') {
+        try { loan.schedule = JSON.parse(loan.schedule); } catch(e){}
+      }
 
       let remainingPayment = validRow.paidAmount;
       const currentDate = new Date(validRow.paymentDate);
@@ -349,24 +395,30 @@ export const importBulkUpload = async (req, res) => {
         if (remainingPayment <= 0) break;
       }
 
-      const payment = new Payment({
-        loanId: loan._id,
+      const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+      const paymentPayload = {
+        id: newId,
+        loanId: loan.id,
         amount: validRow.paidAmount,
         date: validRow.paymentDate,
         transactionId: validRow.transactionId,
         method: 'Bulk Upload',
         allocations,
-        uploadedBy: req.user ? req.user._id : null
-      });
+        uploadedBy: req.user ? req.user.id : null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
 
-      await payment.save();
-      await loan.save();
+      await prisma.payments.create({ data: paymentPayload });
+      await prisma.loans.update({ where: { id: loan.id }, data: { schedule: loan.schedule } });
       successfulRecords++;
     }
 
-    const logEntry = new BulkUploadLog({
+    const logId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    const logEntryPayload = {
+      id: logId,
       fileName: req.file.originalname,
-      uploadedBy: req.user._id,
+      uploadedBy: req.user.id,
       totalRecords: results.total,
       successfulRecords: successfulRecords,
       failedRecords: results.errorRows.length,
@@ -375,14 +427,16 @@ export const importBulkUpload = async (req, res) => {
         invoiceNumber: e.invoiceNumber,
         emiNumber: e.emiNumber,
         errorMessage: e.errorMessage
-      }))
-    });
+      })),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
-    await logEntry.save();
+    const logEntry = await prisma.bulkuploadlogs.create({ data: logEntryPayload });
 
     res.status(201).json({
       message: 'Bulk EMI Upload Completed Successfully',
-      logId: logEntry._id,
+      logId: logEntry.id,
       totalRecords: results.total,
       successfulRecords: successfulRecords,
       failedRecords: results.errorRows.length
@@ -396,9 +450,16 @@ export const importBulkUpload = async (req, res) => {
 export const getBulkUploadErrorReport = async (req, res) => {
   try {
     const logId = req.params.logId;
-    const logEntry = await BulkUploadLog.findById(logId);
+    const logEntry = await prisma.bulkuploadlogs.findUnique({ where: { id: logId } });
 
     if (!logEntry) return res.status(404).json({ message: 'Log not found' });
+
+    let errors = [];
+    if (logEntry.uploadErrors && typeof logEntry.uploadErrors === 'string') {
+      try { errors = JSON.parse(logEntry.uploadErrors); } catch(e) {}
+    } else if (logEntry.uploadErrors) {
+      errors = logEntry.uploadErrors;
+    }
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Error Report');
@@ -410,7 +471,7 @@ export const getBulkUploadErrorReport = async (req, res) => {
       { header: 'Error Message', key: 'errorMessage', width: 40 }
     ];
 
-    logEntry.uploadErrors.forEach(e => {
+    errors.forEach(e => {
       worksheet.addRow({
         rowNumber: e.rowNumber,
         invoiceNumber: e.invoiceNumber || 'N/A',
@@ -431,16 +492,31 @@ export const getBulkUploadErrorReport = async (req, res) => {
 
 export const revokePayment = async (req, res) => {
   try {
-    const payment = await Payment.findById(req.params.id);
+    const payment = await prisma.payments.findUnique({ where: { id: req.params.id } });
     if (!payment) return res.status(404).json({ message: 'Payment not found' });
     if (payment.status === 'Revoked') return res.status(400).json({ message: 'Payment already revoked' });
 
-    const loan = await Loan.findById(payment.loanId);
+    const loan = await prisma.loans.findUnique({ where: { id: payment.loanId } });
     if (!loan) return res.status(404).json({ message: 'Loan not found' });
+    
+    if (loan.schedule && typeof loan.schedule === 'string') {
+      try { loan.schedule = JSON.parse(loan.schedule); } catch(e){}
+    }
+    if (loan.interestWaiverLogs && typeof loan.interestWaiverLogs === 'string') {
+      try { loan.interestWaiverLogs = JSON.parse(loan.interestWaiverLogs); } catch(e){}
+    }
+    if (!loan.interestWaiverLogs) loan.interestWaiverLogs = [];
+    
+    let allocs = [];
+    if (payment.allocations && typeof payment.allocations === 'string') {
+      try { allocs = JSON.parse(payment.allocations); } catch(e){}
+    } else if (payment.allocations) {
+      allocs = payment.allocations;
+    }
 
     loan.schedule.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
-    for (const alloc of payment.allocations) {
+    for (const alloc of allocs) {
       const s = loan.schedule.find((x, i) => (x.installment || (i + 1)) === alloc.installmentNo);
       if (!s) continue;
 
@@ -469,13 +545,14 @@ export const revokePayment = async (req, res) => {
 
     loan.paidAmount = loan.schedule.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
     loan.balance = loan.principal - loan.paidAmount;
-    payment.status = 'Revoked';
-    if (req.body.revokeRemark) payment.revokeRemark = req.body.revokeRemark;
+    
+    let updatePaymentData = { status: 'Revoked', updatedAt: new Date() };
+    if (req.body.revokeRemark) updatePaymentData.revokeRemark = req.body.revokeRemark;
 
-    await loan.save();
-    await payment.save();
+    await prisma.loans.update({ where: { id: loan.id }, data: { schedule: loan.schedule, paidAmount: loan.paidAmount, balance: loan.balance, interestWaiverLogs: loan.interestWaiverLogs } });
+    const updatedPayment = await prisma.payments.update({ where: { id: payment.id }, data: updatePaymentData });
 
-    res.json({ message: 'Payment revoked successfully', payment });
+    res.json({ message: 'Payment revoked successfully', payment: { ...updatedPayment, _id: updatedPayment.id } });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

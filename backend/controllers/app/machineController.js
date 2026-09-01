@@ -1,95 +1,79 @@
-import Machine from '../../models/Machine.js';
-import Category from '../../models/Category.js';
+import prisma from '../../config/prisma.js';
 
 export const getMachines = async (req, res) => {
   try {
-    const {
-      page,
-      limit,
-      search,
-      category,
-      paginated,
-      minPrice,
-      maxPrice,
-      limitNumber,
-      total
-    } = req.query;
+    const { page, limit, search, category, paginated } = req.query;
 
-    let filter = {};
+    if (paginated === 'true' || page) {
+      let filter = {};
+      console.log(`[getMachines] Paginated Request: page=${page}, limit=${limit}, search=${search}`);
+      
+      let where = {};
+      let AND = [];
 
-    // Search
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { model: { $regex: search, $options: "i" } },
-        { category: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    // Category
-    if (category && category !== "All Categories") {
-      filter.category = {
-        $regex: new RegExp(`^${category}$`, "i"),
-      };
-    }
-
-    // Price
-    if (minPrice || maxPrice) {
-      filter["pricing.totalPrice"] = {};
-
-      if (minPrice) {
-        filter["pricing.totalPrice"].$gte = Number(minPrice);
+      if (search && search !== 'undefined' && search !== 'null') {
+        AND.push({
+          OR: [
+            { name: { contains: search } },
+            { model: { contains: search } },
+            { category: { contains: search } }
+          ]
+        });
       }
 
-      if (maxPrice) {
-        filter["pricing.totalPrice"].$lte = Number(maxPrice);
+      if (category && category !== 'All Categories' && category !== 'undefined' && category !== 'null') {
+        AND.push({ category: category });
       }
-    }
 
-    // Pagination
-    if (paginated === "true" || page) {
+      if (AND.length > 0) {
+        where = { AND };
+      }
+
       const pageNumber = parseInt(page) || 1;
       const limitNumber = parseInt(limit) || 10;
       const skip = (pageNumber - 1) * limitNumber;
-
-      const machines = await Machine.find(filter)
-        .sort({ createdAt: -1, _id: -1 })
-        .skip(skip)
-        .limit(limitNumber);
-
-      const total = await Machine.countDocuments(filter);
-      return res.json({
-        success: true,
-        statusCode: 200,
-        message: "Data retrieved successfully",
-        data: machines,
-        total: total,
-        page: pageNumber,
-        totalPages: Math.ceil(total / limitNumber),
+      
+      const machines = await prisma.machines.findMany({
+        where,
+        skip,
+        take: limitNumber,
+        orderBy: { id: 'desc' }
       });
+      const total = await prisma.machines.count({ where });
 
+      const mappedMachines = machines.map(m => ({ ...m, _id: m.id }));
+
+      return res.json({
+        machines: mappedMachines,
+        total,
+        page: pageNumber,
+        totalPages: Math.ceil(total / limitNumber)
+      });
     }
 
-    // Non-paginated response
-    const machines = await Machine.find(filter).sort({
-      createdAt: -1,
-      _id: -1,
+    const machines = await prisma.machines.findMany({
+      select: {
+        id: true,
+        name: true,
+        model: true,
+        machineId: true,
+        category: true,
+        status: true,
+        pricing: true,
+        attachments: true,
+        specs: true,
+        warranty: true,
+        images: true,
+        img: true
+      },
+      orderBy: { id: 'desc' }
     });
-
-    return res.json({
-      success: true,
-      statusCode: 200,
-      message: "Data retrieved successfully",
-      data: machines,
-      total: machines.length,
-      page: 1,
-      totalPages: 1
-    });
+    
+    const mappedMachines = machines.map(m => ({ ...m, _id: m.id }));
+    res.json(mappedMachines);
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.error('Prisma Error:', error);
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -97,21 +81,45 @@ export const createMachine = async (req, res) => {
   try {
     const machineData = { ...req.body };
     console.log("Received machine data:", JSON.stringify(machineData, null, 2));
-
+    
     // Ensure nested objects exist to trigger Mongoose schema defaults
     if (!machineData.pricing) machineData.pricing = {};
     if (!machineData.specs) machineData.specs = {};
     if (!machineData.warranty) machineData.warranty = {};
     if (!machineData.attachments) machineData.attachments = [];
     if (!machineData.images) machineData.images = [];
-
+    
     if (!machineData.machineId) {
       machineData.machineId = `LM-${Math.floor(100000 + Math.random() * 900000)}`;
     }
-    const newMachine = new Machine(machineData);
-    await newMachine.save();
-    res.status(201).json(newMachine);
+    
+    // Generate a new 24-char hex string for id (like MongoDB ObjectId)
+    const newId = [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    
+    const newMachine = await prisma.machines.create({
+      data: {
+        id: newId,
+        machineId: machineData.machineId,
+        category: machineData.category || 'WHEEL LOADER',
+        machineType: machineData.machineType || 'WHEELED',
+        name: machineData.name || '',
+        model: machineData.model || '',
+        brand: machineData.brand || 'LiuGong',
+        images: machineData.images,
+        pricing: machineData.pricing,
+        warranty: machineData.warranty,
+        attachments: machineData.attachments,
+        specs: machineData.specs,
+        img: machineData.img || '',
+        status: machineData.status || 'Available',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    res.status(201).json({ ...newMachine, _id: newMachine.id });
   } catch (error) {
+    console.error('Prisma Create Error:', error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -121,36 +129,48 @@ export const updateMachine = async (req, res) => {
     const updateData = { ...req.body };
     console.log("Updating machine ID:", req.params.id);
     console.log("Update payload documents count:", updateData.documents?.length || 0);
-
+    
     if (updateData.pricing === null) delete updateData.pricing;
     if (updateData.specs === null) delete updateData.specs;
     if (updateData.warranty === null) delete updateData.warranty;
     if (updateData.attachments === null) delete updateData.attachments;
     if (updateData.images === null) delete updateData.images;
+    
+    updateData.updatedAt = new Date();
 
-    const updatedMachine = await Machine.findByIdAndUpdate(req.params.id, updateData, { new: true });
-    res.json(updatedMachine);
+    const updatedMachine = await prisma.machines.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
+    
+    res.json({ ...updatedMachine, _id: updatedMachine.id });
   } catch (error) {
+    console.error('Prisma Update Error:', error);
     res.status(400).json({ message: error.message });
   }
 };
 
 export const deleteMachine = async (req, res) => {
   try {
-    const machine = await Machine.findByIdAndDelete(req.params.id);
-    if (!machine) {
-      return res.status(404).json({ message: 'Machine not found' });
-    }
+    const machine = await prisma.machines.delete({
+      where: { id: req.params.id }
+    });
     res.json({ message: 'Machine deleted successfully' });
   } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Machine not found' });
+    }
     res.status(500).json({ message: error.message });
   }
 };
 
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find().sort({ cat_name: 1 });
-    res.json(categories);
+    const categories = await prisma.categories.findMany({
+      orderBy: { cat_name: 'asc' }
+    });
+    const mappedCategories = categories.map(c => ({ ...c, _id: c.id }));
+    res.json(mappedCategories);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -160,24 +180,58 @@ export const syncCategories = async (req, res) => {
   try {
     const response = await fetch('https://lipl.sods.app/api/dmobile/getCategories');
     const data = await response.json();
-
+    
     if (data.status && data.result) {
-      const ops = data.result.map(cat => ({
-        updateOne: {
-          filter: { cat_id: cat.cat_id },
-          update: {
+      const generateObjectId = () => [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+
+      const ops = data.result.map(cat => {
+        return prisma.categories.upsert({
+          where: { id: cat.cat_id.toString() }, // Assume we can use cat_id as unique or just ID
+          update: { 
             cat_id: cat.cat_id,
             cat_name: cat.cat_name,
-            rawData: cat
+            rawData: cat,
+            updatedAt: new Date()
           },
-          upsert: true
-        }
-      }));
-
+          create: {
+            id: generateObjectId(),
+            cat_id: cat.cat_id,
+            cat_name: cat.cat_name,
+            rawData: cat,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+      });
+      
       if (ops.length > 0) {
-        await Category.bulkWrite(ops);
+        // Find existing categories by cat_id to do proper upsert since ID is 24char hex
+        for (const cat of data.result) {
+           const existing = await prisma.categories.findFirst({ where: { cat_id: cat.cat_id } });
+           if (existing) {
+             await prisma.categories.update({
+               where: { id: existing.id },
+               data: {
+                 cat_name: cat.cat_name,
+                 rawData: cat,
+                 updatedAt: new Date()
+               }
+             });
+           } else {
+             await prisma.categories.create({
+               data: {
+                 id: generateObjectId(),
+                 cat_id: cat.cat_id,
+                 cat_name: cat.cat_name,
+                 rawData: cat,
+                 createdAt: new Date(),
+                 updatedAt: new Date()
+               }
+             });
+           }
+        }
       }
-      res.json({ message: 'Categories synced successfully', count: ops.length });
+      res.json({ message: 'Categories synced successfully', count: data.result.length });
     } else {
       res.status(400).json({ message: 'Failed to fetch categories from external API' });
     }
@@ -192,7 +246,9 @@ export const syncProducts = async (req, res) => {
     const data = await response.json();
 
     if (data.status && data.result) {
-      const ops = data.result.map(prod => {
+      const generateObjectId = () => [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+
+      for (const prod of data.result) {
         const imageUrls = [];
         if (prod.ref_file) {
           imageUrls.push(`https://lipl.sods.app/${prod.ref_file}`);
@@ -216,46 +272,62 @@ export const syncProducts = async (req, res) => {
             stdHours = parseInt(match[2]);
           }
         }
+        
+        const machineId = `PROD-${prod.prod_id}`;
 
-        return {
-          updateOne: {
-            filter: { name: prod.prod_name, model: prod.prod_model_type || 'Standard' },
-            update: {
-              $set: {
-                machineId: `PROD-${prod.prod_id}`,
-                name: prod.prod_name,
-                model: prod.prod_model_type || 'Standard',
-                category: prod.category?.cat_name || 'Wheeled',
-                machineType: prod.prod_type || 'WHEELED',
-                brand: 'LiuGong',
-                isFromAPI: true,
-                images: imageUrls,
-                img: imageUrls[0] || '',
-                'pricing.totalPrice': prod.prod_total_price || 0,
-                'pricing.oemNetSaleValue': prod.prod_nsv || 0,
-                'pricing.commissionA': prod.prod_sale_commision_slot_a || 0,
-                'pricing.commissionB': prod.prod_sale_commision_slot_b || 0,
-                'pricing.serviceCommission': prod.prod_service_commision || 0,
-                'specs.horsePower': prod.prod_house_power || '',
-                'specs.fuelType': prod.prod_fuel_used || 'Diesel',
-                'specs.cylinders': String(prod.prod_cylinders || ''),
-                'specs.year': String(prod.prod_yom || ''),
-                'specs.unladenWeight': String(prod.prod_unladen_weight || ''),
-                'specs.engineModel': prod.prod_specification || '',
-                'warranty.standardMonths': stdMonths,
-                'warranty.standardHours': stdHours,
-                attachments: attachments
-              }
-            },
-            upsert: true
-          }
+        const existing = await prisma.machines.findFirst({ where: { machineId } });
+        
+        const updatePayload = {
+          name: prod.prod_name,
+          model: prod.prod_model_type || 'Standard',
+          category: prod.category?.cat_name || 'Wheeled',
+          machineType: prod.prod_type || 'WHEELED',
+          brand: 'LiuGong',
+          isFromAPI: true,
+          images: imageUrls,
+          img: imageUrls[0] || '',
+          pricing: {
+            totalPrice: prod.prod_total_price || 0,
+            oemNetSaleValue: prod.prod_nsv || 0,
+            commissionA: prod.prod_sale_commision_slot_a || 0,
+            commissionB: prod.prod_sale_commision_slot_b || 0,
+            serviceCommission: prod.prod_service_commision || 0
+          },
+          specs: {
+            horsePower: prod.prod_house_power || '',
+            fuelType: prod.prod_fuel_used || 'Diesel',
+            cylinders: String(prod.prod_cylinders || ''),
+            year: String(prod.prod_yom || ''),
+            unladenWeight: String(prod.prod_unladen_weight || ''),
+            engineModel: prod.prod_specification || ''
+          },
+          warranty: {
+            standardMonths: stdMonths,
+            standardHours: stdHours
+          },
+          attachments: attachments,
+          updatedAt: new Date()
         };
-      });
 
-      if (ops.length > 0) {
-        await Machine.bulkWrite(ops);
+        if (existing) {
+          await prisma.machines.update({
+            where: { id: existing.id },
+            data: updatePayload
+          });
+        } else {
+          await prisma.machines.create({
+            data: {
+              id: generateObjectId(),
+              machineId,
+              ...updatePayload,
+              status: 'Available',
+              createdAt: new Date()
+            }
+          });
+        }
       }
-      res.json({ message: 'Products synced successfully', count: ops.length });
+
+      res.json({ message: 'Products synced successfully', count: data.result.length });
     } else {
       res.status(400).json({ message: 'Failed to fetch products from external API' });
     }
@@ -263,3 +335,4 @@ export const syncProducts = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
